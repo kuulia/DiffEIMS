@@ -17,7 +17,7 @@ from tqdm import tqdm
 from mist import utils
 from . import featurizers
 from .data import Spectra, Mol
-
+import logging
 
 def get_paired_spectra(
     labels_file: str,
@@ -25,6 +25,7 @@ def get_paired_spectra(
     max_count: Optional[int] = None,
     allow_none_smiles: bool = False,
     prog_bars: bool = True,
+    collated_pkl: bool = False,
     **kwargs,
 ) -> Tuple[List[Spectra], List[Mol]]:
     """_summary_
@@ -58,21 +59,40 @@ def get_paired_spectra(
     # Note, loading has moved to the dataloader itself
     logging.info(f"Loading paired specs")
     spec_folder = Path(spec_folder) if spec_folder is not None else None
+    # Get all spec names from label file
+    spec_names = list(name_to_formula.keys())
 
-    # Resolve for full path
-    if spec_folder is not None and spec_folder.exists():
-        spectra_files = [Path(i).resolve() for i in spec_folder.glob("*.ms")]
+    # Initialize spectra_files or spectra_arrays depending on mode
+    spectra_files = []
+    spectra_arrays = {}
+
+    if collated_pkl:
+        logging.info("Loading spectra from collated pickle file")
+        df_pkl = pd.read_pickle(f'{spec_folder}/{kwargs.get("collated_pkl_file")}')  # pass as kwarg
+
+        # Create a mapping from spec name (from label file) to spectrum array
+        spec_to_array = dict(zip(compound_id_file["spec"], df_pkl["spec"]))
+        #print(spec_to_array)
+        # Only keep those spec entries that exist in the collated .pkl file
+        spectra_arrays = {name: spec_to_array[name] for name in spec_names}
     else:
-        logging.info(
-            f"Unable to find spec folder {str(spec_folder)}, adding placeholders"
-        )
-        spectra_files = [Path(f"{i}.ms") for i in name_to_formula]
+        # Default mode: Look for .ms files
+        logging.info("Loading spectra from .ms files")
+        if spec_folder is not None and spec_folder.exists():
+            spectra_files = [Path(i).resolve() for i in spec_folder.glob("*.ms")]
+        else:
+            logging.info(
+                f"Unable to find spec folder {str(spec_folder)}, adding placeholders"
+            )
+            spectra_files = [Path(f"{i}.ms") for i in spec_names]
 
-    if max_count is not None:
-        print(max_count)
-        print(type(max_count))
-        spectra_files = spectra_files[:max_count]
+        # Reduce to max_count if needed
+        if max_count is not None:
+            spectra_files = spectra_files[:max_count]
 
+        # Only keep spec files that exist in the label file
+        spectra_files = [f for f in spectra_files if f.stem in name_to_formula]
+        spec_names = [f.stem for f in spectra_files]
     # Get file name from Path obj
     get_name = lambda x: x.name.split(".")[0]
 
@@ -90,22 +110,37 @@ def get_paired_spectra(
 
     tq = tqdm if prog_bars else lambda x: x
 
-    spectra_list = [
-        Spectra(
-            spectra_name=spectra_name,
-            spectra_file=str(spectra_file),
-            spectra_formula=spectra_formula,
-            instrument=instrument,
-            **kwargs,
-        )
-        for spectra_name, spectra_file, spectra_formula, instrument in tq(
-            zip(spectra_names, spectra_files, spectra_formulas, spectra_instruments)
-        )
-    ]
+    if collated_pkl:
+        spectra_list = [
+            Spectra(
+                spectra_name=spec_name,
+                spectra_formula=name_to_formula.get(spec_name, ""),
+                instrument=name_to_instrument.get(spec_name, ""),
+                spectrum_array=spectra_arrays[spec_name],  # new argument
+                **kwargs,
+            )
+            for spec_name in tq(spec_names)
+        ]
+        spectra_smiles = compound_id_file['smiles'].values
+        spectra_inchikey = compound_id_file['inchikey'].values
+    else:
+        spectra_formulas = [name_to_formula.get(n, "") for n in spec_names]
+        spectra_instruments = [name_to_instrument.get(n, "") for n in spec_names]
+        spectra_list = [
+            Spectra(
+                spectra_name=spec_name,
+                spectra_file=str(spec_file),
+                spectra_formula=spectra_formula,
+                instrument=instrument,
+                **kwargs,
+            )
+            for spec_name, spec_file, spectra_formula, instrument in tq(
+                zip(spec_names, spectra_files, spectra_formulas, spectra_instruments)
+            )
+        ]
+        spectra_smiles = [name_to_smiles.get(j, None) for j in spectra_names]
+        spectra_inchikey = [name_to_inchikey.get(j, None) for j in spectra_names]
 
-    # Create molecules
-    spectra_smiles = [name_to_smiles.get(j, None) for j in spectra_names]
-    spectra_inchikey = [name_to_inchikey.get(j, None) for j in spectra_names]
     if not allow_none_smiles:
         mol_list = [
             Mol.MolFromSmiles(smiles, inchikey=inchikey)
@@ -125,7 +160,6 @@ def get_paired_spectra(
             for smiles, inchikey in tq(zip(spectra_smiles, spectra_inchikey))
         ]
         spectra_list = [spec for spec, smi in tq(zip(spectra_list, spectra_smiles))]
-
     # remove any samples that contain atoms other than ['C', 'N', 'S', 'O', 'F', 'Cl', 'Br', 'H']
     updated_spectra_list = []
     updated_mol_list = []

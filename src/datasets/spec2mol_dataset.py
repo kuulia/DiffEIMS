@@ -20,6 +20,7 @@ from src.datasets.abstract_dataset import AbstractDatasetInfos, MolecularDataMod
 import src.utils as utils
 from src.mist.data.datasets import get_paired_loader_graph
 from src.datasets.abstract_dataset import ATOM_TO_VALENCY, ATOM_TO_WEIGHT
+import logging
 
 def to_list(value: Any) -> Sequence:
     if isinstance(value, Sequence) and not isinstance(value, str):
@@ -37,7 +38,6 @@ class Spec2MolDataModule(MolecularDataModule):
         self.datadir = cfg.dataset.datadir
         self.filter_dataset = cfg.dataset.filter
         self.train_smiles = []
-        
         data_splitter = splitter.PresetSpectraSplitter(split_file=cfg.dataset.split_file)
 
         paired_featurizer = featurizers.PairedFeaturizer(
@@ -48,7 +48,6 @@ class Spec2MolDataModule(MolecularDataModule):
 
         spectra_mol_pairs = datasets.get_paired_spectra(**cfg.dataset)
         spectra_mol_pairs = list(zip(*spectra_mol_pairs))
-
         # Redefine splitter s.t. this splits three times and remove subsetting
         split_name, (train, val, test) = data_splitter.get_splits(spectra_mol_pairs)
 

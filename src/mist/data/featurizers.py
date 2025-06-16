@@ -695,7 +695,6 @@ class PeakFormula(SpecFeaturizer):
             dict:
         """
         spec_name = spec.get_spec_name()
-
         subform_file = Path(self.spec_name_to_subform_file[spec_name])
 
         if not subform_file.exists():

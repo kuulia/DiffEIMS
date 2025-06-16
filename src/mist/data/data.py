@@ -16,6 +16,7 @@ class Spectra(object):
         spectra_file: str = "",
         spectra_formula: str = "",
         instrument: str = "",
+        spectrum_array: Optional[list[list[float]]] = None,
         **kwargs,
     ):
         """_summary_
@@ -38,7 +39,8 @@ class Spectra(object):
         self.meta = None
         self.spectrum_names = None
         self.spectra = None
-
+        if spectrum_array is not None:
+            self._load_from_array(spectrum_array)
     def get_instrument(self):
         return self.instrument
 
@@ -63,6 +65,21 @@ class Spectra(object):
         self.spectrum_names, self.spectra = zip(*spectrum_tuples)
         self.num_spectra = len(self.spectra)
         self._is_loaded = True
+    
+    def _load_from_array(self, spectrum_array: list[list[float]]):
+        """Load spectrum from a provided array (used in collated_pkl mode)."""
+        self.meta = {}  # Optional: you could infer parent mass or other metadata here
+        self.spectrum_names = [self.spectra_name]
+        self.spectra = [spectrum_array]
+        self.num_spectra = 1
+        self._is_loaded = True
+
+        # Attempt to extract parentmass as the highest m/z value if intensity > 0
+        if self.parentmass is None:
+            self.parentmass = max((mz for mz, intensity in spectrum_array if intensity > 0), default=0)
+        else:
+            self.parentmass = 0
+
 
     def get_spec_name(self, **kwargs):
         """get_spec_name."""
