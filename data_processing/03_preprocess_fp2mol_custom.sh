@@ -7,4 +7,4 @@ do
 done
 
 cd data_processing/
-python build_fp2mol_datasets.py
+python build_fp2mol_datasets_custom.py
