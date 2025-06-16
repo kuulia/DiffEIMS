@@ -217,7 +217,7 @@ class GraphFeaturizer(Featurizer):
         edge_attr = edge_attr[permutation]
 
         x = F.one_hot(torch.tensor(type_idx), num_classes=len(TYPES)).float()
-        y = torch.tensor(np.asarray(GetMorganFingerprintAsBitVect(mol, self.morgan_r, nBits=self.morgan_nbits), dtype=np.int8)).unsqueeze(0)
+        y = torch.tensor(np.asarray(GetMorganFingerprintAsBitVect(mol, self.morgan_r, nBits=self.morgan_nbits), dtype=np.int8), dtype=torch.int8).unsqueeze(0)
 
         inchi = Chem.MolToInchi(mol)
 
