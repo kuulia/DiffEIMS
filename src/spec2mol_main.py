@@ -259,7 +259,7 @@ def main(cfg: DictConfig):
 
     loggers = [
         CSVLogger(save_dir=f"logs/{name}", name=name),
-        WandbLogger(name=name, save_dir=f"logs/{name}", project=cfg.general.wandb_name, log_model=False, config=utils.cfg_to_dict(cfg))
+        #WandbLogger(name=name, save_dir=f"logs/{name}", project=cfg.general.wandb_name, log_model=False, config=utils.cfg_to_dict(cfg))
     ]
 
     use_gpu = cfg.general.gpus > 0 and torch.cuda.is_available()

@@ -994,21 +994,9 @@ class PeakFormula(SpecFeaturizer):
         """
         # Determines the number of channels
         names = [j["name"] for j in input_list]
-        for j in input_list:
-            print(j["form_vec"].dtype)
-            print('j["form_vec"]', j["form_vec"])
-            print(j["frag_intens"].dtype)
-            print('j["frag_intens"]', j["frag_intens"])
-            print(j["peak_type"].dtype)
-            print('j["peak_type"]', j["peak_type"])
-            print(j["instrument"].dtype)
-            print('j["instrument"]', j["instrument"])
-            print('j["ion_vec"]', j["ion_vec"])
-
-            break
-        peak_form_tensors = [torch.from_numpy(j["form_vec"].astype(np.float64)) for j in input_list]
-        inten_tensors = [torch.from_numpy(j["frag_intens"].astype(np.float64)) for j in input_list]
-        type_tensors = [torch.from_numpy(j["peak_type"].astype(np.int64)) for j in input_list]
+        peak_form_tensors = [torch.from_numpy(j["form_vec"].astype(np.float32)) for j in input_list]
+        inten_tensors = [torch.from_numpy(j["frag_intens"].astype(np.float32)) for j in input_list]
+        type_tensors = [torch.from_numpy(j["peak_type"].astype(np.int32)) for j in input_list]
         instrument_tensors = torch.tensor([j["instrument"].astype(np.float32) for j in input_list], dtype=torch.float32)
         ion_tensors = [torch.tensor(j["ion_vec"], dtype=torch.float32) for j in input_list]
 
