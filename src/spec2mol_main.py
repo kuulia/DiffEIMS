@@ -28,7 +28,7 @@ from src.datasets import spec2mol_dataset
 
 
 warnings.filterwarnings("ignore", category=PossibleUserWarning)
-
+print(sys.path)
 
 def get_resume(cfg, model_kwargs):
     """ Resumes a run. It loads previous config without allowing to update keys (used for testing). """
@@ -37,8 +37,11 @@ def get_resume(cfg, model_kwargs):
     resume = cfg.general.test_only
     val_samples_to_generate = cfg.general.val_samples_to_generate
     test_samples_to_generate = cfg.general.test_samples_to_generate
-
-    model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, **model_kwargs)
+    
+    if cfg.general.force_cpu:
+        model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, map_location=torch.device('cpu'), **model_kwargs)
+    else:
+        model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, **model_kwargs)
 
     cfg = model.cfg
     cfg.general.test_only = resume
@@ -58,7 +61,10 @@ def get_resume_adaptive(cfg, model_kwargs):
 
     resume_path = os.path.join(root_dir, cfg.general.resume)
 
-    model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume_path, **model_kwargs)
+    if cfg.general.force_cpu:
+        model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume_path, map_location=torch.device('cpu'), **model_kwargs)
+    else:
+        model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume_path, **model_kwargs)
     
     new_cfg = model.cfg
 
@@ -144,7 +150,7 @@ def load_weights(model, path):
     Returns:
         The model with loaded weights
     """
-    checkpoint = torch.load(path, map_location='cpu')
+    checkpoint = torch.load(path, map_location=torch.device('cpu'))
     state_dict = checkpoint['state_dict'] if 'state_dict' in checkpoint else checkpoint
     
     # Filter out keys that don't match the model (for partial loading)
@@ -276,7 +282,7 @@ def main(cfg: DictConfig):
 
     apply_encoder_finetuning(model, cfg.general.encoder_finetune_strategy)
     apply_decoder_finetuning(model, cfg.general.decoder_finetune_strategy)
-
+    breakpoint()
     if cfg.general.load_weights is not None:
         logging.info(f"Loading weights from {cfg.general.load_weights}")
         model = load_weights(model, cfg.general.load_weights)
@@ -299,7 +305,6 @@ def main(cfg: DictConfig):
                         continue
                     logging.info("Loading checkpoint", ckpt_path)
                     trainer.test(model, datamodule=datamodule, ckpt_path=ckpt_path)
-
-
+        
 if __name__ == '__main__':
     main()

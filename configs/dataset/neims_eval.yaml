@@ -1,0 +1,27 @@
+name: neims_eval
+remove_h: null
+stats_dir: null
+datadir: '../data/neims'
+filter: False
+denoise_nodes: False
+merge: 'downproject_4096'  # 'none' | 'mist_fp' | 'merge-encoder_output-linear' |  'merge-encoder_output-mlp' | 'downproject_4096'
+morgan_nbits: 2048
+morgan_r: 2
+split_file: '../data/neims/split.tsv'
+spec_features: 'peakformula'
+mol_features: 'fingerprint'
+subform_folder: '../data/neims/subformulae/subformulae_default/subforms'
+augment_data: False
+remove_prob: 0.1
+remove_weights: 'exp'
+inten_prob: 0.1
+inten_transform: 'float'
+cls_type: 'ms1'
+magma_aux_loss: False
+labels_file: '../data/neims/labels.tsv'
+spec_folder: '../data/neims/spec_files'
+cache_featurizers: False
+set_pooling: 'cls'
+max_count: null
+collated_pkl: True
+collated_pkl_file: 'df_neims_gecko_3_9_22.pkl'

@@ -148,3 +148,8 @@ __pycache__/
 **/__pycache__/
 *.pyc
 train.sh
+notebooks/fp.txt
+notebooks/generated_mols.pkl
+notebooks/batch_names.txt
+notebooks/molecules.png
+notebooks/predicted_fingerprints.pt
