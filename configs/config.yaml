@@ -3,7 +3,7 @@ defaults:
     - general : general_default
     - model : model_default
     - train : train_default
-    - dataset : neims_eval
+    - dataset : neims
 
 hydra:
   job:

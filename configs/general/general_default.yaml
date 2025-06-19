@@ -11,9 +11,9 @@ gpus: 1                     # Multi-gpu is not implemented on this branch
 decoder: '../data/checkpoints/checkpoints/decoder.ckpt' # path to pretrained decoder
 encoder: null # path to pretrained encoder
 
-resume: '../../../data/checkpoints/checkpoints/epoch=6.ckpt' # If resume, path to ckpt file from outputs direpctory in main directory
+resume: null # If resume, path to ckpt file from outputs direpctory in main directory
 test_only: null
-load_weights: null
+load_weights: '../data/checkpoints/checkpoints/diffms_msg.ckpt'
 
 encoder_finetune_strategy: null # null | freeze | ft-unfold | freeze-unfold | freeze-transformer | ft-transformer
 decoder_finetune_strategy: freeze  # null | freeze | ft-input | freeze-input | ft-transformer | freeze-transformer | ft-output 
@@ -21,9 +21,11 @@ decoder_finetune_strategy: freeze  # null | freeze | ft-input | freeze-input | f
 check_val_every_n_epochs: 1
 sample_every_val: 10
 val_samples_to_generate: 16
-test_samples_to_generate: 100
+test_samples_to_generate: 50
 num_test_samples: 100 # set to smaller number to evaluate on subset of test set    
 log_every_steps: 50
 
 evaluate_all_checkpoints: False
 checkpoint_strategy: 'last'
+
+force_cpu: False
