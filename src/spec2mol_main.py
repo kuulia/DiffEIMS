@@ -282,7 +282,6 @@ def main(cfg: DictConfig):
 
     apply_encoder_finetuning(model, cfg.general.encoder_finetune_strategy)
     apply_decoder_finetuning(model, cfg.general.decoder_finetune_strategy)
-    breakpoint()
     if cfg.general.load_weights is not None:
         logging.info(f"Loading weights from {cfg.general.load_weights}")
         model = load_weights(model, cfg.general.load_weights)
