@@ -19,10 +19,10 @@ encoder_finetune_strategy: null # null | freeze | ft-unfold | freeze-unfold | fr
 decoder_finetune_strategy: freeze  # null | freeze | ft-input | freeze-input | ft-transformer | freeze-transformer | ft-output 
 
 check_val_every_n_epochs: 1
-sample_every_val: 10
+sample_every_val: 5
 val_samples_to_generate: 16
 test_samples_to_generate: 50
-num_test_samples: 50 # set to smaller number to evaluate on subset of test set    
+num_test_samples: 100 # set to smaller number to evaluate on subset of test set    
 log_every_steps: 50
 
 evaluate_all_checkpoints: False
