@@ -278,6 +278,7 @@ def main(cfg: DictConfig):
                       fast_dev_run=cfg.general.name == 'debug',
                       callbacks=callbacks,
                       log_every_n_steps=50 if name != 'debug' else 1,
+                      limit_val_batches=cfg.train.limit_val_batches,
                       logger=loggers)
 
     apply_encoder_finetuning(model, cfg.general.encoder_finetune_strategy)
