@@ -8,7 +8,7 @@ wandb_name: 'mass_spec_exp'
 gpus: 1                     # Multi-gpu is not implemented on this branch
 
 
-decoder: '../data/checkpoints/checkpoints/decoder.ckpt' # path to pretrained decoder
+decoder: '../../../data/checkpoints/checkpoints/decoder.ckpt' # path to pretrained decoder
 encoder: null # path to pretrained encoder
 
 resume: null # If resume, path to ckpt file from outputs direpctory in main directory
@@ -22,7 +22,7 @@ check_val_every_n_epochs: 1
 sample_every_val: 10
 val_samples_to_generate: 16
 test_samples_to_generate: 50
-num_test_samples: 100 # set to smaller number to evaluate on subset of test set    
+num_test_samples: 50 # set to smaller number to evaluate on subset of test set    
 log_every_steps: 50
 
 evaluate_all_checkpoints: False
