@@ -110,10 +110,11 @@ with torch.no_grad():
         y = model.merge_function(aux['h0'])
     elif model.merge == 'downproject_4096':
         y = model.merge_function(output)
-    
-        # Graph generation
+    y = y.to(device)
+    # Graph generation
     data = batch["graph"]
     data.y = y
+    data = data.to(device)
     generated_mols = [list() for _ in range(len(data))]
     for _ in range(model.test_num_samples):
         for idx, mol in enumerate(model.sample_batch(data)):
