@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=train_diffms
+#SBATCH --job-name=eval_diffms
 #SBATCH --output=%A_%a.out
 #SBATCH --time=12:00:00
 #SBATCH --mem=32G
