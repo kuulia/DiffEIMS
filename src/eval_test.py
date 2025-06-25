@@ -93,6 +93,14 @@ print('noisy data: X_t, E_t, y_t: ', noisy_data['X_t'].shape, noisy_data['E_t'].
 print('extra_data.X: ', extra_data.X.shape)
 print('node_mask: ', node_mask.shape)
 with torch.no_grad():
+    device = model.device
+    for key in batch:
+        if isinstance(batch[key], torch.Tensor):
+            batch[key] = batch[key].to(device)
+        elif isinstance(batch[key], dict):
+            for subkey in batch[key]:
+                if isinstance(batch[key][subkey], torch.Tensor):
+                    batch[key][subkey] = batch[key][subkey].to(device)
     output, aux = model.encoder(batch)
 
     # Predict fingerprint (depending on `model.merge`)
