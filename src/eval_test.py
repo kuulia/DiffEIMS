@@ -19,7 +19,6 @@ from src.analysis.visualization import MolecularVisualization
 from rdkit import RDLogger
 from datetime import datetime
 from pathlib import Path
-from os.path import makedirs
 RDLogger.DisableLog('rdApp.*')
 
 # Load config from your config file (adjust path accordingly)
