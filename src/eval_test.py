@@ -136,6 +136,6 @@ len(generated_mols)
 with open(f'{output_path}/fp.txt', 'w+') as file:
     for tens in y:
         str_out = ''
-        for el in (np.array(tens) >= 0.5).astype(np.uint8):
+        for el in (tens.detach().cpu().numpy() >= 0.5).astype(np.uint8):
             str_out += f'{int(el)} '
         file.writelines(str_out + '\n')
