@@ -1,8 +1,8 @@
 # Training settings
-n_epochs: 75
+n_epochs: 15
 batch_size: 16
 eval_batch_size: 48
-lr: 0.0002 # 0.0015 for training, 0.0002 for fine-tuning
+lr: 0.0015 # 0.0015 for training, 0.0002 for fine-tuning
 clip_grad: null          # float, null to disable
 save_model: True
 num_workers: 8
