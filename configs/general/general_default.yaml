@@ -20,8 +20,8 @@ decoder_finetune_strategy: freeze  # null | freeze | ft-input | freeze-input | f
 
 check_val_every_n_epochs: 1
 sample_every_val: 25
-val_samples_to_generate: 50
-test_samples_to_generate: 50
+val_samples_to_generate: 100
+test_samples_to_generate: 100
 num_test_samples: 100 # set to smaller number to evaluate on subset of test set    
 log_every_steps: 50
 
