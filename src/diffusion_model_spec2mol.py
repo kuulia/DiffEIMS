@@ -4,6 +4,7 @@ import time
 import logging
 import pickle
 import math
+import pandas as pd
 sys.path.append('src')
 
 import torch
@@ -42,6 +43,11 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.val_num_samples = cfg.general.val_samples_to_generate
         self.test_num_samples = cfg.general.test_samples_to_generate
         self.tanimoto_every_val = getattr(cfg.general, 'tanimoto_every_val', None)
+
+        cols = ['dataset', 'ionization', 'formula', 'inchikey', 'instrument']
+        self.name_to_smiles = pd.read_csv(cfg.dataset.labels_file, sep='\t', index_col='spec')\
+                                .drop(columns=cols)['smiles']\
+                                .to_dict()
 
         self.Xdim = input_dims['X']
         self.Edim = input_dims['E']
@@ -325,7 +331,10 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         #calc_tanimoto_validation = self.val_counter % self.tanimoto_every_val == 0
         calc_tanimoto_validation = True
         if calc_tanimoto_validation:
-            true_mols = batch["true_mol"]
+            logging.info(batch)
+            mols_name = batch["names"]
+            true_smiles = [self.name_to_smiles[name] for name in mols_name]
+            true_mols = [Chem.MolFromSmiles(smi) for smi in true_smiles]
             predicted_mols = [list() for _ in range(len(data))]
             for _ in range(self.val_num_samples):
                 for idx, mol in enumerate(self.sample_batch(data)):
