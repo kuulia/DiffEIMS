@@ -1,5 +1,5 @@
 # Training settings
-n_epochs: 25
+n_epochs: 50
 batch_size: 64
 eval_batch_size: 32
 lr: 0.0009 # 0.0015 for training, 0.0002 for fine-tuning
