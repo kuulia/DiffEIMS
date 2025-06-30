@@ -21,7 +21,7 @@ from diffusion.noise_schedule import DiscreteUniformTransition, PredefinedNoiseS
 from src.diffusion import diffusion_utils
 from metrics.train_metrics import TrainLossDiscrete
 from metrics.abstract_metrics import SumExceptBatchMetric, SumExceptBatchKL, NLL, CrossEntropyMetric
-from src.metrics.diffms_metrics import K_ACC_Collection, K_SimilarityCollection, Validity
+from src.metrics.diffms_metrics import K_ACC_Collection, K_SimilarityCollection, Validity, MeanTanimotoSimilarity
 from src import utils
 from src.mist.models.spectra_encoder import SpectraEncoderGrowing
 
@@ -41,6 +41,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.T = cfg.model.diffusion_steps
         self.val_num_samples = cfg.general.val_samples_to_generate
         self.test_num_samples = cfg.general.test_samples_to_generate
+        self.tanimoto_every_val = getattr(cfg.general, 'tanimoto_every_val', None)
 
         self.Xdim = input_dims['X']
         self.Edim = input_dims['E']
@@ -63,6 +64,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.val_sim_metrics = K_SimilarityCollection(list(range(1, self.val_num_samples + 1)))
         self.val_validity = Validity()
         self.val_CE = CrossEntropyMetric()
+        self.val_tanimoto_mean = MeanTanimotoSimilarity()
 
         self.test_nll = NLL()
         self.test_X_kl = SumExceptBatchKL()
@@ -268,6 +270,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.val_sim_metrics.reset()
         self.val_validity.reset()
         self.val_CE.reset()
+        self.val_tanimoto_mean.reset()
         self.val_counter += 1
 
     def validation_step(self, batch, i):
@@ -317,6 +320,18 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                 self.val_k_acc.update(predicted_mols[idx], true_mols[idx])
                 self.val_sim_metrics.update(predicted_mols[idx], true_mols[idx])
                 self.val_validity.update(predicted_mols[idx])
+                self.val_tanimoto_mean.update(predicted_mols[idx], true_mols[idx])
+        
+        #calc_tanimoto_validation = self.val_counter % self.tanimoto_every_val == 0
+        calc_tanimoto_validation = True
+        if calc_tanimoto_validation:
+            true_mols = batch["true_mol"]
+            predicted_mols = [list() for _ in range(len(data))]
+            for _ in range(self.val_num_samples):
+                for idx, mol in enumerate(self.sample_batch(data)):
+                    predicted_mols[idx].append(mol)
+            for idx in range(len(data)):
+                self.val_tanimoto_mean.update(predicted_mols[idx], true_mols[idx])
 
         return {'loss': nll}
 
@@ -346,9 +361,13 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                 log_dict[f"val/{key}"] = value
             log_dict["val/validity"] = self.val_validity.compute()
 
+        if hasattr(self, "val_tanimoto_mean"):
+            tanimoto_val = self.val_tanimoto_mean.compute()
+            log_dict["val/tanimoto_mean"] = tanimoto_val
+        
         self.log_dict(log_dict, sync_dist=True)
         logging.info(f"Epoch {self.current_epoch}: Val NLL {metrics[0] :.2f} -- Val Atom type KL: {metrics[1] :.2f} -- Val Edge type KL: {metrics[2] :.2f} -- Val Edge type logp: {metrics[4] :.2f} -- Val Edge type CE: {metrics[5] :.2f}")
-
+        logging.info(f"Val Tanimoto Mean: {log_dict.get('val/tanimoto_mean', float('nan')):.4f}")
         val_nll = metrics[0]
         if val_nll < self.best_val_nll:
             self.best_val_nll = val_nll

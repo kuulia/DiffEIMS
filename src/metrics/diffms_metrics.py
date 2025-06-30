@@ -163,3 +163,33 @@ class Validity:
     def reset(self):
         self.valid = 0
         self.total = 0
+
+class MeanTanimotoSimilarity:
+    def __init__(self):
+        self.similarities = []
+        self.total = 0
+
+    def update(self, generated_mols, true_mol):
+        true_fp = AllChem.GetMorganFingerprintAsBitVect(true_mol, 2, nBits=2048)
+
+        sims = []
+        for mol in generated_mols:
+            try:
+                gen_fp = AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=2048)
+                sim = DataStructs.TanimotoSimilarity(gen_fp, true_fp)
+                sims.append(sim)
+            except:
+                continue
+
+        if sims:
+            self.similarities.append(np.mean(sims))
+            self.total += 1
+
+    def compute(self):
+        if not self.similarities:
+            return 0.0
+        return sum(self.similarities) / len(self.similarities)
+
+    def reset(self):
+        self.similarities = []
+        self.total = 0

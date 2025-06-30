@@ -388,6 +388,8 @@ class SpectraMolDataset(Dataset):
             "spec_indices": [0],
             "mol_indices": [0],
             "matched": [True],
+            "true_mol": mol,                    # RDKit Mol object
+            "true_smiles": self.smi_list[idx] # SMILES string
         }
 
 
