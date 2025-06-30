@@ -328,10 +328,8 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                 self.val_validity.update(predicted_mols[idx])
                 self.val_tanimoto_mean.update(predicted_mols[idx], true_mols[idx])
         
-        #calc_tanimoto_validation = self.val_counter % self.tanimoto_every_val == 0
-        calc_tanimoto_validation = True
+        calc_tanimoto_validation = self.val_counter % self.tanimoto_every_val == 0
         if calc_tanimoto_validation:
-            logging.info(batch)
             mols_name = batch["names"]
             true_smiles = [self.name_to_smiles[name] for name in mols_name]
             true_mols = [Chem.MolFromSmiles(smi) for smi in true_smiles]
