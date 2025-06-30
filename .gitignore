@@ -153,3 +153,8 @@ notebooks/generated_mols.pkl
 notebooks/batch_names.txt
 notebooks/molecules.png
 notebooks/predicted_fingerprints.pt
+notebooks/batch_names.txtZone.Identifier
+notebooks/fp.txtZone.Identifier
+notebooks/generated_mols.pklZone.Identifier
+notebooks/predicted_fingerprints.ptZone.Identifier
+src/spec2mol_neims.py
