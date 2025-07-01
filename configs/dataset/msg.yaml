@@ -23,3 +23,5 @@ spec_folder: '../../../data/msg/spec_files'
 cache_featurizers: True
 set_pooling: 'cls'
 max_count: null
+collated_pkl: True
+collated_pkl_file: 'df_neims_gecko_3_9_22.pkl'

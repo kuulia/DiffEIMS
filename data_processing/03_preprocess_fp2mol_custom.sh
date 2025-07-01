@@ -1,4 +1,4 @@
-for dataset in hmdb dss coconut moses canopus msg combined
+for dataset in hmdb dss coconut moses canopus msg combined neims
 do
     mkdir data/fp2mol/$dataset/
     mkdir data/fp2mol/$dataset/preprocessed/

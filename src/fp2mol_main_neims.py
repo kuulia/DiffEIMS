@@ -15,7 +15,7 @@ import hydra
 from omegaconf import DictConfig
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
-from pytorch_lightning.loggers import CSVLogger, WandbLogger
+from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.utilities.warnings import PossibleUserWarning
 
 from src import utils
@@ -133,10 +133,10 @@ def main(cfg: DictConfig):
     from datasets import fp2mol_dataset
     from datasets import neims_dataset
         
-    datamodule = fp2mol_dataset.FP2MolDataModule(cfg)
+    datamodule = neims_dataset.NeimsDataModule(cfg)
     logging.info("Dataset loaded")
     logging.info(f"Train Size: {len(datamodule.train_dataloader())}, Val Size: {len(datamodule.val_dataloader())}, Test Size: {len(datamodule.test_dataloader())}")
-    dataset_infos = fp2mol_dataset.FP2Mol_infos(datamodule, cfg, recompute_statistics=False)
+    dataset_infos = neims_dataset.Neims_infos(datamodule, cfg, recompute_statistics=False)
 
     domain_features = ExtraMolecularFeatures(dataset_infos=dataset_infos)
     if cfg.model.extra_features is not None:
@@ -221,7 +221,6 @@ def main(cfg: DictConfig):
 
     loggers = [
         CSVLogger(save_dir=f"logs/{name}", name=name),
-        WandbLogger(name=name, save_dir=f"logs/{name}", project=cfg.general.wandb_name, log_model=False, config=utils.cfg_to_dict(cfg))
     ]
 
     use_gpu = cfg.general.gpus > 0 and torch.cuda.is_available()
