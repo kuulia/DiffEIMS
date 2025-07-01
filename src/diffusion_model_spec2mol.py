@@ -328,7 +328,6 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                 self.val_k_acc.update(predicted_mols[idx], true_mols[idx])
                 self.val_sim_metrics.update(predicted_mols[idx], true_mols[idx])
                 self.val_validity.update(predicted_mols[idx])
-                self.val_tanimoto_mean.update(predicted_mols[idx], true_mols[idx])
         mols_name = batch["names"]
         true_smiles = [self.name_to_smiles[name] for name in mols_name]
         true_mols = [Chem.MolFromSmiles(smi) for smi in true_smiles]
@@ -336,6 +335,8 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
             pred_fp = utils.tensor_to_bitvect(aux["int_preds"][-1][idx])
             true_fp = AllChem.GetMorganFingerprintAsBitVect(true_mol, 2, nBits=2048)
             self.val_tanimoto_mean.update(pred_fp, true_fp)
+        current_tanimoto = self.val_tanimoto_mean.compute()
+        logging.info(f"Batch mean Tanimoto similarity: {current_tanimoto:.4f}")
         '''
         calc_tanimoto_validation = self.tanimoto_it_counter < self.tanimoto_val_samples
         if calc_tanimoto_validation:
