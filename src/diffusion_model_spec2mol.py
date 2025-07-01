@@ -42,7 +42,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.T = cfg.model.diffusion_steps
         self.val_num_samples = cfg.general.val_samples_to_generate
         self.test_num_samples = cfg.general.test_samples_to_generate
-        self.tanimoto_every_val = getattr(cfg.general, 'tanimoto_every_val', None)
+        self.tanimoto_val_samples = getattr(cfg.general, 'tanimoto_val_samples', None)
 
         cols = ['dataset', 'ionization', 'formula', 'inchikey', 'instrument']
         self.name_to_smiles = pd.read_csv(cfg.dataset.labels_file, sep='\t', index_col='spec')\
@@ -277,6 +277,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.val_validity.reset()
         self.val_CE.reset()
         self.val_tanimoto_mean.reset()
+        self.tanimoto_it_counter = 0
         self.val_counter += 1
 
     def validation_step(self, batch, i):
@@ -328,7 +329,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                 self.val_validity.update(predicted_mols[idx])
                 self.val_tanimoto_mean.update(predicted_mols[idx], true_mols[idx])
         
-        calc_tanimoto_validation = self.val_counter % self.tanimoto_every_val == 0
+        calc_tanimoto_validation = self.tanimoto_it_counter < self.tanimoto_val_samples
         if calc_tanimoto_validation:
             mols_name = batch["names"]
             true_smiles = [self.name_to_smiles[name] for name in mols_name]
@@ -339,6 +340,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                     predicted_mols[idx].append(mol)
             for idx in range(len(data)):
                 self.val_tanimoto_mean.update(predicted_mols[idx], true_mols[idx])
+            self.tanimoto_it_counter += 1
 
         return {'loss': nll}
 
@@ -371,10 +373,11 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         if hasattr(self, "val_tanimoto_mean"):
             tanimoto_val = self.val_tanimoto_mean.compute()
             log_dict["val/tanimoto_mean"] = tanimoto_val
+            logging.info(f"Val Tanimoto Mean: {log_dict.get('val/tanimoto_mean', float('nan')):.4f}")
         
         self.log_dict(log_dict, sync_dist=True)
         logging.info(f"Epoch {self.current_epoch}: Val NLL {metrics[0] :.2f} -- Val Atom type KL: {metrics[1] :.2f} -- Val Edge type KL: {metrics[2] :.2f} -- Val Edge type logp: {metrics[4] :.2f} -- Val Edge type CE: {metrics[5] :.2f}")
-        logging.info(f"Val Tanimoto Mean: {log_dict.get('val/tanimoto_mean', float('nan')):.4f}")
+
         val_nll = metrics[0]
         if val_nll < self.best_val_nll:
             self.best_val_nll = val_nll
