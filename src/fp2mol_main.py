@@ -91,7 +91,7 @@ def freeze_weights(model, cfg):
         raise NotImplementedError("Unknown finetuning strategy")
 
 
-@hydra.main(version_base='1.3', config_path='../configs', config_name='config')
+@hydra.main(version_base='1.3', config_path='../configs', config_name='config_decoder')
 def main(cfg: DictConfig):
     from rdkit import RDLogger
     RDLogger.DisableLog('rdApp.*')
