@@ -294,9 +294,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
             data.y = self.merge_function(encoder_output)
         elif self.merge == 'downproject_4096':
             data.y = self.merge_function(output)
-        print(type(aux["int_preds"][-1]))
-        print(len(aux["int_preds"][-1]))
-        print(len(aux["int_preds"][-1][0]))
+
         dense_data, node_mask = utils.to_dense(data.x, data.edge_index, data.edge_attr, data.batch)
         dense_data = dense_data.mask(node_mask)
         noisy_data = self.apply_noise(dense_data.X, dense_data.E, data.y, node_mask)
@@ -331,12 +329,21 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         mols_name = batch["names"]
         true_smiles = [self.name_to_smiles[name] for name in mols_name]
         true_mols = [Chem.MolFromSmiles(smi) for smi in true_smiles]
-        for idx, true_mol in enumerate(true_mols):
-            pred_fp = utils.tensor_to_bitvect(aux["int_preds"][-1][idx])
-            true_fp = AllChem.GetMorganFingerprintAsBitVect(true_mol, 2, nBits=2048)
-            self.val_tanimoto_mean.update(pred_fp, true_fp)
-        current_tanimoto = self.val_tanimoto_mean.compute()
-        logging.info(f"Batch mean Tanimoto similarity: {current_tanimoto:.4f}")
+        thresholds = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
+        
+        threshold_scores = {}
+        for threshold in thresholds:
+            self.val_tanimoto_mean.reset()
+            for idx, true_mol in enumerate(true_mols):
+                pred_fp = utils.tensor_to_bitvect(aux["int_preds"][-1][idx], threshold=threshold)
+                true_fp = AllChem.GetMorganFingerprintAsBitVect(true_mol, 2, nBits=2048)
+                self.val_tanimoto_mean.update(pred_fp, true_fp)
+            score = self.val_tanimoto_mean.compute()
+            threshold_scores[threshold] = score
+        best_thresh = max(threshold_scores, key=lambda k: threshold_scores[k])
+        best_thresh_score = threshold_scores[best_thresh]
+        logging.info(f"[Tanimoto Threshold Sweep] Best: {best_thresh_score:.4f} @ {best_thresh:.2f}, ")
+
         '''
         calc_tanimoto_validation = self.tanimoto_it_counter < self.tanimoto_val_samples
         if calc_tanimoto_validation:
@@ -392,7 +399,6 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         if val_nll < self.best_val_nll:
             self.best_val_nll = val_nll
         logging.info(f"Val NLL: {val_nll :.4f} \t Best Val NLL:  {self.best_val_nll}")
-
     
     def on_test_epoch_start(self) -> None:
         logging.info("Starting test...")
