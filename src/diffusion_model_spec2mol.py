@@ -294,8 +294,9 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
             data.y = self.merge_function(encoder_output)
         elif self.merge == 'downproject_4096':
             data.y = self.merge_function(output)
-
-
+        print(type(aux["int_preds"][-1]))
+        print(len(aux["int_preds"][-1]))
+        print(aux["int_preds"][-1])
         dense_data, node_mask = utils.to_dense(data.x, data.edge_index, data.edge_attr, data.batch)
         dense_data = dense_data.mask(node_mask)
         noisy_data = self.apply_noise(dense_data.X, dense_data.E, data.y, node_mask)
