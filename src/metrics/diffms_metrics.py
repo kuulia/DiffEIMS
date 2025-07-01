@@ -169,21 +169,20 @@ class MeanTanimotoSimilarity:
         self.similarities = []
         self.total = 0
 
-    def update(self, generated_mols, true_mol):
-        true_fp = AllChem.GetMorganFingerprintAsBitVect(true_mol, 2, nBits=2048)
-
-        sims = []
-        for mol in generated_mols:
-            try:
-                gen_fp = AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=2048)
-                sim = DataStructs.TanimotoSimilarity(gen_fp, true_fp)
-                sims.append(sim)
-            except:
-                continue
-
-        if sims:
-            self.similarities.append(np.mean(sims))
+    def update(self, pred_fp, true_fp):
+        """
+        Add a Tanimoto similarity score between two fingerprints.
+        Args:
+            pred_fp: RDKit ExplicitBitVect or compatible
+            true_fp: RDKit ExplicitBitVect
+        """
+        try:
+            sim = DataStructs.TanimotoSimilarity(pred_fp, true_fp)
+            self.similarities.append(sim)
             self.total += 1
+        except Exception as e:
+            # Could log the error if needed
+            pass
 
     def compute(self):
         if not self.similarities:

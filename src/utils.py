@@ -11,6 +11,8 @@ import wandb
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import DataStructs
+from rdkit.DataStructs.cDataStructs import ExplicitBitVect
+
 
 def cfg_to_dict(cfg):
     return omegaconf.OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
@@ -212,3 +214,7 @@ def canonical_mol_from_inchi(inchi):
         mol = _te.Canonicalize(mol)
     return mol
 
+def tensor_to_bitvect(t: torch.Tensor, threshold: float = 0.5) -> ExplicitBitVect:
+    arr = (t >= threshold).int().cpu().numpy().tolist()
+    bv = DataStructs.CreateFromBitString(''.join(str(b) for b in arr))
+    return bv
