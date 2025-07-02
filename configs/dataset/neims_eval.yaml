@@ -13,16 +13,16 @@ mol_features: 'fingerprint'
 subform_folder: '../data/neims/subformulae/subformulae_default/subforms'
 augment_data: False
 remove_prob: 0.1
-remove_weights: 'exp'
+remove_weights: 'exp' # exp | quadratic | uniform
 inten_prob: 0.1
-inten_transform: 'float'
-cls_type: 'ms1'
+inten_transform: 'log' # float | zero | log | cat
+cls_type: 'zeros' # zeros | ms1
 magma_aux_loss: False
 labels_file: '../data/neims/labels.tsv'
 spec_folder: '../data/neims/spec_files'
 cache_featurizers: False
-set_pooling: 'cls'
+set_pooling: 'intensity' # intensity | mean | root | cls
 max_count: null
 collated_pkl: True
 collated_pkl_file: 'df_neims_gecko_3_9_22.pkl'
-eval_model_path: '../data/checkpoints/checkpoints/epoch=20.ckpt'
+eval_model_path: '../data/checkpoints/checkpoints/encoder_epoch=32.ckpt'
