@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=tr_diffms_e2e
+#SBATCH --job-name=tr_diffms_enc
 #SBATCH --output=%A_%a.out
 #SBATCH --time=36:00:00
 #SBATCH --mem=32G
@@ -19,7 +19,7 @@ cd ms/DiffMS || exit 1
 start_time=$(date +%s)
 
 # Run training
-srun python src/spec2mol_main.py
+srun python src/spec2mol_encoder.py
 
 # Record end time and report runtime
 end_time=$(date +%s)
