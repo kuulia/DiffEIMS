@@ -2,7 +2,7 @@
 n_epochs: 50
 batch_size: 64
 eval_batch_size: 32
-lr: 0.0002 # 0.0015 for training, 0.0002 for fine-tuning
+lr: 0.001 # 0.001 for training, 0.0002 for fine-tuning
 clip_grad: null          # float, null to disable
 save_model: True
 num_workers: 8
@@ -14,4 +14,4 @@ optimizer: radam # adamw | nadamw | nadam | radam
 scheduler: 'one_cycle' # 'const' | 'one_cycle'
 pct_start: 0.3
 seed: 42
-limit_val_batches: 0.5 # 'float', 1.0 default (full val batch)
+limit_val_batches: 1.0 # 'float', 1.0 default (full val batch)

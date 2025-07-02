@@ -134,8 +134,7 @@ for i in tqdm(range(len(neims_labels)), desc="Converting NEIMS SMILES to InChI",
     inchi = Chem.MolToInchi(mol)
 
     if neims_labels.loc[i, "split"] == "train":
-        if filter(mol):
-            neims_train_inchis.append(inchi)
+        neims_train_inchis.append(inchi)
     elif neims_labels.loc[i, "split"] == "test":
         neims_test_inchis.append(inchi)
     elif neims_labels.loc[i, "split"] == "val":
@@ -143,7 +142,7 @@ for i in tqdm(range(len(neims_labels)), desc="Converting NEIMS SMILES to InChI",
 
 
 
-neims_train_df = pd.DataFrame(set(neims_train_inchis), columns=["inchi"])
+neims_train_df = pd.DataFrame(neims_train_inchis, columns=["inchi"])
 neims_train_df.to_csv("../data/neims/neims/preprocessed/neims_train.csv", index=False)
 
 neims_test_df = pd.DataFrame(neims_test_inchis, columns=["inchi"])
@@ -152,8 +151,7 @@ neims_test_df.to_csv("../data/neims/neims/preprocessed/neims_test.csv", index=Fa
 neims_val_df = pd.DataFrame(neims_val_inchis, columns=["inchi"])
 neims_val_df.to_csv("../data/neims/neims/preprocessed/neims_val.csv", index=False)
 
-excluded_inchis = set(neims_test_inchis + neims_val_inchis)
-
+exit()
 ########## MSG DATASET ##########
 '''
 msg_split = pd.read_csv('../data/msg/split.tsv', sep='\t')

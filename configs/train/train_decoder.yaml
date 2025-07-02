@@ -14,4 +14,4 @@ optimizer: adamw # adamw | nadamw | nadam
 scheduler: 'one_cycle' # 'const' | 'one_cycle'
 pct_start: 0.3
 seed: 42
-limit_val_batches: 0.5 # 'float', 1.0 default (full val batch)
+limit_val_batches: 1.0 # 'float', 1.0 default (full val batch)
