@@ -186,10 +186,8 @@ class MeanTanimotoSimilarity:
 
     def compute(self):
         if not self.similarities:
-            raise ValueError(
-                "No valid Tanimoto similarities were computed. "
-                "This likely means that all predicted molecules were invalid (e.g., None or unparseable)."
-            )
+            return 0.0
+        
         return sum(self.similarities) / len(self.similarities)
 
     def reset(self):
