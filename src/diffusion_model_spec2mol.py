@@ -43,12 +43,12 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.val_num_samples = cfg.general.val_samples_to_generate
         self.test_num_samples = cfg.general.test_samples_to_generate
         self.tanimoto_val_samples = getattr(cfg.general, 'tanimoto_val_samples', None)
-
+        """
         cols = ['dataset', 'ionization', 'formula', 'inchikey', 'instrument']
         self.name_to_smiles = pd.read_csv(cfg.dataset.labels_file, sep='\t', index_col='spec')\
                                 .drop(columns=cols)['smiles']\
                                 .to_dict()
-
+        """
         self.Xdim = input_dims['X']
         self.Edim = input_dims['E']
         self.ydim = input_dims['y']
@@ -326,6 +326,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                 self.val_k_acc.update(predicted_mols[idx], true_mols[idx])
                 self.val_sim_metrics.update(predicted_mols[idx], true_mols[idx])
                 self.val_validity.update(predicted_mols[idx])
+        """
         mols_name = batch["names"]
         true_smiles = [self.name_to_smiles[name] for name in mols_name]
         true_mols = [Chem.MolFromSmiles(smi) for smi in true_smiles]
@@ -343,7 +344,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         best_thresh = max(threshold_scores, key=lambda k: threshold_scores[k])
         best_thresh_score = threshold_scores[best_thresh]
         logging.info(f"[Tanimoto Threshold Sweep] Best: {best_thresh_score:.4f} @ {best_thresh:.2f}, ")
-
+        """
         '''
         calc_tanimoto_validation = self.tanimoto_it_counter < self.tanimoto_val_samples
         if calc_tanimoto_validation:
