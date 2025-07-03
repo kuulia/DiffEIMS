@@ -70,6 +70,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.val_sim_metrics = K_SimilarityCollection(list(range(1, self.val_num_samples + 1)))
         self.val_validity = Validity()
         self.val_CE = CrossEntropyMetric()
+        self.val_y_CE = CrossEntropyMetric()
         self.val_tanimoto_mean = MeanTanimotoSimilarity()
 
         self.test_nll = NLL()
@@ -277,6 +278,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.val_validity.reset()
         self.val_CE.reset()
         self.val_tanimoto_mean.reset()
+        self.val_y_CE.reset()
         self.tanimoto_it_counter = 0
         self.val_counter += 1
 
@@ -305,6 +307,8 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         pred.Y = data.y
 
         nll = self.compute_val_loss(pred, noisy_data, dense_data.X, dense_data.E, data.y,  node_mask, test=False)
+        if data.y is not None and pred.Y is not None:
+            self.val_y_CE(pred.Y, data.y)
 
         true_E = torch.reshape(dense_data.E, (-1, dense_data.E.size(-1)))  # (bs * n * n, de)
         masked_pred_E = torch.reshape(pred.E, (-1, pred.E.size(-1)))   # (bs * n * n, de)
@@ -369,7 +373,8 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
             self.val_E_kl.compute(),
             self.val_X_logp.compute(), 
             self.val_E_logp.compute(),
-            self.val_CE.compute()
+            self.val_CE.compute(),
+            self.val_y_CE.compute(),
         ]
 
         log_dict = {
@@ -378,7 +383,8 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
             "val/E_KL": metrics[2],
             "val/X_logp": metrics[3],
             "val/E_logp": metrics[4],
-            "val/E_CE": metrics[5]
+            "val/E_CE": metrics[5],
+            "val/y_CE": metrics[6]
         }
 
         if self.val_counter % self.cfg.general.sample_every_val == 0:
@@ -395,7 +401,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         
         self.log_dict(log_dict, sync_dist=True)
         logging.info(f"Epoch {self.current_epoch}: Val NLL {metrics[0] :.2f} -- Val Atom type KL: {metrics[1] :.2f} -- Val Edge type KL: {metrics[2] :.2f} -- Val Edge type logp: {metrics[4] :.2f} -- Val Edge type CE: {metrics[5] :.2f}")
-
+        logging.info(f"[Val] y_CE (fingerprint validation): {metrics[6]:.4f}")
         val_nll = metrics[0]
         if val_nll < self.best_val_nll:
             self.best_val_nll = val_nll
