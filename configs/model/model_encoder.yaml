@@ -13,11 +13,11 @@ hidden_mlp_dims: {'X': 256, 'E': 128, 'y': 2048}        # Large Model Default
 hidden_dims : {'dx': 256, 'de': 64, 'dy': 1024, 'n_head': 8, 'dim_ffX': 256, 'dim_ffE': 128, 'dim_ffy': 1024}       # Large Model Default
 #hidden_dims : {'dx': 256, 'de': 64, 'dy': 512, 'n_head': 8, 'dim_ffX': 256, 'dim_ffE': 64, 'dim_ffy': 1024}        # Medium Model Default
 
-encoder_hidden_dim: 256        # Small Model Default (CANOPUS)
-#encoder_hidden_dim: 512         # Large Model Default (MSG)
+#encoder_hidden_dim: 256        # Small Model Default (CANOPUS)
+encoder_hidden_dim: 512         # Large Model Default (MSG)
 
-encoder_magma_modulo: 512      # Small Model Default (CANOPUS)
-#encoder_magma_modulo: 2048      # Large Model Default (MSG)
+#encoder_magma_modulo: 512      # Small Model Default (CANOPUS)
+encoder_magma_modulo: 2048      # Large Model Default (MSG)
 
 graph_tf_y_transformer_n_heads: 8
 graph_tf_y_transformer_ff_dim: 256

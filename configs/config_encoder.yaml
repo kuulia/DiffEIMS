@@ -3,7 +3,7 @@ defaults:
     - general : general_encoder
     - model : model_encoder
     - train : train_encoder
-    - dataset : canopus
+    - dataset : neims
 
 hydra:
   job:
