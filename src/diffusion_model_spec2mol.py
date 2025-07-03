@@ -265,7 +265,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
             to_log[f"train_epoch/{key}"] = value
 
         self.log_dict(to_log, sync_dist=True)
-        logging.info(f"Epoch {self.current_epoch}: X_CE: {to_log['train_epoch/x_CE']:.2f} -- E_CE: {to_log['train_epoch/E_CE']:.2f} -- time: {to_log['train_epoch/time']:.2f}")
+        logging.info(f"Epoch {self.current_epoch}: X_CE: {to_log['train_epoch/x_CE']:.2f} -- E_CE: {to_log['train_epoch/E_CE']:.2f} -- y_CE: {to_log['train_epoch/y_CE']:.6f} -- time: {to_log['train_epoch/time']:.2f}")
 
     def on_validation_epoch_start(self) -> None:
         self.val_nll.reset()
@@ -308,7 +308,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
 
         nll = self.compute_val_loss(pred, noisy_data, dense_data.X, dense_data.E, data.y,  node_mask, test=False)
         if data.y is not None and pred.Y is not None:
-            self.val_y_CE(pred.Y, data.y)
+            self.val_y_CE.update(pred.Y, data.y)
 
         true_E = torch.reshape(dense_data.E, (-1, dense_data.E.size(-1)))  # (bs * n * n, de)
         masked_pred_E = torch.reshape(pred.E, (-1, pred.E.size(-1)))   # (bs * n * n, de)
