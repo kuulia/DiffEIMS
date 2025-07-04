@@ -26,8 +26,8 @@ def main(ckpt_path: str, pt_path: str):
         - Saves the resulting dictionary to the specified .pt path.
 
     Example:
-        >>> main("checkpoints/my_model.ckpt", "encoder_msg.pt")
-        Saved encoder weights to encoder_msg.pt
+        >>> main("checkpoints/my_model.ckpt", "encoder.pt")
+        Saved encoder weights to encoder.pt
     """
     ckpt = torch.load(ckpt_path, map_location='cpu')
 
