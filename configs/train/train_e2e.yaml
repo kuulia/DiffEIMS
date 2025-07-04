@@ -10,7 +10,7 @@ pin_memory: True
 ema_decay: 0          # EMA decay current not implemented
 progress_bar: false
 weight_decay: 1e-12
-optimizer: radam # adamw | nadamw | nadam | radam
+optimizer: adamw # adamw | nadamw | nadam | radam
 scheduler: 'one_cycle' # 'const' | 'one_cycle'
 pct_start: 0.3
 seed: 42

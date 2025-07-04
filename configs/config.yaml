@@ -1,8 +1,8 @@
 defaults:
     - _self_
-    - general : general_default
-    - model : model_default
-    - train : train_default
+    - general : general_e2e
+    - model : model_e2e
+    - train : train_e2e
     - dataset : neims
 
 hydra:
