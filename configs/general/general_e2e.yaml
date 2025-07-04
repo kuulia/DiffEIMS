@@ -9,7 +9,7 @@ gpus: 1                     # Multi-gpu is not implemented on this branch
 
 
 decoder: '../../../data/checkpoints/checkpoints/decoder_epoch=44.ckpt' # path to pretrained decoder
-encoder: '../../../data/checkpoints/checkpoints/encoder_epoch=45.ckpt' # path to pretrained encoder
+encoder: '../../../data/checkpoints/checkpoints/encoder_epoch=45.pt' # path to pretrained encoder
 
 resume: null # If resume, path to ckpt file from outputs direpctory in main directory
 test_only: null
