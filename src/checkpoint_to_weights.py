@@ -30,15 +30,15 @@ def main(ckpt_path: str, pt_path: str):
         Saved encoder weights to encoder.pt
     """
     ckpt = torch.load(ckpt_path, map_location='cpu')
+    state_dict = ckpt['state_dict'] if 'state_dict' in ckpt else ckpt
 
-    # Extract encoder weights
+    # Extract encoder weights and remove "encoder." prefix only
     encoder_weights = {
-        k.replace("encoder.", ""): v
-        for k, v in ckpt["state_dict"].items()
+        k.replace("encoder.", "", 1): v
+        for k, v in state_dict.items()
         if k.startswith("encoder.")
     }
 
-    # Save as .pt
     torch.save(encoder_weights, pt_path)
     print(f"Saved encoder weights to {pt_path}")
 
