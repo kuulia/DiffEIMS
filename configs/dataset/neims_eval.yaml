@@ -24,5 +24,5 @@ cache_featurizers: False
 set_pooling: 'intensity' # intensity | mean | root | cls
 max_count: null
 collated_pkl: True
-collated_pkl_file: 'df_neims_gecko_3_9_22.pkl'
-eval_model_path: '../data/checkpoints/checkpoints/encoder_epoch=32.ckpt'
+collated_pkl_file: 'df_neims_gecko+_3_9_22.pkl'
+eval_model_path: '../data/checkpoints/checkpoints/full_epoch=41.ckpt'
