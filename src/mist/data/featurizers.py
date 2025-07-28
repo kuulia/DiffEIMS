@@ -27,7 +27,7 @@ from rdkit.Chem.rdMolDescriptors import GetMACCSKeysFingerprint
 from .. import utils
 from . import data
 
-ATOM_DECODER = ['C', 'O', 'P', 'N', 'S', 'Cl', 'F', 'H']
+ATOM_DECODER = ['C', 'O', 'P', 'N', 'N+', 'O-', 'S', 'Cl', 'F', 'H']
 TYPES = {atom: i for i, atom in enumerate(ATOM_DECODER)}
 BONDS = {BT.SINGLE: 0, BT.DOUBLE: 1, BT.TRIPLE: 2, BT.AROMATIC: 3}
 
