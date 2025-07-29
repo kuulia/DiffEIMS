@@ -276,10 +276,11 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
             self.best_val_nll = val_nll
         logging.info(f"Val NLL: {val_nll :.4f} \t Best Val NLL:  {self.best_val_nll}")
 
-        # save self.model to models/graph_transformer_{epoch}.pt
-        torch.save(self.model.state_dict(), f"models/graph_transformer_{self.current_epoch}.pt")
-        with open(f"models/graph_transformer_{self.current_epoch}.pkl", "wb") as f:
-            pickle.dump(self.model, f)
+        if self.current_epoch % 10 == 0:
+            # save self.model to models/graph_transformer_{epoch}.pt
+            torch.save(self.model.state_dict(), f"models/graph_transformer_{self.current_epoch}.pt")
+            with open(f"models/graph_transformer_{self.current_epoch}.pkl", "wb") as f:
+                pickle.dump(self.model, f)
 
     def on_test_epoch_start(self) -> None:
         logging.info("Starting test...")
