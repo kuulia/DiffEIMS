@@ -279,8 +279,6 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
         if self.current_epoch % 10 == 0:
             # save self.model to models/graph_transformer_{epoch}.pt
             torch.save(self.model.state_dict(), f"models/graph_transformer_{self.current_epoch}.pt")
-            with open(f"models/graph_transformer_{self.current_epoch}.pkl", "wb") as f:
-                pickle.dump(self.model, f)
 
     def on_test_epoch_start(self) -> None:
         logging.info("Starting test...")
