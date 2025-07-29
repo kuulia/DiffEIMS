@@ -96,22 +96,37 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                                       output_dims=output_dims,
                                       act_fn_in=nn.ReLU(),
                                       act_fn_out=nn.ReLU())
-
+        decoder_path = cfg.general.decoder
         try:
-            if cfg.general.decoder is not None:
-                state_dict = torch.load(cfg.general.decoder, map_location='cpu')
-                if 'state_dict' in state_dict:
-                    state_dict = state_dict['state_dict']
+            if decoder_path is not None:
+                if decoder_path.endswith(".ckpt"):
+                    # .ckpt loading (usually from PyTorch Lightning)
+                    state_dict = torch.load(decoder_path, map_location='cpu')
+                    if 'state_dict' in state_dict:
+                        state_dict = state_dict['state_dict']
                     
-                cleaned_state_dict = {}
-                for k, v in state_dict.items():
-                    if k.startswith('model.'):
-                        k = k[6:]
-                        cleaned_state_dict[k] = v
+                    cleaned_state_dict = {
+                        k[6:]: v for k, v in state_dict.items() if k.startswith('model.')
+                    }
 
-                self.decoder.load_state_dict(cleaned_state_dict)
+                    self.decoder.load_state_dict(cleaned_state_dict)
+
+                elif decoder_path.endswith(".pt"):
+                    state_dict = torch.load(decoder_path, map_location='cpu')
+                    if 'state_dict' in state_dict:
+                        state_dict = state_dict['state_dict']
+                    if any(k.startswith('model.') for k in state_dict.keys()):
+                        cleaned_state_dict = {
+                            k[6:]: v for k, v in state_dict.items() if k.startswith('model.')
+                        }
+                    else:
+                        cleaned_state_dict = state_dict
+
+                    self.decoder.load_state_dict(cleaned_state_dict)
+
         except Exception as e:
             logging.info(f"Could not load decoder: {e}")
+
 
         hidden_size = 256
         try:
