@@ -28,13 +28,13 @@ def to_list(value: Any) -> Sequence:
     else:
         return [value]
 
-atom_decoder = ['C', 'O', 'P', 'N', 'S', 'Cl', 'F', 'H']
+atom_decoder = ['C', 'O', 'O-', 'P', 'N', 'N+', 'S', 'Cl', 'F', 'H']
 valency = [ATOM_TO_VALENCY.get(atom, 0) for atom in atom_decoder]
 
 
 class Spec2MolDataModule(MolecularDataModule):
     def __init__(self, cfg):
-        self.remove_h = False
+        self.remove_h = getattr(cfg.dataset, 'remove_h', False) or False
         self.datadir = cfg.dataset.datadir
         self.filter_dataset = cfg.dataset.filter
         self.train_smiles = []
@@ -147,10 +147,10 @@ class Spec2MolDataModule(MolecularDataModule):
 
 class Spec2MolDatasetInfos(AbstractDatasetInfos):
     def __init__(self, datamodule, cfg, recompute_statistics=False, meta=None):
-        self.name = 'canopus'
+        self.name = getattr(cfg.dataset, 'name', 'canopus')
         self.input_dims = None
         self.output_dims = None
-        self.remove_h = False
+        self.remove_h = getattr(cfg.dataset, 'remove_h', False) or False
 
         self.atom_decoder = atom_decoder
         self.atom_encoder = {atom: i for i, atom in enumerate(self.atom_decoder)}

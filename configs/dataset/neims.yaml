@@ -1,5 +1,5 @@
 name: neims
-remove_h: null
+remove_h: True
 stats_dir: null
 datadir: '../../../data/neims'
 filter: False
