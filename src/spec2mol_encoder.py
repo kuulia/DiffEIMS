@@ -234,7 +234,10 @@ def main(cfg: DictConfig):
         os.makedirs('logs/')
     except OSError:
         pass
-
+    try:
+        os.makedirs('models/')
+    except OSError:
+        pass
     try:
         os.makedirs('logs/' + cfg.general.name)
     except OSError:

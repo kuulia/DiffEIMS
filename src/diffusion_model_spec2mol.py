@@ -406,6 +406,10 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         if val_nll < self.best_val_nll:
             self.best_val_nll = val_nll
         logging.info(f"Val NLL: {val_nll :.4f} \t Best Val NLL:  {self.best_val_nll}")
+
+        if self.current_epoch % 10 == 0:
+            torch.save(self.model.state_dict(), f"models/encoder_{self.current_epoch}.pt")
+
     
     def on_test_epoch_start(self) -> None:
         logging.info("Starting test...")
