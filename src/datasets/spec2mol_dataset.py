@@ -28,7 +28,7 @@ def to_list(value: Any) -> Sequence:
     else:
         return [value]
 
-atom_decoder = ['C', 'O', 'O-', 'P', 'N', 'N+', 'S', 'Cl', 'F', 'H']
+atom_decoder = ['C', 'O', 'P', 'N', 'S', 'Cl', 'F', 'H']
 valency = [ATOM_TO_VALENCY.get(atom, 0) for atom in atom_decoder]
 
 
