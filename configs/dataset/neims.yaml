@@ -24,4 +24,4 @@ cache_featurizers: False
 set_pooling: 'intensity' # intensity | mean | root | cls
 max_count: null
 collated_pkl: True
-collated_pkl_file: 'df_neims_gecko+_3_9_22.pkl'
+collated_pkl_file: 'df_neims_gecko_3_9_22.pkl'
