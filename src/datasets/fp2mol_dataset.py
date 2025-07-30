@@ -18,7 +18,7 @@ from tqdm_joblib import tqdm_joblib
 from src import utils
 from src.analysis.rdkit_functions import mol2smiles, build_molecule_with_partial_charges, compute_molecular_metrics
 from src.datasets.abstract_dataset import AbstractDatasetInfos, MolecularDataModule
-from src.datasets.abstract_dataset import ATOM_TO_VALENCY, ATOM_TO_WEIGHT
+from src.datasets.abstract_dataset import ATOM_TO_VALENCY, ATOM_TO_WEIGHT, ATOM_DECODER
 
 def to_list(value: Any) -> Sequence:
     if isinstance(value, Sequence) and not isinstance(value, str):
@@ -112,8 +112,7 @@ def process_single_inchi(args):
         print(e)
         return None
 
-atom_decoder = ['C', 'O', 'P', 'N', 'S', 'Cl', 'F', 'H']
-valency = [ATOM_TO_VALENCY.get(atom, 0) for atom in atom_decoder]
+valency = [ATOM_TO_VALENCY.get(atom, 0) for atom in ATOM_DECODER]
 
 # Data sources: 
 # HMDB: https://hmdb.ca/downloads
@@ -123,7 +122,7 @@ valency = [ATOM_TO_VALENCY.get(atom, 0) for atom in atom_decoder]
 class FP2MolDataset(InMemoryDataset):
     def __init__(self, stage, root, filter_dataset: bool, transform=None, pre_transform=None, pre_filter=None, morgan_r=2, morgan_nBits=2048, dataset='hmdb'):
         self.stage = stage
-        self.atom_decoder = atom_decoder
+        self.atom_decoder = ATOM_DECODER
         self.filter_dataset = filter_dataset
 
         self.morgan_r = morgan_r
@@ -223,7 +222,7 @@ class FP2Mol_infos(AbstractDatasetInfos):
         self.output_dims = None
         self.remove_h = False
 
-        self.atom_decoder = atom_decoder
+        self.atom_decoder = ATOM_DECODER
         self.atom_encoder = {atom: i for i, atom in enumerate(self.atom_decoder)}
         self.atom_weights = {i: ATOM_TO_WEIGHT.get(atom, 0) for i, atom in enumerate(self.atom_decoder)}
         self.valencies = valency

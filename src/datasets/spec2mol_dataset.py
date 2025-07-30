@@ -19,7 +19,7 @@ from src.mist.data import datasets, splitter, featurizers
 from src.datasets.abstract_dataset import AbstractDatasetInfos, MolecularDataModule
 import src.utils as utils
 from src.mist.data.datasets import get_paired_loader_graph
-from src.datasets.abstract_dataset import ATOM_TO_VALENCY, ATOM_TO_WEIGHT
+from src.datasets.abstract_dataset import ATOM_TO_VALENCY, ATOM_TO_WEIGHT, ATOM_DECODER
 import logging
 
 def to_list(value: Any) -> Sequence:
@@ -28,8 +28,7 @@ def to_list(value: Any) -> Sequence:
     else:
         return [value]
 
-atom_decoder = ['C', 'O', 'P', 'N', 'S', 'Cl', 'F', 'H']
-valency = [ATOM_TO_VALENCY.get(atom, 0) for atom in atom_decoder]
+valency = [ATOM_TO_VALENCY.get(atom, 0) for atom in ATOM_DECODER]
 
 
 class Spec2MolDataModule(MolecularDataModule):
@@ -152,7 +151,7 @@ class Spec2MolDatasetInfos(AbstractDatasetInfos):
         self.output_dims = None
         self.remove_h = getattr(cfg.dataset, 'remove_h', False) or False
 
-        self.atom_decoder = atom_decoder
+        self.atom_decoder = ATOM_DECODER
         self.atom_encoder = {atom: i for i, atom in enumerate(self.atom_decoder)}
         self.atom_weights = {i: ATOM_TO_WEIGHT.get(atom, 0) for i, atom in enumerate(self.atom_decoder)}
         self.valencies = valency

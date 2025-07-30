@@ -400,3 +400,5 @@ ATOM_TO_WEIGHT = {
     'Ts': 294,
     'Og': 294,
 }
+
+ATOM_DECODER = ('C', 'O', 'P', 'N', 'S', 'Cl', 'F', 'H')
