@@ -90,12 +90,12 @@ def load_decoder_from_lightning_ckpt(model, ckpt_path):
             k = k[6:]
             cleaned_state_dict[k] = v
 
-    model.model.load_state_dict(cleaned_state_dict, strict=True)
+    model.decoder.load_state_dict(cleaned_state_dict, strict=True)
     logging.info(f"Loaded model from: '{ckpt_path}'")
 
 def freeze_weights(model, cfg):
     if cfg.general.finetune_strategy == 'freeze_transformer_layers':
-        for param in model.model.tf_layers.parameters():
+        for param in model.decoder.tf_layers.parameters():
             param.requires_grad = False
     else:
         raise NotImplementedError("Unknown finetuning strategy")
