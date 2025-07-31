@@ -185,6 +185,7 @@ def main(cfg: DictConfig):
     
     try:
         if cfg.general.pretrained is not None:
+            logging.info(f"Trying to load model from: '{cfg.general.pretrained}'")
             if cfg.general.pretrained.endswith('.ckpt'):
                 load_decoder_from_lightning_ckpt(model, cfg.general.pretrained)
             else:
