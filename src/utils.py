@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, NoReturn
 
 import numpy as np
 import torch_geometric.utils
@@ -218,3 +218,9 @@ def tensor_to_bitvect(t: torch.Tensor, threshold: float = 0.5) -> ExplicitBitVec
     arr = (t >= threshold).int().cpu().numpy().tolist()
     bv = DataStructs.CreateFromBitString(''.join(str(b) for b in arr))
     return bv
+
+
+def make_result_dirs(dirs_to_create: list[str]) -> NoReturn:
+
+    for path in dirs_to_create:
+        os.makedirs(path, exist_ok=True)
