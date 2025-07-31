@@ -13,9 +13,9 @@ mol_features: 'fingerprint'
 subform_folder: '../../../data/neims/subformulae/subformulae_default/subforms'
 augment_data: False
 remove_prob: 0.1
-remove_weights: 'exp' # exp | quadratic | uniform
+remove_weights: 'quadratic' # exp | quadratic | uniform
 inten_prob: 0.1
-inten_transform: 'log' # float | zero | log | cat
+inten_transform: 'float' # float | zero | log | cat
 cls_type: 'zeros' # zeros | ms1
 magma_aux_loss: False
 labels_file: '../../../data/neims/labels.tsv'

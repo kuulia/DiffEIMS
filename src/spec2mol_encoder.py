@@ -17,6 +17,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from pytorch_lightning.utilities.warnings import PossibleUserWarning
+from rdkit import RDLogger
 
 from src import utils
 from src.diffusion_model_spec2mol import Spec2MolDenoisingDiffusion
@@ -28,6 +29,7 @@ from src.datasets import spec2mol_dataset
 
 
 warnings.filterwarnings("ignore", category=PossibleUserWarning)
+RDLogger.DisableLog('rdApp.*')
 print(sys.path)
 
 def get_resume(cfg, model_kwargs):
@@ -167,8 +169,6 @@ def load_weights(model, path):
 
 @hydra.main(version_base='1.3', config_path='../configs', config_name='config_encoder')
 def main(cfg: DictConfig):
-    from rdkit import RDLogger
-    RDLogger.DisableLog('rdApp.*')
 
     logger = logging.getLogger("msms_main")
     logger.setLevel(logging.INFO)
@@ -226,23 +226,8 @@ def main(cfg: DictConfig):
         cfg, _ = get_resume_adaptive(cfg, model_kwargs)
         os.chdir(cfg.general.resume.split('checkpoints')[0])
 
-    try:
-        os.makedirs('preds/')
-    except OSError:
-        pass
-    try:
-        os.makedirs('logs/')
-    except OSError:
-        pass
-    try:
-        os.makedirs('models/')
-    except OSError:
-        pass
-    try:
-        os.makedirs('logs/' + cfg.general.name)
-    except OSError:
-        pass
-
+    utils.make_result_dirs(['preds/', 'logs/', 'models/', f'logs/{cfg.general.name}'])
+    
     model = Spec2MolDenoisingDiffusion(cfg=cfg, **model_kwargs)
 
     callbacks = []

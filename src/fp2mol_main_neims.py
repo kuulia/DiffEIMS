@@ -17,14 +17,24 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.utilities.warnings import PossibleUserWarning
+from rdkit import RDLogger
+
 
 from src import utils
 from src.diffusion_model_fp2mol import FP2MolDenoisingDiffusion
 from src.diffusion.extra_features import DummyExtraFeatures, ExtraFeatures
 
+from metrics.molecular_metrics import TrainMolecularMetrics, SamplingMolecularMetrics
+from metrics.molecular_metrics_discrete import TrainMolecularMetricsDiscrete
+from diffusion.extra_features_molecular import ExtraMolecularFeatures
+from analysis.visualization import MolecularVisualization
+
+from datasets import fp2mol_dataset
+from datasets import neims_dataset
+
 
 warnings.filterwarnings("ignore", category=PossibleUserWarning)
-
+RDLogger.DisableLog('rdApp.*')
 
 def get_resume(cfg, model_kwargs):
     """ Resumes a run. It loads previous config without allowing to update keys (used for testing). """
@@ -93,8 +103,6 @@ def freeze_weights(model, cfg):
 
 @hydra.main(version_base='1.3', config_path='../configs', config_name='config_decoder')
 def main(cfg: DictConfig):
-    from rdkit import RDLogger
-    RDLogger.DisableLog('rdApp.*')
 
     logger = logging.getLogger("msms_main")
     logger.setLevel(logging.INFO)
@@ -124,14 +132,6 @@ def main(cfg: DictConfig):
         logging.info('neims config loaded')
     else:
         raise NotImplementedError("Unknown dataset {}".format(cfg["dataset"]))
-    
-    from metrics.molecular_metrics import TrainMolecularMetrics, SamplingMolecularMetrics
-    from metrics.molecular_metrics_discrete import TrainMolecularMetricsDiscrete
-    from diffusion.extra_features_molecular import ExtraMolecularFeatures
-    from analysis.visualization import MolecularVisualization
-
-    from datasets import fp2mol_dataset
-    from datasets import neims_dataset
         
     datamodule = neims_dataset.NeimsDataModule(cfg)
     logging.info("Dataset loaded")

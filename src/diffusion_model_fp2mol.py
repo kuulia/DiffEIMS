@@ -79,7 +79,7 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
         self.domain_features = domain_features
 
         if self.cfg.model.model == 'graph_tf':
-            self.model = GraphTransformer(n_layers=cfg.model.n_layers,
+            self.decoder = GraphTransformer(n_layers=cfg.model.n_layers,
                                         input_dims=input_dims,
                                         hidden_mlp_dims=cfg.model.hidden_mlp_dims,
                                         hidden_dims=cfg.model.hidden_dims,
@@ -87,7 +87,7 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
                                         act_fn_in=nn.ReLU(),
                                         act_fn_out=nn.ReLU())
         elif self.cfg.model.model == 'graph_tf_v2':
-            self.model = GraphTransformerV2(
+            self.decoder = GraphTransformerV2(
                 n_layers=cfg.model.n_layers,
                 input_dims=input_dims,
                 hidden_mlp_dims=cfg.model.hidden_mlp_dims,
@@ -277,8 +277,8 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
         logging.info(f"Val NLL: {val_nll :.4f} \t Best Val NLL:  {self.best_val_nll}")
 
         if self.current_epoch % 10 == 0:
-            # save self.model to models/graph_transformer_{epoch}.pt
-            torch.save(self.model.state_dict(), f"models/graph_transformer_{self.current_epoch}.pt")
+            # save self.decoder to models/graph_transformer_{epoch}.pt
+            torch.save(self.decoder.state_dict(), f"models/graph_transformer_{self.current_epoch}.pt")
 
     def on_test_epoch_start(self) -> None:
         logging.info("Starting test...")
@@ -547,7 +547,7 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
         X = torch.cat((noisy_data['X_t'], extra_data.X), dim=2).float()
         E = torch.cat((noisy_data['E_t'], extra_data.E), dim=3).float()
         y = torch.hstack((noisy_data['y_t'], extra_data.y)).float()
-        return self.model(X, E, y, node_mask)
+        return self.decoder(X, E, y, node_mask)
     
     @torch.no_grad()
     def sample_batch(self, batch: Batch) -> Batch:

@@ -24,8 +24,8 @@ pretrained: '../../../data/checkpoints/checkpoints/decoder.ckpt'
 check_val_every_n_epochs: 1
 sample_every_val: 1000
 tanimoto_val_samples: 10
-val_samples_to_generate: 50
-test_samples_to_generate: 50
+val_samples_to_generate: 100
+test_samples_to_generate: 100
 num_test_samples: 100 # set to smaller number to evaluate on subset of test set    
 log_every_steps: 50
 
