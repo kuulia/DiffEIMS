@@ -43,28 +43,33 @@ def extract_weights(ckpt_path: str, output_dir: str, extract_encoder: bool = Tru
         os.makedirs(output_dir)
 
     if extract_encoder:
-        encoder_weights = {
-            k.replace("encoder.", "", 1): v
-            for k, v in state_dict.items()
-            if k.startswith("encoder.")
-        }
-        encoder_path = os.path.join(output_dir, "encoder.pt")
-        torch.save(encoder_weights, encoder_path)
-        print(f"Saved encoder weights to {encoder_path}")
+        try:
+            encoder_weights = {
+                k.replace("encoder.", "", 1): v
+                for k, v in state_dict.items()
+                if k.startswith("encoder.")
+            }
+            encoder_path = os.path.join(output_dir, "encoder.pt")
+            torch.save(encoder_weights, encoder_path)
+            print(f"Saved encoder weights to {encoder_path}")
+        except:
+            print(f'Failed to extract encoder weights')
 
     if extract_decoder:
-        decoder_weights = {}
-        for k, v in state_dict.items():
-            if k.startswith("decoder."):
-                new_key = k.replace("decoder.", "", 1)
-                decoder_weights[new_key] = v
-            elif k.startswith("model."):
-                new_key = k.replace("model.", "", 1)
-                decoder_weights[new_key] = v
-
-        decoder_path = os.path.join(output_dir, "decoder.pt")
-        torch.save(decoder_weights, decoder_path)
-        print(f"✓ Saved decoder weights to {decoder_path}")
+        try:
+            decoder_weights = {}
+            for k, v in state_dict.items():
+                if k.startswith("decoder."):
+                    new_key = k.replace("decoder.", "", 1)
+                    decoder_weights[new_key] = v
+                elif k.startswith("model."):
+                    new_key = k.replace("model.", "", 1)
+                    decoder_weights[new_key] = v
+            decoder_path = os.path.join(output_dir, "decoder.pt")
+            torch.save(decoder_weights, decoder_path)
+            print(f"Saved decoder weights to {decoder_path}")
+        except:
+            print(f'Failed to extract decoder weights')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Extract encoder and/or decoder weights from a Lightning checkpoint.")

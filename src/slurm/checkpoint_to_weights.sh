@@ -18,7 +18,7 @@ cd ms/DiffMS || exit 1
 start_time=$(date +%s)
 
 # Run script
-srun python src/checkpoint_to_weights.py data/checkpoints/checkpoints/encoder_epoch=45.ckpt data/checkpoints/checkpoints/encoder_epoch=45.pt
+srun python src/checkpoint_to_weights.py outputs/2025-07-30/10-40-32-dev/checkpoints/dev/epoch=45.ckpt data/checkpoints/checkpoints/ --decoder
 
 # Record end time and report runtime
 end_time=$(date +%s)
