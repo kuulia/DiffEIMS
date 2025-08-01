@@ -33,6 +33,7 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
         nodes_dist = dataset_infos.nodes_dist
 
         self.cfg = cfg
+        self.n_epochs = cfg.train.n_epochs
         self.name = cfg.general.name
         self.model_dtype = torch.float32
         self.T = cfg.model.diffusion_steps
@@ -276,7 +277,7 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
             self.best_val_nll = val_nll
         logging.info(f"Val NLL: {val_nll :.4f} \t Best Val NLL:  {self.best_val_nll}")
 
-        if self.current_epoch % 10 == 0:
+        if self.current_epoch % 10 == 0 or self.current_epoch == self.n_epochs - 1:
             # save self.decoder to models/graph_transformer_{epoch}.pt
             torch.save(self.decoder.state_dict(), f"models/graph_transformer_{self.current_epoch}.pt")
 
