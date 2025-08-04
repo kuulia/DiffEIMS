@@ -1,6 +1,6 @@
 defaults:
     - _self_
-    - general : general_e2e
+    - general : general_e2e_ft
     - model : model_e2e
     - train : train_e2e
     - dataset : neims
