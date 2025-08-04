@@ -26,19 +26,49 @@ def get_paired_spectra(
     allow_none_smiles: bool = False,
     prog_bars: bool = True,
     collated_pkl: bool = False,
+    atom_decoder: tuple[str] = ('C', 'O', 'P', 'N', 'S', 'Cl', 'F', 'H'),
     **kwargs,
 ) -> Tuple[List[Spectra], List[Mol]]:
-    """_summary_
+    """
+    Loads paired spectral and molecular data from given labels and spectrum files.
+
+    This function reads metadata from a labels file (typically tab-separated),
+    matches spectra files or pre-collated spectra arrays, and generates lists of 
+    `Spectra` objects and corresponding molecular representations (`Mol` objects).
+    Optionally filters molecules based on allowed atom types and presence of SMILES.
 
     Args:
-        labels_file (str): _description_
-        spec_folder (str): _description_
-        max_count (Optional[int], optional): _description_. Defaults to None.
-        allow_none_smiles (bool, optional): _description_. Defaults to False.
-        prog_bars (bool, optional): _description_. Defaults to True.
+        labels_file (str): Path to a tab-separated file containing spectra metadata, 
+            including spectrum names ('spec'), formulas, and optionally 'smiles', 
+            'inchikey', and 'instrument' columns.
+        spec_folder (str, optional): Directory path containing spectrum files (e.g., `.ms` files).
+            If None, spectrum files will not be loaded from disk but inferred from labels.
+        max_count (Optional[int], optional): Maximum number of spectra to load. If None,
+            loads all available spectra. Defaults to None.
+        allow_none_smiles (bool, optional): If True, molecules with missing or None SMILES
+            are still loaded with empty/default molecule objects. If False, such entries
+            are excluded from the output. Defaults to False.
+        prog_bars (bool, optional): Whether to show progress bars during processing. Defaults to True.
+        collated_pkl (bool, optional): If True, loads spectra from a pre-collated pickle file
+            instead of individual spectrum files. Requires the path to the pickle file to
+            be passed via `collated_pkl_file` in kwargs. Defaults to False.
+        **kwargs: Additional keyword arguments passed to the `Spectra` constructor.
 
     Returns:
-        Tuple[List[Spectra], List[Mol]]: _description_
+        Tuple[List[Spectra], List[Mol]]:
+            - List of `Spectra` objects constructed from the spectral data.
+            - Corresponding list of `Mol` objects created from SMILES strings.
+            Both lists are filtered to only include molecules composed of allowed atom types:
+            atom_decoder = ('C', 'O', 'P', 'N', 'S', 'Cl', 'F', 'H').
+
+    Notes:
+        - If `collated_pkl` is True, the spectral data is loaded from a pickled DataFrame
+          instead of individual files, improving loading efficiency.
+        - Spectrum files are expected to have a `.ms` extension and be named consistently with
+          entries in the labels file.
+        - Filtering ensures only molecules with supported atoms remain in the final lists.
+        - Logging messages provide insight into loading progress and any fallbacks.
+        - TODO: Improve spaghetti, try to make method shorter and simpler
     """
     # First get labels
     compound_id_file = pd.read_csv(labels_file, sep="\t").astype(str)
@@ -160,13 +190,13 @@ def get_paired_spectra(
             for smiles, inchikey in tq(zip(spectra_smiles, spectra_inchikey))
         ]
         spectra_list = [spec for spec, smi in tq(zip(spectra_list, spectra_smiles))]
-    # remove any samples that contain atoms other than ['C', 'N', 'S', 'O', 'F', 'Cl', 'Br', 'H']
+    # remove any samples that contain atoms other than in atom_decoder
     updated_spectra_list = []
     updated_mol_list = []
     for spec, mol in zip(spectra_list, mol_list):
         if mol is not None:
             for atom in mol.get_rdkit_mol().GetAtoms():
-                if atom.GetSymbol() not in ['C', 'O', 'P', 'N', 'S', 'Cl', 'F', 'H']:
+                if atom.GetSymbol() not in atom_decoder:
                     break
             else:
                 updated_spectra_list.append(spec)
