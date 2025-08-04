@@ -200,7 +200,7 @@ class NeimsDataset(InMemoryDataset):
 
 class NeimsDataModule(MolecularDataModule):
     def __init__(self, cfg):
-        self.remove_h = False
+        self.remove_h = getattr(cfg.dataset, 'remove_h', False) or False
         self.datadir = cfg.dataset.datadir
         self.filter_dataset = cfg.dataset.filter
         self.train_smiles = []
@@ -217,7 +217,7 @@ class Neims_infos(AbstractDatasetInfos):
         self.name = datamodule.dataset_name
         self.input_dims = None
         self.output_dims = None
-        self.remove_h = False
+        self.remove_h = getattr(cfg.dataset, 'remove_h', False) or False
 
         self.atom_decoder = ATOM_DECODER
         self.atom_encoder = {atom: i for i, atom in enumerate(self.atom_decoder)}
