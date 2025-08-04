@@ -45,10 +45,10 @@ class Spec2MolDataModule(MolecularDataModule):
             graph_featurizer=featurizers.GraphFeaturizer(**cfg.dataset),
         )
 
-        spectra_mol_pairs = datasets.get_paired_spectra(**cfg.dataset)
+        spectra_mol_pairs = datasets.get_paired_spectra(atom_decoder=ATOM_DECODER, **cfg.dataset)
         spectra_mol_pairs = list(zip(*spectra_mol_pairs))
         # Redefine splitter s.t. this splits three times and remove subsetting
-        split_name, (train, val, test) = data_splitter.get_splits(spectra_mol_pairs)
+        _, (train, val, test) = data_splitter.get_splits(spectra_mol_pairs)
 
         # randomly shuffle test set with fixed seed
         random.seed(42)
@@ -197,7 +197,7 @@ class Spec2MolDatasetInfos(AbstractDatasetInfos):
             np.savetxt(meta_files["n_nodes"], self.n_nodes.numpy())
             self.max_n_nodes = len(self.n_nodes) - 1
         if recompute_statistics or self.node_types is None:
-            self.node_types = datamodule.node_types()                                     # There are no node types
+            self.node_types = datamodule.node_types()    # There are no node types
             print("Distribution of node types", self.node_types)
             np.savetxt(meta_files["node_types"], self.node_types.numpy())
 
