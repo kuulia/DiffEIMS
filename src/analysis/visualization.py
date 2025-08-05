@@ -7,6 +7,38 @@ import rdkit.Chem
 import wandb
 import matplotlib.pyplot as plt
 
+def fix_malformed_nitro(mol: Chem.Mol) -> Chem.Mol:
+    mol = Chem.RWMol(mol)
+    to_fix = []
+
+    for atom in mol.GetAtoms():
+        if atom.GetAtomicNum() != 7:  # Not nitrogen
+            continue
+        #if atom.GetDegree() != 3:
+        #    continue
+
+        o_double = None
+        o_single = None
+
+        for neighbor in atom.GetNeighbors():
+            if neighbor.GetAtomicNum() != 8:
+                continue
+            bond = mol.GetBondBetweenAtoms(atom.GetIdx(), neighbor.GetIdx())
+            if bond.GetBondType() == Chem.rdchem.BondType.DOUBLE:
+                o_double = neighbor
+            elif bond.GetBondType() == Chem.rdchem.BondType.SINGLE:
+                if len([nbr for nbr in neighbor.GetNeighbors() if nbr.GetIdx() != atom.GetIdx()]) == 0:
+                    o_single = neighbor
+
+        if o_double != None and o_single != None:
+            to_fix.append((atom.GetIdx(), o_single.GetIdx()))
+
+    # Apply fixes
+    for n_idx, o_idx in to_fix:
+        mol.GetAtomWithIdx(n_idx).SetFormalCharge(+1)
+        mol.GetAtomWithIdx(o_idx).SetFormalCharge(-1)
+
+    return mol.GetMol()
 
 class MolecularVisualization:
     def __init__(self, remove_h, dataset_infos):
@@ -53,9 +85,14 @@ class MolecularVisualization:
 
         try:
             mol = mol.GetMol()
+            if self.remove_h:
+                mol = Chem.RemoveHs(mol, sanitize=False)
+            mol = fix_malformed_nitro(mol)
+
         except rdkit.Chem.KekulizeException:
             print("Can't kekulize molecule")
             mol = None
+        
         return mol
 
     def visualize(self, path: str, molecules: list, num_molecules_to_visualize: int, log='graph'):
