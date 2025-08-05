@@ -25,4 +25,4 @@ set_pooling: 'intensity' # intensity | mean | root | cls
 max_count: null
 collated_pkl: True
 collated_pkl_file: 'df_neims_gecko_3_9_22.pkl'
-eval_model_path: '../data/checkpoints/checkpoints/full_model_enc_w_dec.ckpt'
+eval_model_path: '../outputs/2025-08-04/20-56-26-dev/checkpoints/dev/epoch=46.ckpt'
