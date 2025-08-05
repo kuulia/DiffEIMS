@@ -11,6 +11,18 @@ from rdkit.Chem import DataStructs
 from src.utils import is_valid, canonical_mol_from_inchi
 
 class K_ACC:
+    """
+    Top-K Accuracy metric for molecule generation tasks.
+
+    This metric measures how often the correct (true) InChI is among the
+    top-k generated InChIs. It is commonly used in generative models to evaluate
+    retrieval or ranking performance.
+
+    Attributes:
+        k (int): The number of top predictions to consider.
+        correct (int): Number of correct predictions so far.
+        total (int): Total number of evaluated examples.
+    """
     def __init__(self, k: int):
         self.correct = 0
         self.total = 0
