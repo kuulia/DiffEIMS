@@ -8,12 +8,14 @@ wandb_name: 'mass_spec_exp'
 gpus: 1                     # Multi-gpu is not implemented on this branch
 
 
-decoder: 'data/checkpoints/checkpoints/encoder_test/decoder.pt' # path to pretrained decoder
+decoder: '../../../data/checkpoints/checkpoints/best/0/decoder.pt' # path to pretrained decoder
 encoder: null # path to pretrained encoder
 
 resume: null # If resume, path to ckpt file from outputs direpctory in main directory
 test_only: null
 load_weights: null
+
+skip_test: True
 
 encoder_finetune_strategy: null # null | freeze | ft-unfold | freeze-unfold | freeze-transformer | ft-transformer
 decoder_finetune_strategy: freeze  # null | freeze | ft-input | freeze-input | ft-transformer | freeze-transformer | ft-output 
