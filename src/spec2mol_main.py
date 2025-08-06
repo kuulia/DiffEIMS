@@ -106,6 +106,11 @@ def apply_encoder_finetuning(model, strategy):
             layer = param[0].split('.')[1]
             if layer == '0':
                 param[1].requires_grad = False
+    elif strategy == 'ft-spectra-fragment':
+        for name, param in model.encoder.named_parameters():
+            layer = name.split('.')[1]
+            if layer not in ['0', '1']:  # L0 = spectra embedder, L1 = fragment predictor
+                param.requires_grad = False
     else:
         raise NotImplementedError(f'Unknown Finetune Strategy: {strategy}')
     
