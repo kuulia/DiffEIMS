@@ -276,8 +276,10 @@ def main(cfg: DictConfig):
 
     if not cfg.general.test_only:
         trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.general.resume)
-        if cfg.general.name not in ['debug', 'test']:
+        if cfg.general.name not in ['debug', 'test'] and not getattr(cfg.general, "skip_test", False):
             trainer.test(model, datamodule=datamodule, ckpt_path=cfg.general.checkpoint_strategy)
+        else:
+            logging.info('Skipped test epoch')
     else:
         # Start by evaluating test_only_path
         trainer.test(model, datamodule=datamodule, ckpt_path=cfg.general.test_only)
