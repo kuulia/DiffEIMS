@@ -1,27 +1,27 @@
-name: neims
-remove_h: True
-stats_dir: null
-datadir: '../../../data/neims'
-filter: False
-denoise_nodes: False
-merge: 'downproject_4096'  # 'none' | 'mist_fp' | 'merge-encoder_output-linear' |  'merge-encoder_output-mlp' | 'downproject_4096'
-morgan_nbits: 2048
-morgan_r: 2
+name: neims # Name of the dataset/config.
+remove_h: True # 	Remove explicit hydrogens from molecular graphs.
+stats_dir: null # 	Directory for dataset statistics (if any).
+datadir: '../../../data/neims' # 	Root directory for dataset files.
+filter: False # filter_dataset, checks dataset for invalid molecules and disconnected molecules
+denoise_nodes: False # 	Apply denoising to molecular graph node features.
+merge: 'downproject_4096'  # 'none' | 'mist_fp' | 'merge-encoder_output-linear' |  'merge-encoder_output-mlp' | 'downproject_4096', Combine spectrum and moelcule embeddings
+morgan_nbits: 2048 # 	Morgan fingerprint size (number of bits).
+morgan_r: 2 # 	Morgan fingerprint radius.
 split_file: '../../../data/neims/split.tsv'
-spec_features: 'peakformula'
-mol_features: 'fingerprint'
-subform_folder: '../../../data/neims/subformulae/subformulae_default/subforms'
-augment_data: False
-remove_prob: 0.1
-remove_weights: 'quadratic' # exp | quadratic | uniform
-inten_prob: 0.1
-inten_transform: 'float' # float | zero | log | cat
-cls_type: 'zeros' # zeros | ms1
-magma_aux_loss: False
-labels_file: '../../../data/neims/labels.tsv'
-spec_folder: '../../../data/neims/spec_files'
-cache_featurizers: False
+spec_features: 'peakformula' # 'null' | 'binned' | 'mz_xformer' | 'peakformula', called in get_spec_featurizer()
+mol_features: 'fingerprint' # 'null' | 'fingerprint', FingerprintFeaturizer
+subform_folder: '../../../data/neims/subformulae/subformulae_default/subforms' # Subformulae files for peakformula featurization. TODO: MIST preprocessing script: assign_subforms
+augment_data: False # Enable PeakFormula.augment_peak_dict
+remove_prob: 0.1 # 0.0-1.0 Affected when augment_data: True
+remove_weights: 'uniform' # exp | quadratic | uniform, Affected when augment_data: True
+inten_prob: 0.1 # 0.0-1.0 Affected when augment_data: True, gaussian perturbation for intensity 
+inten_transform: 'log' # float | zero | log | cat, intensity scaling method
+cls_type: 'zeros' # zeros | ms1, cls token, special token behavior for ms/ms data
+magma_aux_loss: False # add magma in PeakFormula when spec_features: peakformula
+labels_file: '../../../data/neims/labels.tsv'  # Labels data with columns: dataset,	spec, ionization, formula, smiles, inchikey, instrument
+spec_folder: '../../../data/neims/spec_files'  # Folder containing spectrum files OR .pkl
+cache_featurizers: False  # Featurization caching, safer to keep at False
 set_pooling: 'intensity' # intensity | mean | root | cls
-max_count: null
-collated_pkl: True
-collated_pkl_file: 'df_neims_gecko_3_9_22.pkl'
+max_count: null # max number of intensity peaks
+collated_pkl: True  # Enable when using collated_pkl_file instead of spectrum files (avoiding expensive I/O)
+collated_pkl_file: 'df_neims_gecko_3_9_22.pkl' # contains df of SMILES and spec array: 'C(=O)([N+](=O)[O-])'    [[mz_1, intensity_1], [mz_2, intensity_2], ...]
