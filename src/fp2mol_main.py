@@ -204,7 +204,7 @@ def main(cfg: DictConfig):
         checkpoint_callback = ModelCheckpoint(dirpath=f"checkpoints/{cfg.general.name}", # best (top-5) checkpoints
                                               filename='{epoch}',
                                               monitor='val/NLL',
-                                              save_top_k=3,
+                                              save_top_k=1,
                                               mode='min',
                                               every_n_epochs=1)
         last_ckpt_save = ModelCheckpoint(dirpath=f"checkpoints/{cfg.general.name}", filename='last', every_n_epochs=1) # most recent checkpoint
