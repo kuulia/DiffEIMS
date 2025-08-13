@@ -276,11 +276,11 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
         if val_nll < self.best_val_nll:
             self.best_val_nll = val_nll
         logging.info(f"Val NLL: {val_nll :.4f} \t Best Val NLL:  {self.best_val_nll}")
-
+        '''
         if self.current_epoch % 10 == 0 or self.current_epoch == self.n_epochs - 1:
             # save self.decoder to models/graph_transformer_{epoch}.pt
             torch.save(self.decoder.state_dict(), f"models/graph_transformer_{self.current_epoch}.pt")
-
+        '''
     def on_test_epoch_start(self) -> None:
         logging.info("Starting test...")
         self.test_nll.reset()
