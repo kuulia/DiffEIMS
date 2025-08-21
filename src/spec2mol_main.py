@@ -256,7 +256,7 @@ def main(cfg: DictConfig):
         os.chdir(cfg.general.resume.split('checkpoints')[0])
         logging.info("Read checkpoint config from get_resume_adaptive()")
     
-    utils.log_nonstatic_cfg(cfg, logger) # pretty print important params of the configs
+    utils.log_nonstatic_cfg(cfg) # pretty print important params of the configs
 
     utils.make_result_dirs(['preds/', 'logs/', 'models/', f'logs/{cfg.general.name}'])
 

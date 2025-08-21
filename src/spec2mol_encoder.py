@@ -199,7 +199,6 @@ def load_weights(model, path):
 
 @hydra.main(version_base='1.3', config_path='../configs', config_name='config_encoder')
 def main(cfg: DictConfig):
-
     logger = logging.getLogger("msms_main")
     logger.setLevel(logging.INFO)
 
@@ -257,9 +256,10 @@ def main(cfg: DictConfig):
         os.chdir(cfg.general.resume.split('checkpoints')[0])
         logging.info("Read checkpoint config from get_resume_adaptive()")
     
-    utils.log_nonstatic_cfg(cfg, logger) # pretty print important params of the configs
+    utils.log_nonstatic_cfg(cfg) # pretty print important params of the configs
 
     utils.make_result_dirs(['preds/', 'logs/', 'models/', f'logs/{cfg.general.name}'])
+    
     model = Spec2MolDenoisingDiffusion(cfg=cfg, **model_kwargs)
 
     callbacks = []

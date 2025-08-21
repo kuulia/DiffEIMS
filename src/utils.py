@@ -277,13 +277,13 @@ def get_nonstatic_cfg_params(cfg: omegaconf.DictConfig) -> Tuple[str, str, str, 
     return dataset_cfg, general_cfg, train_cfg, model_cfg
 
 
-def log_nonstatic_cfg(cfg, logger: logging.Logger):
+def log_nonstatic_cfg(cfg, *, 
+                      logger: logging.Logger | None = None) -> NoReturn:
     """
     Logs the important, non-static parts of a configuration object in a structured format.
 
     This function extracts key parameters from each section of the config (dataset, general,
-    train, model) and logs them using the provided logger. Sections are separated by
-    visual delimiters for clarity.
+    train, model) and logs them using the provided logger.
 
     Parameters
     ----------
@@ -300,15 +300,9 @@ def log_nonstatic_cfg(cfg, logger: logging.Logger):
     """
     dataset_cfg, general_cfg, train_cfg, model_cfg = get_nonstatic_cfg_params(cfg)
     
-    sep = "="*40
-    mid_sep = "--"*20
-    
-    logger.info(sep)
+    if logger is None:
+        logger = logging
     logger.info("Dataset config:\n%s", dataset_cfg)
-    logger.info(mid_sep)
     logger.info("General config:\n%s", general_cfg)
-    logger.info(mid_sep)
     logger.info("Training config:\n%s", train_cfg)
-    logger.info(mid_sep)
     logger.info("Model config:\n%s", model_cfg)
-    logger.info(sep)
