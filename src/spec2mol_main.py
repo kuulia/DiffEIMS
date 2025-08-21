@@ -73,7 +73,7 @@ def get_resume(cfg, model_kwargs):
     cfg.general.val_samples_to_generate = val_samples_to_generate
     cfg.general.test_samples_to_generate = test_samples_to_generate
     cfg.general.num_test_samples = num_test_samples
-    cfg.general.eval_batch_size = eval_batch_size
+    cfg.train.eval_batch_size = eval_batch_size
     cfg = utils.update_config_with_new_keys(cfg, saved_cfg)
     ###############################################################
     return cfg, model
