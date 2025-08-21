@@ -1,20 +1,20 @@
 name: neims # Name of the dataset/config.
-remove_h: True # 	Remove explicit hydrogens from molecular graphs.
-stats_dir: null # 	Directory for dataset statistics (if any).
-datadir: '../../../data/neims' # 	Root directory for dataset files.
+remove_h: True # Remove explicit hydrogens from molecular graphs.
+stats_dir: null # Directory for dataset statistics (if any).
+datadir: '../../../data/neims' # Root directory for dataset files.
 filter: False # filter_dataset, checks dataset for invalid molecules and disconnected molecules
-denoise_nodes: False # 	Apply denoising to molecular graph node features.
+denoise_nodes: False # Apply denoising to molecular graph node features.
 merge: 'downproject_4096'  # 'none' | 'mist_fp' | 'merge-encoder_output-linear' |  'merge-encoder_output-mlp' | 'downproject_4096', Combine spectrum and moelcule embeddings
-morgan_nbits: 2048 # 	Morgan fingerprint size (number of bits).
-morgan_r: 2 # 	Morgan fingerprint radius.
+morgan_nbits: 2048 # Morgan fingerprint size (number of bits).
+morgan_r: 2 # Morgan fingerprint radius.
 split_file: '../../../data/neims/split.tsv'
 spec_features: 'peakformula' # 'null' | 'binned' | 'mz_xformer' | 'peakformula', called in get_spec_featurizer()
 mol_features: 'fingerprint' # 'null' | 'fingerprint', FingerprintFeaturizer
 subform_folder: '../../../data/neims/subformulae/subformulae_default/subforms' # Subformulae files for peakformula featurization. TODO: MIST preprocessing script: assign_subforms
 augment_data: False # Enable PeakFormula.augment_peak_dict
 remove_prob: 0.1 # 0.0-1.0 Affected when augment_data: True
-remove_weights: 'uniform' # exp | quadratic | uniform, Affected when augment_data: True
-inten_prob: 0.1 # 0.0-1.0 Affected when augment_data: True, gaussian perturbation for intensity 
+remove_weights: 'quadratic' # exp | quadratic | uniform, Affected when augment_data: True
+inten_prob: 0.25 # 0.0-1.0 Affected when augment_data: True, gaussian perturbation for intensity 
 inten_transform: 'log' # float | zero | log | cat, intensity scaling method
 cls_type: 'zeros' # zeros | ms1, cls token, special token behavior for ms/ms data
 magma_aux_loss: False # add magma in PeakFormula when spec_features: peakformula

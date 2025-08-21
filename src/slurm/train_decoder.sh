@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=tr_diffms_dec
 #SBATCH --output=%A_%a.out
-#SBATCH --time=36:00:00
+#SBATCH --time=30:00:00
 #SBATCH --mem=32G
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:h200:1
