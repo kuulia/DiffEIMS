@@ -1,5 +1,5 @@
 import os
-from typing import List, NoReturn, Tuple
+from typing import List, NoReturn, Tuple, Optional
 
 import numpy as np
 import torch_geometric.utils
@@ -278,7 +278,7 @@ def get_nonstatic_cfg_params(cfg: omegaconf.DictConfig) -> Tuple[str, str, str, 
 
 
 def log_nonstatic_cfg(cfg, *, 
-                      logger: logging.Logger | None = None) -> NoReturn:
+                      logger: Optional[logging.Logger] = None) -> NoReturn:
     """
     Logs the important, non-static parts of a configuration object in a structured format.
 
