@@ -225,17 +225,7 @@ def make_result_dirs(dirs_to_create: list[str]) -> NoReturn:
 
     for path in dirs_to_create:
         os.makedirs(path, exist_ok=True)
-'''
-n_epochs: 75
-batch_size: 64
-eval_batch_size: 1024
-lr: 0.0002 # 0.0015 for training, 0.0002 for fine-tuning
-optimizer: adamw # adamw | nadamw | nadam | radam
-scheduler: 'one_cycle' # 'const' | 'one_cycle'
-pct_start: 0.3
-seed: 42
-limit_val_batches: 1.0 # 'float', 1.0 default (full val batch)
-'''
+
 def get_nonstatic_cfg_params(cfg: omegaconf.DictConfig) -> Tuple[str, str, str, str]:
     """Get only important, non-static parts of the config."""
     

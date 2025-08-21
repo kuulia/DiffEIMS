@@ -63,13 +63,14 @@ def get_resume(cfg, model_kwargs):
         model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, map_location=torch.device('cpu'), **model_kwargs)
     else:
         model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, **model_kwargs)
+        logging.info(f'Loaded Spec2MolDenoisingDiffusion from {resume}')
 
     cfg = model.cfg # Load old cfg from checkpoint
 
     ################################################################
     # Override old cfg params
-    cfg.general.test_only = resume
     cfg.general.name = name
+    cfg.general.test_only = resume
     cfg.general.val_samples_to_generate = val_samples_to_generate
     cfg.general.test_samples_to_generate = test_samples_to_generate
     cfg.general.num_test_samples = num_test_samples

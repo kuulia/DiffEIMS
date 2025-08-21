@@ -69,8 +69,8 @@ def get_resume(cfg, model_kwargs):
 
     ################################################################
     # Override old cfg params
-    cfg.general.test_only = resume
     cfg.general.name = name
+    cfg.general.test_only = resume
     cfg.general.val_samples_to_generate = val_samples_to_generate
     cfg.general.test_samples_to_generate = test_samples_to_generate
     cfg.general.num_test_samples = num_test_samples
