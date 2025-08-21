@@ -33,24 +33,49 @@ RDLogger.DisableLog('rdApp.*')
 print(sys.path)
 
 def get_resume(cfg, model_kwargs):
-    """ Resumes a run. It loads previous config without allowing to update keys (used for testing). """
+    """
+    Resume a run from a saved Lightning checkpoint.
+
+    This function restores the model and its saved config (`model.cfg`) 
+    from the checkpoint, while allowing a limited set of parameters 
+    (e.g., evaluation-related) to be overridden for testing or resuming.  
+
+    Notes:
+        - Most training parameters cannot be overridden for .ckpt checkpoints
+        - Only a small set of keys is overridden (e.g., eval batch size, 
+          test-only settings, number of samples).
+        - New keys added in the provided `cfg` are merged into the 
+          loaded config, but existing ones are not overwritten.
+    """
     saved_cfg = cfg.copy()
+
+    ###############################################################
+    # Save new cfg params
     name = cfg.general.name + '_resume'
     resume = cfg.general.test_only
     val_samples_to_generate = cfg.general.val_samples_to_generate
     test_samples_to_generate = cfg.general.test_samples_to_generate
-    
+    num_test_samples = cfg.general.num_test_samples
+    eval_batch_size = cfg.train.eval_batch_size
+    ###############################################################
+
     if cfg.general.force_cpu:
         model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, map_location=torch.device('cpu'), **model_kwargs)
     else:
         model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, **model_kwargs)
 
-    cfg = model.cfg
+    cfg = model.cfg # Load old cfg from checkpoint
+
+    ################################################################
+    # Override old cfg params
     cfg.general.test_only = resume
     cfg.general.name = name
     cfg.general.val_samples_to_generate = val_samples_to_generate
     cfg.general.test_samples_to_generate = test_samples_to_generate
+    cfg.general.num_test_samples = num_test_samples
+    cfg.general.eval_batch_size = eval_batch_size
     cfg = utils.update_config_with_new_keys(cfg, saved_cfg)
+    ###############################################################
     return cfg, model
 
 
