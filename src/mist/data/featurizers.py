@@ -698,6 +698,7 @@ class PeakFormula(SpecFeaturizer):
         subform_file = Path(self.spec_name_to_subform_file[spec_name])
 
         if not subform_file.exists():
+            logging.warning(f'{subform_file} does not exist!')
             return {}
 
         with open(subform_file, "r") as fp:
