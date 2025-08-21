@@ -199,6 +199,8 @@ def load_weights(model, path):
 
 @hydra.main(version_base='1.3', config_path='../configs', config_name='config')
 def main(cfg: DictConfig):
+    name: str = cfg.general.name
+    utils.make_result_dirs(['preds/', 'logs/', 'models/', f'logs/{name}'])
     logger = logging.getLogger("msms_main")
     logger.setLevel(logging.INFO)
 
@@ -247,45 +249,37 @@ def main(cfg: DictConfig):
 
     if cfg.general.test_only:
         # When testing, previous configuration is fully loaded
-        cfg, _ = get_resume(cfg, model_kwargs)
+        cfg, model = get_resume(cfg, model_kwargs)
         os.chdir(cfg.general.test_only.split('checkpoints')[0])
         logging.info("Read checkpoint config from get_resume()")
     elif cfg.general.resume is not None:
         # When resuming, we can override some parts of previous configuration
-        cfg, _ = get_resume_adaptive(cfg, model_kwargs)
+        cfg, model = get_resume_adaptive(cfg, model_kwargs)
         os.chdir(cfg.general.resume.split('checkpoints')[0])
         logging.info("Read checkpoint config from get_resume_adaptive()")
+    else:
+        model = Spec2MolDenoisingDiffusion(cfg=cfg, **model_kwargs)
     
     utils.log_nonstatic_cfg(cfg) # pretty print important params of the configs
-
-    utils.make_result_dirs(['preds/', 'logs/', 'models/', f'logs/{cfg.general.name}'])
-
-    model = Spec2MolDenoisingDiffusion(cfg=cfg, **model_kwargs)
 
     callbacks = []
     callbacks.append(LearningRateMonitor(logging_interval='step'))
     if cfg.train.save_model: # TODO: More advanced checkpointing
-        checkpoint_callback = ModelCheckpoint(dirpath=f"checkpoints/{cfg.general.name}", # best (top-5) checkpoints
+        checkpoint_callback = ModelCheckpoint(dirpath=f"checkpoints/{name}", # best (top-5) checkpoints
                                               filename='{epoch}',
                                               monitor='val/NLL',
                                               save_top_k=1,
                                               mode='min',
                                               every_n_epochs=1)
-        last_ckpt_save = ModelCheckpoint(dirpath=f"checkpoints/{cfg.general.name}", filename='last', every_n_epochs=1) # most recent checkpoint
+        last_ckpt_save = ModelCheckpoint(dirpath=f"checkpoints/{name}", filename='last', every_n_epochs=1) # most recent checkpoint
         callbacks.append(last_ckpt_save)
         callbacks.append(checkpoint_callback)
 
-    if cfg.train.ema_decay > 0:
-        ema_callback = utils.EMA(decay=cfg.train.ema_decay)
-        callbacks.append(ema_callback)
-
-    name = cfg.general.name
     if name == 'debug':
         logging.warning("Run is called 'debug' -- it will run with fast_dev_run. ")
 
     loggers = [
         CSVLogger(save_dir=f"logs/{name}", name=name),
-        #WandbLogger(name=name, save_dir=f"logs/{name}", project=cfg.general.wandb_name, log_model=False, config=utils.cfg_to_dict(cfg))
     ]
 
     use_gpu = cfg.general.gpus > 0 and torch.cuda.is_available()
@@ -295,7 +289,7 @@ def main(cfg: DictConfig):
                       devices=cfg.general.gpus if use_gpu else 1,
                       max_epochs=cfg.train.n_epochs,
                       check_val_every_n_epoch=cfg.general.check_val_every_n_epochs,
-                      fast_dev_run=cfg.general.name == 'debug',
+                      fast_dev_run=name == 'debug',
                       callbacks=callbacks,
                       log_every_n_steps=50 if name != 'debug' else 1,
                       limit_val_batches=cfg.train.limit_val_batches,
@@ -309,7 +303,7 @@ def main(cfg: DictConfig):
 
     if not cfg.general.test_only:
         trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.general.resume)
-        if cfg.general.name not in ['debug', 'test'] and not getattr(cfg.general, "skip_test", False):
+        if name not in ['debug', 'test'] and not getattr(cfg.general, "skip_test", False):
             trainer.test(model, datamodule=datamodule, ckpt_path=cfg.general.checkpoint_strategy)
         else:
             logging.info('Skipped test epoch')
