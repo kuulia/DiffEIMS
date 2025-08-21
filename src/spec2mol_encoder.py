@@ -200,6 +200,7 @@ def load_weights(model, path):
 @hydra.main(version_base='1.3', config_path='../configs', config_name='config_encoder')
 def main(cfg: DictConfig):
     name: str = cfg.general.name
+    resume: str | None = cfg.general.resume # Resume path or None
     utils.make_result_dirs(['preds/', 'logs/', 'models/', f'logs/{name}'])
     logger = logging.getLogger("msms_main")
     logger.setLevel(logging.INFO)
@@ -252,10 +253,10 @@ def main(cfg: DictConfig):
         cfg, model = get_resume(cfg, model_kwargs)
         os.chdir(cfg.general.test_only.split('checkpoints')[0])
         logging.info("Read checkpoint config from get_resume()")
-    elif cfg.general.resume is not None:
+    elif resume is not None:
         # When resuming, we can override some parts of previous configuration
         cfg, model = get_resume_adaptive(cfg, model_kwargs)
-        os.chdir(cfg.general.resume.split('checkpoints')[0])
+        os.chdir(resume.split('checkpoints')[0])
         logging.info("Read checkpoint config from get_resume_adaptive()")
     else:
         model = Spec2MolDenoisingDiffusion(cfg=cfg, **model_kwargs)
@@ -302,14 +303,14 @@ def main(cfg: DictConfig):
         model = load_weights(model, cfg.general.load_weights)
 
     if not cfg.general.test_only:
-        trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.general.resume)
+        trainer.fit(model, datamodule=datamodule, ckpt_path=resume)
         if name not in ['debug', 'test'] and not getattr(cfg.general, "skip_test", False):
             trainer.test(model, datamodule=datamodule, ckpt_path=cfg.general.checkpoint_strategy)
         else:
             logging.info('Skipped test epoch')
     else:
         # Start by evaluating test_only_path
-        trainer.test(model, datamodule=datamodule, ckpt_path=cfg.general.test_only)
+        trainer.test(model, datamodule=datamodule)
         if cfg.general.evaluate_all_checkpoints:
             directory = pathlib.Path(cfg.general.test_only).parents[0]
             logging.info("Directory:", directory)
