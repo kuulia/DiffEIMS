@@ -217,13 +217,12 @@ def main(cfg: DictConfig):
 
     logger.addHandler(fh)
 
+    logging.info('Read config')
     logging.info(cfg)
 
     dataset_config = cfg["dataset"]
 
-    if dataset_config["name"] == 'neims':
-        logging.info("### NEIMS CONFIG LOADED ###")
-    elif dataset_config["name"] not in ("canopus", "msg"):
+    if dataset_config["name"] not in ("canopus", "msg", "neims"):
         raise NotImplementedError("Unknown dataset {}".format(cfg["dataset"]))
 
     datamodule = spec2mol_dataset.Spec2MolDataModule(cfg) # TODO: Add hyper for n_bits
@@ -250,10 +249,14 @@ def main(cfg: DictConfig):
         # When testing, previous configuration is fully loaded
         cfg, _ = get_resume(cfg, model_kwargs)
         os.chdir(cfg.general.test_only.split('checkpoints')[0])
+        logging.info("Read checkpoint config from get_resume()")
     elif cfg.general.resume is not None:
         # When resuming, we can override some parts of previous configuration
         cfg, _ = get_resume_adaptive(cfg, model_kwargs)
         os.chdir(cfg.general.resume.split('checkpoints')[0])
+        logging.info("Read checkpoint config from get_resume_adaptive()")
+    
+    utils.log_nonstatic_cfg(cfg, logger) # pretty print important params of the configs
 
     utils.make_result_dirs(['preds/', 'logs/', 'models/', f'logs/{cfg.general.name}'])
 

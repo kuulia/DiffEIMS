@@ -1,10 +1,11 @@
 import os
-from typing import List, NoReturn
+from typing import List, NoReturn, Tuple
 
 import numpy as np
 import torch_geometric.utils
 from omegaconf import OmegaConf, open_dict
 from torch_geometric.utils import to_dense_adj, to_dense_batch
+import logging
 import torch
 import omegaconf
 import wandb
@@ -224,3 +225,90 @@ def make_result_dirs(dirs_to_create: list[str]) -> NoReturn:
 
     for path in dirs_to_create:
         os.makedirs(path, exist_ok=True)
+'''
+n_epochs: 75
+batch_size: 64
+eval_batch_size: 1024
+lr: 0.0002 # 0.0015 for training, 0.0002 for fine-tuning
+optimizer: adamw # adamw | nadamw | nadam | radam
+scheduler: 'one_cycle' # 'const' | 'one_cycle'
+pct_start: 0.3
+seed: 42
+limit_val_batches: 1.0 # 'float', 1.0 default (full val batch)
+'''
+def get_nonstatic_cfg_params(cfg: omegaconf.DictConfig) -> Tuple[str, str, str, str]:
+    """Get only important, non-static parts of the config."""
+    
+    if getattr(cfg.dataset, "augment_data", False):
+        params = {
+            "dataset": ["name", "remove_h", "augment_data", "remove_prob", "remove_weights",
+                        "inten_prob", "inten_transform", "set_pooling", "collated_pkl_file"],
+            "general": ["decoder", "encoder", "resume", "test_only", "load_weights",
+                        "encoder_finetune_strategy", "decoder_finetune_strategy",
+                        "val_samples_to_generate", "test_samples_to_generate",
+                        "num_test_samples"],
+            "train": ["n_epochs", "batch_size", "eval_batch_size", "lr", 
+                      "optimizer", "scheduler", "limit_val_batches"],
+            "model": ["lambda_train"]
+        }
+    else:
+        params = {
+            "dataset": ["name", "remove_h", "augment_data", "inten_transform", 
+                        "set_pooling", "collated_pkl_file"],
+            "general": ["decoder", "encoder", "resume", "test_only", "load_weights",
+                        "encoder_finetune_strategy", "decoder_finetune_strategy",
+                        "val_samples_to_generate", "test_samples_to_generate",
+                        "num_test_samples"],
+            "train": ["n_epochs", "batch_size", "eval_batch_size", "lr", 
+                      "optimizer", "scheduler", "limit_val_batches"],
+            "model": ["lambda_train"]
+        }
+
+    def extract_section(section: str):
+        return {
+            k: getattr(cfg[section], k) for k in params[section] if k in cfg[section]
+        }
+
+    dataset_cfg = OmegaConf.to_yaml(extract_section("dataset"), resolve=True)
+    general_cfg = OmegaConf.to_yaml(extract_section("general"), resolve=True)
+    train_cfg   = OmegaConf.to_yaml(extract_section("train"), resolve=True)
+    model_cfg   = OmegaConf.to_yaml(extract_section("model"), resolve=True)
+
+    return dataset_cfg, general_cfg, train_cfg, model_cfg
+
+
+def log_nonstatic_cfg(cfg, logger: logging.Logger):
+    """
+    Logs the important, non-static parts of a configuration object in a structured format.
+
+    This function extracts key parameters from each section of the config (dataset, general,
+    train, model) and logs them using the provided logger. Sections are separated by
+    visual delimiters for clarity.
+
+    Parameters
+    ----------
+    cfg : Any
+        The configuration object, typically an OmegaConf DictConfig, containing dataset,
+        general, train, and model sections.
+    logger : logging.Logger
+        The logger instance to use for logging the configuration.
+
+    Notes
+    -----
+    - The function relies on `get_nonstatic_cfg_params(cfg)` to extract relevant config entries.
+    - No logging configuration (handlers, level) is modified; it uses the provided logger.
+    """
+    dataset_cfg, general_cfg, train_cfg, model_cfg = get_nonstatic_cfg_params(cfg)
+    
+    sep = "="*40
+    mid_sep = "--"*20
+    
+    logger.info(sep)
+    logger.info("Dataset config:\n%s", dataset_cfg)
+    logger.info(mid_sep)
+    logger.info("General config:\n%s", general_cfg)
+    logger.info(mid_sep)
+    logger.info("Training config:\n%s", train_cfg)
+    logger.info(mid_sep)
+    logger.info("Model config:\n%s", model_cfg)
+    logger.info(sep)
