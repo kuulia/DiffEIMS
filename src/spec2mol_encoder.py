@@ -252,12 +252,10 @@ def main(cfg: DictConfig):
     if cfg.general.test_only:
         # When testing, previous configuration is fully loaded
         cfg, model = get_resume(cfg, model_kwargs)
-        os.chdir(cfg.general.test_only.split('checkpoints')[0])
         logging.info("Read checkpoint config from get_resume()")
     elif resume is not None:
         # When resuming, we can override some parts of previous configuration
         cfg, model = get_resume_adaptive(cfg, model_kwargs)
-        os.chdir(resume.split('checkpoints')[0])
         logging.info("Read checkpoint config from get_resume_adaptive()")
     else:
         model = Spec2MolDenoisingDiffusion(cfg=cfg, **model_kwargs)
