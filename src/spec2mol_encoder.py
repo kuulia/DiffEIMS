@@ -58,15 +58,12 @@ def get_resume(cfg, model_kwargs):
     num_test_samples = cfg.general.num_test_samples
     eval_batch_size = cfg.train.eval_batch_size
     ###############################################################
+    map_loc = torch.device('cpu') if cfg.general.force_cpu else None
 
-    if cfg.general.force_cpu:
-        model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, map_location=torch.device('cpu'), **model_kwargs)
-    else:
-        model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, **model_kwargs)
-        logging.info(f'Loaded Spec2MolDenoisingDiffusion from {resume}')
-
-    cfg = model.cfg # Load old cfg from checkpoint
-
+    cfg = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, 
+                                                            map_location=map_loc, 
+                                                            **model_kwargs).cfg
+    logging.info(f'Loaded cfg from {resume}')
     ################################################################
     # Override old cfg params
     cfg.general.name = name
@@ -77,6 +74,10 @@ def get_resume(cfg, model_kwargs):
     cfg.train.eval_batch_size = eval_batch_size
     cfg = utils.update_config_with_new_keys(cfg, saved_cfg)
     ###############################################################
+    model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, 
+                                                            map_location=map_loc,
+                                                            cfg = cfg, 
+                                                            **model_kwargs)
     return cfg, model
 
 

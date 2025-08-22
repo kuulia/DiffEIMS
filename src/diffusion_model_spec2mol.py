@@ -456,6 +456,13 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.test_validity.reset()
         self.test_CE.reset()
 
+
+        self._test_start_time = time.time()
+        logging.info(f"Test configuration:")
+        logging.info(f"  Number of test samples: {self.cfg.general.num_test_samples}")
+        logging.info(f"  Evaluation batch size: {self.cfg.train.eval_batch_size}")
+        logging.info(f"  Number of samples to generate: {self.cfg.general.test_samples_to_generate}")
+
     def test_step(self, batch, i):
         output, aux = self.encoder(batch)
 
@@ -508,6 +515,13 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                 self.test_k_acc.update(predicted_mols[idx], true_mols[idx])
                 self.test_sim_metrics.update(predicted_mols[idx], true_mols[idx])
                 self.test_validity.update(predicted_mols[idx])
+        
+        # Compute progress
+        total_batches = math.ceil(self.cfg.general.num_test_samples / self.cfg.train.eval_batch_size)
+        elapsed = time.time() - self._test_start_time
+        avg_time_per_batch = elapsed / (i + 1)
+
+        logging.info(f"Test progress: Batch {i+1}/{total_batches} -- {avg_time_per_batch:.1f}s per batch")
 
         return {'loss': nll}
 
