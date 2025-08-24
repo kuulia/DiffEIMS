@@ -131,7 +131,7 @@ class NeimsDataset(InMemoryDataset):
 
         if self.stage == 'train': self.file_idx = 0
         elif self.stage == 'val': self.file_idx = 1
-        elif self.stage == 'test': self.file_idx = 1
+        elif self.stage == 'test': self.file_idx = 2
         else: raise ValueError(f"Invalid stage {self.stage}")
 
         super().__init__(root, None, pre_transform, pre_filter)
@@ -143,11 +143,11 @@ class NeimsDataset(InMemoryDataset):
 
     @property
     def raw_file_names(self):
-        return [f"{self.dataset}_train.csv", f"{self.dataset}_val.csv"]
+        return [f"{self.dataset}_train.csv", f"{self.dataset}_val.csv", f"{self.dataset}_test.csv"]
 
     @property
     def split_file_name(self):
-        return [f"{self.dataset}_train.csv", f"{self.dataset}_val.csv"]
+        return [f"{self.dataset}_train.csv", f"{self.dataset}_val.csv", f"{self.dataset}_test.csv"]
 
 
     @property
@@ -206,9 +206,18 @@ class NeimsDataModule(MolecularDataModule):
         self.train_smiles = []
         self.dataset_name = cfg.dataset.name
         self._root_path = os.path.join(cfg.general.parent_dir, self.datadir, self.dataset_name)
-        datasets = {'train': NeimsDataset(stage='train', root=self._root_path, filter_dataset=self.filter_dataset, morgan_r=cfg.dataset.morgan_r, morgan_nBits=cfg.dataset.morgan_nbits, dataset=cfg.dataset.name),
-                    'val': NeimsDataset(stage='val', root=self._root_path, filter_dataset=self.filter_dataset, morgan_r=cfg.dataset.morgan_r, morgan_nBits=cfg.dataset.morgan_nbits, dataset=cfg.dataset.name),
-                    'test': NeimsDataset(stage='val', root=self._root_path, filter_dataset=self.filter_dataset, morgan_r=cfg.dataset.morgan_r, morgan_nBits=cfg.dataset.morgan_nbits, dataset=cfg.dataset.name)}
+        module_kwargs = dict(
+            root=self._root_path,
+            filter_dataset=self.filter_dataset,
+            morgan_r=cfg.dataset.morgan_r,
+            morgan_nBits=cfg.dataset.morgan_nbits,
+            dataset=cfg.dataset.name
+        )
+        datasets = {
+            'train': NeimsDataset(stage='train', **module_kwargs),
+            'val': NeimsDataset(stage='val', **module_kwargs),
+            'test': NeimsDataset(stage='test', **module_kwargs)
+        }
         super().__init__(cfg, datasets)
 
 
