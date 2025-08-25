@@ -112,44 +112,84 @@ if False:
     excluded_inchis = set(canopus_test_inchis + canopus_val_inchis)
 
 
-########## NEIMS DATASET ###########
+    ########## NEIMS DATASET ###########
 
-neims_split = pd.read_csv('../data/neims/split.tsv', sep='\t')
+    neims_split = pd.read_csv('../data/neims/split.tsv', sep='\t')
 
-neims_labels = pd.read_csv('../data/neims/labels.tsv', sep='\t')
-neims_labels["name"] = neims_labels["spec"]
-neims_labels = neims_labels[["name", "smiles"]].reset_index(drop=True)
+    neims_labels = pd.read_csv('../data/neims/labels.tsv', sep='\t')
+    neims_labels["name"] = neims_labels["spec"]
+    neims_labels = neims_labels[["name", "smiles"]].reset_index(drop=True)
 
-neims_labels = neims_labels.merge(neims_split, on="name")
+    neims_labels = neims_labels.merge(neims_split, on="name")
 
-neims_train_inchis = []
-neims_test_inchis = []
-neims_val_inchis = []
+    neims_train_inchis = []
+    neims_test_inchis = []
+    neims_val_inchis = []
 
-for i in tqdm(range(len(neims_labels)), desc="Converting NEIMS SMILES to InChI", leave=False):
+    for i in tqdm(range(len(neims_labels)), desc="Converting NEIMS SMILES to InChI", leave=False):
+        
+        mol = Chem.MolFromSmiles(neims_labels.loc[i, "smiles"])
+        smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
+        mol = Chem.MolFromSmiles(smi)
+        inchi = Chem.MolToInchi(mol)
+
+        if neims_labels.loc[i, "split"] == "train":
+            neims_train_inchis.append(inchi)
+        elif neims_labels.loc[i, "split"] == "test":
+            neims_test_inchis.append(inchi)
+        elif neims_labels.loc[i, "split"] == "val":
+            neims_val_inchis.append(inchi)
+
+
+
+    neims_train_df = pd.DataFrame(neims_train_inchis, columns=["inchi"])
+    neims_train_df.to_csv("../data/neims/neims/preprocessed/neims_train.csv", index=False)
+
+    neims_test_df = pd.DataFrame(neims_test_inchis, columns=["inchi"])
+    neims_test_df.to_csv("../data/neims/neims/preprocessed/neims_test.csv", index=False)
+
+    neims_val_df = pd.DataFrame(neims_val_inchis, columns=["inchi"])
+    neims_val_df.to_csv("../data/neims/neims/preprocessed/neims_val.csv", index=False)
+
+
+########## FRANKLIN DATASET ###########
+
+franklin_split = pd.read_csv('../data/franklin/split.tsv', sep='\t')
+
+franklin_labels = pd.read_csv('../data/franklin/labels.tsv', sep='\t')
+franklin_labels["name"] = franklin_labels["spec"]
+franklin_labels = franklin_labels[["name", "smiles"]].reset_index(drop=True)
+
+franklin_labels = franklin_labels.merge(franklin_split, on="name")
+
+franklin_train_inchis = []
+franklin_test_inchis = []
+franklin_val_inchis = []
+
+for i in tqdm(range(len(franklin_labels)), desc="Converting franklin SMILES to InChI", leave=False):
     
-    mol = Chem.MolFromSmiles(neims_labels.loc[i, "smiles"])
+    mol = Chem.MolFromSmiles(franklin_labels.loc[i, "smiles"])
     smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
     mol = Chem.MolFromSmiles(smi)
     inchi = Chem.MolToInchi(mol)
 
-    if neims_labels.loc[i, "split"] == "train":
-        neims_train_inchis.append(inchi)
-    elif neims_labels.loc[i, "split"] == "test":
-        neims_test_inchis.append(inchi)
-    elif neims_labels.loc[i, "split"] == "val":
-        neims_val_inchis.append(inchi)
+    if franklin_labels.loc[i, "split"] == "train":
+        franklin_train_inchis.append(inchi)
+    elif franklin_labels.loc[i, "split"] == "test":
+        franklin_test_inchis.append(inchi)
+    elif franklin_labels.loc[i, "split"] == "val":
+        franklin_val_inchis.append(inchi)
 
 
 
-neims_train_df = pd.DataFrame(neims_train_inchis, columns=["inchi"])
-neims_train_df.to_csv("../data/neims/neims/preprocessed/neims_train.csv", index=False)
+franklin_train_df = pd.DataFrame(franklin_train_inchis, columns=["inchi"])
+franklin_train_df.to_csv("../data/franklin/franklin/preprocessed/franklin_train.csv", index=False)
 
-neims_test_df = pd.DataFrame(neims_test_inchis, columns=["inchi"])
-neims_test_df.to_csv("../data/neims/neims/preprocessed/neims_test.csv", index=False)
+franklin_test_df = pd.DataFrame(franklin_test_inchis, columns=["inchi"])
+franklin_test_df.to_csv("../data/franklin/franklin/preprocessed/franklin_test.csv", index=False)
 
-neims_val_df = pd.DataFrame(neims_val_inchis, columns=["inchi"])
-neims_val_df.to_csv("../data/neims/neims/preprocessed/neims_val.csv", index=False)
+franklin_val_df = pd.DataFrame(franklin_val_inchis, columns=["inchi"])
+franklin_val_df.to_csv("../data/franklin/franklin/preprocessed/franklin_val.csv", index=False)
 
 exit()
 ########## MSG DATASET ##########

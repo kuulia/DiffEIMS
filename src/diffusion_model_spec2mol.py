@@ -141,6 +141,10 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                         cleaned_state_dict = state_dict
 
                     self.decoder.load_state_dict(cleaned_state_dict)
+                else:
+                    raise Exception(f"Invalid decoder checkpoint filepath: {decoder_path}")
+                
+                logging.info(f"Loaded decoder from: {decoder_path}")
 
         except Exception as e:
             logging.info(f"Could not load decoder: {e}")
@@ -182,6 +186,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         try:
             if cfg.general.encoder is not None:
                 self.encoder.load_state_dict(torch.load(cfg.general.encoder), strict=True)
+                logging.info(f"Loaded encoder from: {cfg.general.encoder}")
         except Exception as e:
             logging.info(f"Could not load encoder: {e}")
 
