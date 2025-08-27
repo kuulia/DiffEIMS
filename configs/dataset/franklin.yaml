@@ -25,3 +25,4 @@ set_pooling: 'intensity' # intensity | mean | root | cls
 max_count: null # max number of spectra to consider (subset of dataset)
 collated_pkl: True  # Enable when using collated_pkl_file instead of spectrum files (avoiding expensive I/O)
 collated_pkl_file: 'df_neims_franklin_3_9_22.pkl' # contains df of SMILES and spec array: 'C(=O)([N+](=O)[O-])'    [[mz_1, intensity_1], [mz_2, intensity_2], ...]
+inference_only: True

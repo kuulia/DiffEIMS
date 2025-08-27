@@ -44,6 +44,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.val_num_samples = cfg.general.val_samples_to_generate
         self.test_num_samples = cfg.general.test_samples_to_generate
         self.tanimoto_val_samples = getattr(cfg.general, 'tanimoto_val_samples', None)
+        self.inference_only = getattr(cfg.dataset, 'inference_only', False)
         """
         cols = ['dataset', 'ionization', 'formula', 'inchikey', 'instrument']
         self.name_to_smiles = pd.read_csv(cfg.dataset.labels_file, sep='\t', index_col='spec')\
@@ -234,6 +235,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.val_counter = 1
 
     def training_step(self, batch, i):
+        assert self.inference_only is False, "Training disabled: model is in inference_only mode"
         output, aux = self.encoder(batch)
 
         data = batch["graph"]
@@ -321,6 +323,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.val_counter += 1
 
     def validation_step(self, batch, i):
+        assert self.inference_only is False, "Training disabled: model is in inference_only mode"
         output, aux = self.encoder(batch)
 
         data = batch["graph"]
@@ -491,8 +494,10 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         pred = self.forward(noisy_data, extra_data, node_mask)
         pred.X = dense_data.X
         pred.Y = data.y
-
-        nll = self.compute_val_loss(pred, noisy_data, dense_data.X, dense_data.E, data.y,  node_mask, test=True)
+        if not self.inference_only:
+            nll = self.compute_val_loss(pred, noisy_data, dense_data.X, dense_data.E, data.y,  node_mask, test=True)
+        else:
+            nll = torch.tensor(0.0, device=self.device)
 
         true_E = torch.reshape(dense_data.E, (-1, dense_data.E.size(-1)))  # (bs * n * n, de)
         masked_pred_E = torch.reshape(pred.E, (-1, pred.E.size(-1)))   # (bs * n * n, de)
