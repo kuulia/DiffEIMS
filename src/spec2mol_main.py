@@ -60,6 +60,8 @@ def get_resume(cfg, model_kwargs):
     decoder = getattr(cfg.general, "decoder", None)
     encoder = getattr(cfg.general, "encoder", None)
     inference_only = getattr(cfg.dataset, "inference_only", None)
+    override_prev_dataset_config = getattr(cfg.dataset, 'override_prev_dataset_config', False)
+    dataset_cfg = cfg.dataset
     ###############################################################
     map_loc = torch.device('cpu') if cfg.general.force_cpu else None
 
@@ -78,6 +80,8 @@ def get_resume(cfg, model_kwargs):
     cfg.general.decoder = decoder
     cfg.general.encoder = encoder
     cfg.dataset.inference_only = inference_only 
+    if override_prev_dataset_config:
+        cfg.dataset = dataset_cfg
     cfg = utils.update_config_with_new_keys(cfg, saved_cfg)
     ###############################################################
     model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, 
