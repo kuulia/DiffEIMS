@@ -77,9 +77,9 @@ def get_resume(cfg, model_kwargs):
     cfg.general.test_samples_to_generate = test_samples_to_generate
     cfg.general.num_test_samples = num_test_samples
     cfg.train.eval_batch_size = eval_batch_size
-    cfg.general.decoder = decoder
-    cfg.general.encoder = encoder
-    cfg.dataset.inference_only = inference_only 
+    cfg.general.update({"encoder": encoder})
+    cfg.general.update({"decoder": decoder})
+    cfg.dataset.update({"inference_only": inference_only})
     if override_prev_dataset_config:
         cfg.dataset = dataset_cfg
     cfg = utils.update_config_with_new_keys(cfg, saved_cfg)
