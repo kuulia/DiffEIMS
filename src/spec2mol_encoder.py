@@ -32,6 +32,13 @@ warnings.filterwarnings("ignore", category=PossibleUserWarning)
 RDLogger.DisableLog('rdApp.*')
 print(sys.path)
 
+def safe_setattr(cfg_section, key, value):
+    """Safely set a key in a DictConfig, whether it exists or not."""
+    if hasattr(cfg_section, "update"):
+        cfg_section.update({key: value})
+    else:
+        setattr(cfg_section, key, value)
+
 def get_resume(cfg, model_kwargs):
     """
     Resume a run from a saved Lightning checkpoint.
@@ -60,6 +67,8 @@ def get_resume(cfg, model_kwargs):
     decoder = getattr(cfg.general, "decoder", None)
     encoder = getattr(cfg.general, "encoder", None)
     inference_only = getattr(cfg.dataset, "inference_only", None)
+    override_prev_dataset_config = getattr(cfg.dataset, 'override_prev_dataset_config', False)
+    dataset_cfg = cfg.dataset
     ###############################################################
     map_loc = torch.device('cpu') if cfg.general.force_cpu else None
 
@@ -75,9 +84,11 @@ def get_resume(cfg, model_kwargs):
     cfg.general.test_samples_to_generate = test_samples_to_generate
     cfg.general.num_test_samples = num_test_samples
     cfg.train.eval_batch_size = eval_batch_size
-    cfg.general.decoder = decoder
-    cfg.general.encoder = encoder
-    cfg.dataset.inference_only = inference_only
+    safe_setattr(cfg.general, "encoder", encoder)
+    safe_setattr(cfg.general, "decoder", decoder)
+    safe_setattr(cfg.dataset, "inference_only", inference_only)
+    if override_prev_dataset_config:
+        cfg.dataset = dataset_cfg
     cfg = utils.update_config_with_new_keys(cfg, saved_cfg)
     ###############################################################
     model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, 
@@ -85,33 +96,6 @@ def get_resume(cfg, model_kwargs):
                                                             cfg = cfg, 
                                                             **model_kwargs)
     return cfg, model
-
-
-def get_resume_adaptive(cfg, model_kwargs):
-    """ Resumes a run. It loads previous config but allows to make some changes (used for resuming training)."""
-    saved_cfg = cfg.copy()
-    # Fetch path to this file to get base path
-    current_path = os.path.dirname(os.path.realpath(__file__))
-    root_dir = current_path.split('outputs')[0]
-
-    resume_path = os.path.join(root_dir, cfg.general.resume)
-
-    if cfg.general.force_cpu:
-        model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume_path, map_location=torch.device('cpu'), **model_kwargs)
-    else:
-        model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume_path, **model_kwargs)
-    
-    new_cfg = model.cfg
-
-    for category in cfg:
-        for arg in cfg[category]:
-            new_cfg[category][arg] = cfg[category][arg]
-
-    new_cfg.general.resume = resume_path
-    new_cfg.general.name = new_cfg.general.name + '_resume'
-
-    new_cfg = utils.update_config_with_new_keys(new_cfg, saved_cfg)
-    return new_cfg, model
 
 def apply_encoder_finetuning(model, strategy):    
     if strategy is None:

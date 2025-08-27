@@ -32,6 +32,13 @@ warnings.filterwarnings("ignore", category=PossibleUserWarning)
 RDLogger.DisableLog('rdApp.*')
 print(sys.path)
 
+def safe_setattr(cfg_section, key, value):
+    """Safely set a key in a DictConfig, whether it exists or not."""
+    if hasattr(cfg_section, "update"):
+        cfg_section.update({key: value})
+    else:
+        setattr(cfg_section, key, value)
+
 def get_resume(cfg, model_kwargs):
     """
     Resume a run from a saved Lightning checkpoint.
@@ -77,9 +84,9 @@ def get_resume(cfg, model_kwargs):
     cfg.general.test_samples_to_generate = test_samples_to_generate
     cfg.general.num_test_samples = num_test_samples
     cfg.train.eval_batch_size = eval_batch_size
-    cfg.general.update({"encoder": encoder})
-    cfg.general.update({"decoder": decoder})
-    cfg.dataset.update({"inference_only": inference_only})
+    safe_setattr(cfg.general, "encoder", encoder)
+    safe_setattr(cfg.general, "decoder", decoder)
+    safe_setattr(cfg.dataset, "inference_only", inference_only)
     if override_prev_dataset_config:
         cfg.dataset = dataset_cfg
     cfg = utils.update_config_with_new_keys(cfg, saved_cfg)
