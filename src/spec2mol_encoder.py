@@ -72,7 +72,7 @@ def get_resume(cfg, model_kwargs):
     decoder = getattr(cfg.general, "decoder", None)
     encoder = getattr(cfg.general, "encoder", None)
     inference_only = getattr(cfg.dataset, "inference_only", None)
-    override_prev_dataset_config = getattr(cfg.dataset, 'override_prev_dataset_config', False)
+    override_prev_dataset_cfg = getattr(cfg.dataset, 'override_prev_dataset_cfg', False)
     dataset_cfg = cfg.dataset
     ###############################################################
     map_loc = torch.device('cpu') if cfg.general.force_cpu else None
@@ -92,7 +92,7 @@ def get_resume(cfg, model_kwargs):
     safe_setattr(cfg.general, "encoder", encoder)
     safe_setattr(cfg.general, "decoder", decoder)
     safe_setattr(cfg.dataset, "inference_only", inference_only)
-    if override_prev_dataset_config:
+    if override_prev_dataset_cfg:
         cfg.dataset = dataset_cfg
     cfg = utils.update_config_with_new_keys(cfg, saved_cfg)
     ###############################################################

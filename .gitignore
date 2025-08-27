@@ -161,4 +161,9 @@ src/spec2mol_neims.py
 .vscode/settings.json
 notebooks/**/*.ckpt
 notebooks/**/*.pt
-
+notebooks/figs/**
+notebooks/**/*.zip
+notebooks/**/*.png
+notebooks/**/*.yaml
+notebooks/GECKOTerpF_AccProd.csv
+notebooks/smiles.txt
