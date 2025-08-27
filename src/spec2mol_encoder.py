@@ -59,6 +59,7 @@ def get_resume(cfg, model_kwargs):
     eval_batch_size = cfg.train.eval_batch_size
     decoder = getattr(cfg.general, "decoder", None)
     encoder = getattr(cfg.general, "encoder", None)
+    inference_only = getattr(cfg.dataset, "inference_only", None)
     ###############################################################
     map_loc = torch.device('cpu') if cfg.general.force_cpu else None
 
@@ -76,6 +77,7 @@ def get_resume(cfg, model_kwargs):
     cfg.train.eval_batch_size = eval_batch_size
     cfg.general.decoder = decoder
     cfg.general.encoder = encoder
+    cfg.dataset.inference_only = inference_only
     cfg = utils.update_config_with_new_keys(cfg, saved_cfg)
     ###############################################################
     model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, 
