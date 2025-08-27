@@ -57,6 +57,8 @@ def get_resume(cfg, model_kwargs):
     test_samples_to_generate = cfg.general.test_samples_to_generate
     num_test_samples = cfg.general.num_test_samples
     eval_batch_size = cfg.train.eval_batch_size
+    decoder = getattr(cfg.general, "decoder", None)
+    encoder = getattr(cfg.general, "encoder", None)
     ###############################################################
     map_loc = torch.device('cpu') if cfg.general.force_cpu else None
 
@@ -72,6 +74,8 @@ def get_resume(cfg, model_kwargs):
     cfg.general.test_samples_to_generate = test_samples_to_generate
     cfg.general.num_test_samples = num_test_samples
     cfg.train.eval_batch_size = eval_batch_size
+    cfg.general.decoder = decoder
+    cfg.general.encoder = encoder
     cfg = utils.update_config_with_new_keys(cfg, saved_cfg)
     ###############################################################
     model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, 
