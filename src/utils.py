@@ -232,7 +232,8 @@ def get_nonstatic_cfg_params(cfg: omegaconf.DictConfig) -> Tuple[str, str, str, 
     if getattr(cfg.dataset, "augment_data", False):
         params = {
             "dataset": ["name", "remove_h", "augment_data", "remove_prob", "remove_weights",
-                        "inten_prob", "inten_transform", "set_pooling", "collated_pkl_file"],
+                        "inten_prob", "inten_transform", "set_pooling", "collated_pkl_file",
+                        "inference_only", "override_prev_dataset_cfg"],
             "general": ["decoder", "encoder", "resume", "test_only", "load_weights",
                         "encoder_finetune_strategy", "decoder_finetune_strategy",
                         "val_samples_to_generate", "test_samples_to_generate",
@@ -244,7 +245,8 @@ def get_nonstatic_cfg_params(cfg: omegaconf.DictConfig) -> Tuple[str, str, str, 
     else:
         params = {
             "dataset": ["name", "remove_h", "augment_data", "inten_transform", 
-                        "set_pooling", "collated_pkl_file"],
+                        "set_pooling", "collated_pkl_file", "inference_only", 
+                        "override_prev_dataset_cfg"],
             "general": ["decoder", "encoder", "resume", "test_only", "load_weights",
                         "encoder_finetune_strategy", "decoder_finetune_strategy",
                         "val_samples_to_generate", "test_samples_to_generate",
@@ -296,3 +298,24 @@ def log_nonstatic_cfg(cfg, *,
     logger.info("General config:\n%s", general_cfg)
     logger.info("Training config:\n%s", train_cfg)
     logger.info("Model config:\n%s", model_cfg)
+
+def force_setattr(cfg_section, key, value):
+    """Set a key in a DictConfig regardless of whether it exists."""
+    struct_mode = OmegaConf.is_struct(cfg_section)
+    if struct_mode:
+        OmegaConf.set_struct(cfg_section, False)  # temporarily allow new keys
+    setattr(cfg_section, key, value)
+    if struct_mode:
+        OmegaConf.set_struct(cfg_section, True)   # restore struct mode
+
+def safe_setattr(cfg_section, key, value):
+    """
+    Safely set a value in a DictConfig or normal object.
+    Only sets the value if the key already exists (avoiding struct errors).
+    """
+    if isinstance(cfg_section, omegaconf.DictConfig):
+        if key in cfg_section:
+            cfg_section[key] = value
+    else:
+        if hasattr(cfg_section, key):
+            setattr(cfg_section, key, value)
