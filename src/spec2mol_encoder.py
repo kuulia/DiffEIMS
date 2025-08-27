@@ -33,11 +33,16 @@ RDLogger.DisableLog('rdApp.*')
 print(sys.path)
 
 def safe_setattr(cfg_section, key, value):
-    """Safely set a key in a DictConfig, whether it exists or not."""
-    if hasattr(cfg_section, "update"):
-        cfg_section.update({key: value})
+    """
+    Safely set a value in a DictConfig or normal object.
+    Only sets the value if the key already exists (avoiding struct errors).
+    """
+    if isinstance(cfg_section, DictConfig):
+        if key in cfg_section:
+            cfg_section[key] = value
     else:
-        setattr(cfg_section, key, value)
+        if hasattr(cfg_section, key):
+            setattr(cfg_section, key, value)
 
 def get_resume(cfg, model_kwargs):
     """
