@@ -7,7 +7,7 @@ import rdkit.Chem
 import wandb
 import matplotlib.pyplot as plt
 
-def fix_malformed_nitro(mol: Chem.Mol) -> Chem.Mol:
+def fix_four_bonded_nitrogen_charges(mol: Chem.Mol) -> Chem.Mol:
     mol = Chem.RWMol(mol) # Change immutable mol object to mutable mol object
     to_fix = []
 
@@ -98,7 +98,7 @@ class MolecularVisualization:
             mol = mol.GetMol()
             if self.remove_h:
                 mol = Chem.RemoveHs(mol, sanitize=False)
-            mol = fix_malformed_nitro(mol)
+            mol = fix_four_bonded_nitrogen_charges(mol)
 
         except rdkit.Chem.KekulizeException:
             print("Can't kekulize molecule")
