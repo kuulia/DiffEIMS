@@ -8,36 +8,47 @@ import wandb
 import matplotlib.pyplot as plt
 
 def fix_malformed_nitro(mol: Chem.Mol) -> Chem.Mol:
-    mol = Chem.RWMol(mol)
+    mol = Chem.RWMol(mol) # Change immutable mol object to mutable mol object
     to_fix = []
 
+    # Iterate over all atoms of the molecule
     for atom in mol.GetAtoms():
-        if atom.GetAtomicNum() != 7:  # Not nitrogen
-            continue
-        #if atom.GetDegree() != 3:
-        #    continue
+        if atom.GetAtomicNum() != 7:
+            continue # Skip if atom is not nitrogen
 
-        o_double = None
-        o_single = None
+        o_double = None # Stores double bonded O in N=O if found
+        o_single = None # Stores isolated single bonded O in N-O if found
 
+        # Iterate over neighbors of nitrogen atoms
         for neighbor in atom.GetNeighbors():
             if neighbor.GetAtomicNum() != 8:
-                continue
-            bond = mol.GetBondBetweenAtoms(atom.GetIdx(), neighbor.GetIdx())
-            if bond.GetBondType() == Chem.rdchem.BondType.DOUBLE:
-                o_double = neighbor
-            elif bond.GetBondType() == Chem.rdchem.BondType.SINGLE:
-                if len([nbr for nbr in neighbor.GetNeighbors() if nbr.GetIdx() != atom.GetIdx()]) == 0:
-                    o_single = neighbor
+                continue # Skip if neighbor is not oxygen
 
+            bond = mol.GetBondBetweenAtoms(atom.GetIdx(), neighbor.GetIdx())
+
+            if bond.GetBondType() == Chem.rdchem.BondType.DOUBLE:
+                o_double = neighbor # N=O, nitrogen double bonded to oxygen 
+            elif bond.GetBondType() == Chem.rdchem.BondType.SINGLE:
+                # Get neighbors of oxygen in N-O structure 
+                o_neighbors = [nbr for nbr in neighbor.GetNeighbors()\
+                                if nbr.GetIdx() != atom.GetIdx()]
+                # Check if single-bonded oxygen in N-O structure has
+                # no other neighbors (isolated O)
+                o_has_no_other_neighbors = len(o_neighbors) == 0
+
+                if o_has_no_other_neighbors:
+                    o_single = neighbor # Found the O in N-O structure
+        
+        # If nitrogen has both N=O and N-O (N(=O)O type structure), mark for fixing
         if o_double != None and o_single != None:
             to_fix.append((atom.GetIdx(), o_single.GetIdx()))
 
-    # Apply fixes
+    # Apply formal charges to the nitrogen (+1) and oxygen (-1)
     for n_idx, o_idx in to_fix:
         mol.GetAtomWithIdx(n_idx).SetFormalCharge(+1)
         mol.GetAtomWithIdx(o_idx).SetFormalCharge(-1)
 
+    # Return the corrected immutable molecule
     return mol.GetMol()
 
 class MolecularVisualization:
