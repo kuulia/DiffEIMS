@@ -300,7 +300,7 @@ def main(cfg: DictConfig):
     ]
 
     trainer_strategy = getattr(cfg.train, 'trainer_strategy', 'ddp_find_unused_parameters_true')
-    use_gpu = cfg.general.gpus > 0 and torch.cuda.is_available()
+    use_gpu = cfg.general.gpus > 0
     trainer = Trainer(gradient_clip_val=cfg.train.clip_grad,
                       strategy=trainer_strategy,  # ddp needed to load old checkpoints
                       accelerator='gpu' if use_gpu else 'cpu',
