@@ -17,8 +17,11 @@ cd ms/DiffMS || exit 1
 # Record start time
 start_time=$(date +%s)
 
-# Run script
-srun python src/checkpoint_to_weights.py outputs/2025-08-15/15-44-43-dev/checkpoints/dev/last.ckpt data/checkpoints/checkpoints/quadratic25/1
+# Run script 09-03-01-dev  09-07-21-dev  09-09-00-dev  09-12-03-dev
+srun python src/checkpoint_to_weights.py outputs/2025-08-28/09-03-01-dev/checkpoints/dev/last-v1.ckpt data/checkpoints/checkpoints/augment/quadratic/rem10/1
+srun python src/checkpoint_to_weights.py outputs/2025-08-28/09-07-21-dev/checkpoints/dev/last-v1.ckpt data/checkpoints/checkpoints/augment/quadratic/rem15/1
+srun python src/checkpoint_to_weights.py outputs/2025-08-28/09-09-00-dev/checkpoints/dev/last-v1.ckpt data/checkpoints/checkpoints/augment/quadratic/rem20/1
+srun python src/checkpoint_to_weights.py outputs/2025-08-28/09-12-03-dev/checkpoints/dev/last-v1.ckpt data/checkpoints/checkpoints/augment/quadratic/rem25/1
 
 # Record end time and report runtime
 end_time=$(date +%s)

@@ -1,6 +1,6 @@
 # Training settings
 n_epochs: 50
-batch_size: 128
+batch_size: 512
 eval_batch_size: 1024
 lr: 0.001 # 0.001 for training, 0.0002 for fine-tuning
 clip_grad: null          # float, null to disable

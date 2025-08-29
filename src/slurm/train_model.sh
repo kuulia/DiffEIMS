@@ -18,17 +18,17 @@ cd ms/DiffMS || exit 1
 # Record start time
 start_time=$(date +%s)
 
-while true; do
-    nvidia-smi >> gpu_log${SLURM_JOB_ID}.txt
-    sleep 60
-done &
-log_pid=$!
+#while true; do
+#    nvidia-smi >> gpu_log${SLURM_JOB_ID}.txt
+#    sleep 60
+#done &
+#log_pid=$!
 
 # Run training
 srun python src/spec2mol_main.py
 
 
-kill $log_pid
+#kill $log_pid
 
 
 # Record end time and report runtime
