@@ -164,6 +164,7 @@ notebooks/**/*.pt
 notebooks/figs/**
 notebooks/**/*.zip
 notebooks/**/*.png
+notebooks/**/*.svg
 notebooks/**/*.yaml
 notebooks/GECKOTerpF_AccProd.csv
 notebooks/smiles.txt

@@ -15,3 +15,4 @@ scheduler: 'one_cycle' # 'const' | 'one_cycle'
 pct_start: 0.3
 seed: 42
 limit_val_batches: 1.0 # 'float', 1.0 default (full val batch)
+trainer_strategy: 'auto' # 'ddp_find_unused_parameters_true' for .ckpt checkpoint compatibility

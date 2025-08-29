@@ -278,9 +278,10 @@ def main(cfg: DictConfig):
         CSVLogger(save_dir=f"logs/{name}", name=name),
     ]
 
+    trainer_strategy = getattr(cfg.train, 'trainer_strategy', 'ddp_find_unused_parameters_true')
     use_gpu = cfg.general.gpus > 0 and torch.cuda.is_available()
     trainer = Trainer(gradient_clip_val=cfg.train.clip_grad,
-                      strategy="ddp_find_unused_parameters_true",  # Needed to load old checkpoints
+                      strategy=trainer_strategy,  # ddp needed to load old checkpoints
                       accelerator='gpu' if use_gpu else 'cpu',
                       devices=cfg.general.gpus if use_gpu else 1,
                       max_epochs=cfg.train.n_epochs,

@@ -224,16 +224,18 @@ def main(cfg: DictConfig):
         CSVLogger(save_dir=f"logs/{name}", name=name),
     ]
 
+    trainer_strategy = getattr(cfg.train, 'trainer_strategy', 'ddp_find_unused_parameters_true')
     use_gpu = cfg.general.gpus > 0 and torch.cuda.is_available()
     trainer = Trainer(gradient_clip_val=cfg.train.clip_grad,
-                      strategy="ddp",  # Needed to load old checkpoints
+                      strategy=trainer_strategy,  # ddp needed to load old checkpoints
                       accelerator='gpu' if use_gpu else 'cpu',
                       devices=cfg.general.gpus if use_gpu else 1,
                       max_epochs=cfg.train.n_epochs,
                       check_val_every_n_epoch=cfg.general.check_val_every_n_epochs,
-                      fast_dev_run=cfg.general.name == 'debug',
+                      fast_dev_run=name == 'debug',
                       callbacks=callbacks,
                       log_every_n_steps=50 if name != 'debug' else 1,
+                      limit_val_batches=cfg.train.limit_val_batches,
                       logger=loggers)
 
     if not cfg.general.test_only:

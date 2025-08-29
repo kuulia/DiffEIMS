@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 def fix_four_bonded_nitrogen_charges(mol: Chem.Mol) -> Chem.Mol:
     mol = Chem.RWMol(mol) # Change immutable mol object to mutable mol object
-    to_fix = []
+    to_fix = [] # stores atom indices of nitrogen and oxygen to fix
 
     # Iterate over all atoms of the molecule
     for atom in mol.GetAtoms():
