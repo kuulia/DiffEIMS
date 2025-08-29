@@ -5,12 +5,6 @@ import warnings
 import logging
 
 import torch
-torch.cuda.empty_cache()
-try:
-    torch.set_float32_matmul_precision('medium')
-    logging.info("Enabled float32 matmul precision - medium")
-except:
-    logging.info("Could not enable float32 matmul precision - medium")
 import hydra
 from omegaconf import DictConfig
 from pytorch_lightning import Trainer
@@ -237,6 +231,12 @@ def main(cfg: DictConfig):
                       log_every_n_steps=50 if name != 'debug' else 1,
                       limit_val_batches=cfg.train.limit_val_batches,
                       logger=loggers)
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        try:
+            torch.set_float32_matmul_precision('medium')
+        except:
+            logging.info("Could not enable float32 matmul precision - medium")
 
     if not cfg.general.test_only:
         trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.general.resume)
