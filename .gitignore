@@ -168,3 +168,4 @@ notebooks/**/*.svg
 notebooks/**/*.yaml
 notebooks/GECKOTerpF_AccProd.csv
 notebooks/smiles.txt
+notebooks/df.csv
