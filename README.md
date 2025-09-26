@@ -1,8 +1,12 @@
-# DiffMS: Diffusion Generation of Molecules Conditioned on Mass Spectra
+# DiffEIMS: Diffusion Generation of Molecules Conditioned on Electron ionization Mass Spectra
 
 ![teaser](./figs/diffms-animation.gif)
 
-This is the codebase for our preprint [DiffMS: Diffusion Generation of Molecules Conditioned on Mass Spectra](https://arxiv.org/abs/2502.09571).
+This is the codebase for the DiffEIMS model developed for the Master's thesis 'Atmospheric compound identification from electron ionization mass spectrometry data'. It has been forked from DiffMS (https://github.com/coleygroup/diffms) preprint [DiffMS: Diffusion Generation of Molecules Conditioned on Mass Spectra](https://arxiv.org/abs/2502.09571).
+
+This fork of DiffMS is designed for EI-MS data instead of MS/MS data. This model was benchmarked on a dataset of atmospheric organic compounds. 
+
+DiffMS readme:
 
 The DiffMS codebase is adapted from [DiGress](https://github.com/cvignac/DiGress). 
 
