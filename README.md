@@ -65,7 +65,7 @@ To load the pretrained DiffMS weights, set the load_weights argument in [general
 
 ## License
 
-DiffMS is released under the [MIT](LICENSE.txt) license.
+DiffMS is released under the [MIT](LICENSE) license.
 
 ## Contact
 
