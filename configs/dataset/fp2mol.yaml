@@ -1,9 +1,9 @@
-name: fp2mol
-dataset: combined
-stats_dir: null
-remove_h: null
-datadir: '../../../data/fp2mol/'
-filter: False
-denoise_nodes: False
-morgan_nbits: 2048
-morgan_r: 2
+name: fp2mol  # Name of the config
+dataset: combined # Name of the dataset
+stats_dir: null # Directory for dataset statistics (if any).
+remove_h: null # True | False, Remove explicit hydrogens from molecular graphs?
+datadir: '../../../data/fp2mol/' # Root directory for dataset files.
+filter: False  # True | False, Check dataset for invalid or disconnected molecules?
+denoise_nodes: False # True | False, Apply denoising to molecular graph node features.
+morgan_nbits: 2048 # 1024 | 2048 | 4096, Morgan fingerprint size parameter (number of bits).
+morgan_r: 2 # 1 | 2 | 3,  Morgan fingerprint radius parameter.
