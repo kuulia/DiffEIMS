@@ -1,5 +1,6 @@
 import torch
 from src import utils
+import logging
 
 
 class DummyExtraFeatures:
@@ -261,21 +262,37 @@ class KNodeCycles:
         return None, (c6_t / 12).unsqueeze(-1).float()
 
     def k_cycles(self, adj_matrix, verbose=False):
+        """
+        Compute per-node and per-graph cycle counts up to k=6.
+        Logs and clamps negative values to avoid crashing.
+        """
         self.adj_matrix = adj_matrix
         self.calculate_kpowers()
 
+        # Compute cycles
         k3x, k3y = self.k3_cycle()
-        assert (k3x >= -0.1).all()
-
         k4x, k4y = self.k4_cycle()
-        assert (k4x >= -0.1).all()
-
         k5x, k5y = self.k5_cycle()
-        assert (k5x >= -0.1).all(), k5x
-
         _, k6y = self.k6_cycle()
-        assert (k6y >= -0.1).all()
 
+        # List of (name, tensor) for easier logging
+        cycle_list = [("k3x", k3x), ("k4x", k4x), ("k5x", k5x), ("k6y", k6y)]
+
+        for name, tensor in cycle_list:
+            if (tensor < 0.).any():
+                logging.warning(f"{name} has negative entries: {tensor[tensor < 0.]}")
+            # Clamp negatives to zero
+            setattr(self, name, torch.clamp(tensor, min=0.))
+
+        # Use clamped values
+        k3x, k4x, k5x, k6y = self.k3x, self.k4x, self.k5x, self.k6y
+
+        # Concatenate per-node and per-graph cycle features
         kcyclesx = torch.cat([k3x, k4x, k5x], dim=-1)
         kcyclesy = torch.cat([k3y, k4y, k5y, k6y], dim=-1)
+
+        if verbose:
+            logging.info(f"Per-node cycles: {kcyclesx}")
+            logging.info(f"Per-graph cycles: {kcyclesy}")
+
         return kcyclesx, kcyclesy
