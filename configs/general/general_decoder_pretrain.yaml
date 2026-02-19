@@ -1,5 +1,5 @@
 # General settings
-name: 'debug' # Warning: 'debug' and 'test' are reserved name that have a special behavior
+name: 'pretrain' # Warning: 'debug' and 'test' are reserved name that have a special behavior
 
 parent_dir: '.'
 

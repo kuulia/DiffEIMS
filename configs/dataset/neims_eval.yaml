@@ -12,9 +12,9 @@ spec_features: 'peakformula'
 mol_features: 'fingerprint'
 subform_folder: '../data/neims/subformulae/subformulae_default/subforms'
 augment_data: True
-remove_prob: 0.1
+remove_prob: 0.0555555
 remove_weights: 'quadratic' # exp | quadratic | uniform
-inten_prob: 0.1
+inten_prob: 0.45
 inten_transform: 'log' # float | zero | log | cat
 cls_type: 'zeros' # zeros | ms1
 magma_aux_loss: False
@@ -25,4 +25,4 @@ set_pooling: 'intensity' # intensity | mean | root | cls
 max_count: null
 collated_pkl: True
 collated_pkl_file: 'df_neims_gecko_3_9_22.pkl'
-eval_model_path: '../outputs/2025-08-14/13-02-51-dev/checkpoints/dev/last.ckpt'
+eval_model_path: '../data/checkpoints/checkpoints/augment/quadratic/inten45/2/last.ckpt'
