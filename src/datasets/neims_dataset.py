@@ -184,7 +184,7 @@ class NeimsDataset(InMemoryDataset):
             # Use joblib's Parallel with tqdm_joblib to show a progress bar.
             with tqdm_joblib(tqdm(desc="Processing inchi.....", total=len(args_list), leave=False)) as progress_bar:
 
-                results = Parallel(n_jobs=-1)(delayed(process_single_inchi)(arg) for arg in args_list)
+                results = Parallel(n_jobs=4)(delayed(process_single_inchi)(arg) for arg in args_list)
 
             # Process results: if filter_dataset is enabled, result is a tuple (data, smiles)
             for result in tqdm(results, desc="Filtering graphs.....", total=len(results), leave=False):
