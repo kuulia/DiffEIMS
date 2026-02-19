@@ -18,6 +18,7 @@ from mist import utils
 from . import featurizers
 from .data import Spectra, Mol
 import logging
+from ...datasets.abstract_dataset import ATOM_DECODER
 
 def get_paired_spectra(
     labels_file: str,
@@ -26,7 +27,7 @@ def get_paired_spectra(
     allow_none_smiles: bool = False,
     prog_bars: bool = True,
     collated_pkl: bool = False,
-    atom_decoder: tuple[str] = ('C', 'O', 'P', 'N', 'S', 'Cl', 'F', 'H'),
+    atom_decoder: tuple[str] = ATOM_DECODER,
     **kwargs,
 ) -> Tuple[List[Spectra], List[Mol]]:
     """

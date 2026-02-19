@@ -3,15 +3,20 @@ from collections import Counter
 
 import pandas as pd
 from tqdm import tqdm
+import numpy as np
 
 from rdkit import Chem
 from rdkit import RDLogger
 from rdkit.Chem import Descriptors
+from sys import exit
 
 random.seed(42)
 
 lg = RDLogger.logger()
 lg.setLevel(RDLogger.CRITICAL)
+
+#FILTER_ATOMS = {'C', 'N', 'S', 'O', 'F', 'Cl', 'H', 'P'}
+FILTER_ATOMS = {'C', 'N', 'S', 'O', 'F', 'Cl', 'H', 'P', 'B', 'Br', 'I', 'Si'}
 
 def read_from_sdf(path):
     res = []
@@ -26,26 +31,30 @@ def read_from_sdf(path):
 
     return res
 
-def filter(mol):
+def filter(mol, flag_filter_atoms = False):
     try:
         smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
         mol = Chem.MolFromSmiles(smi)
 
-        if "." in smi:
+        if len(Chem.GetMolFrags(mol, asMols=False)) != 1:
             return False
-        
-        if Descriptors.MolWt(mol) >= 1500:
+        mw = Descriptors.MolWt(mol)
+        if mw >= 1500 or mw < 16.0 :
             return False
-        
+        """
         for atom in mol.GetAtoms():
             if atom.GetFormalCharge() != 0:
                 return False
+        """
+        if flag_filter_atoms:
+            for atom in mol.GetAtoms():
+                if atom.GetSymbol() not in FILTER_ATOMS:
+                    return False
     except:
         return False
     
     return True
 
-FILTER_ATOMS = {'C', 'N', 'S', 'O', 'F', 'Cl', 'H', 'P'}
 
 def filter_with_atom_types(mol):
     try:
@@ -90,7 +99,7 @@ for i in tqdm(range(len(canopus_labels)), desc="Converting CANOPUS SMILES to InC
     inchi = Chem.MolToInchi(mol)
 
     if canopus_labels.loc[i, "split"] == "train":
-        if filter(mol):
+        if filter(mol, flag_filter_atoms=True):
             canopus_train_inchis.append(inchi)
     elif canopus_labels.loc[i, "split"] == "test":
         canopus_test_inchis.append(inchi)
@@ -130,7 +139,7 @@ for i in tqdm(range(len(msg_labels)), desc="Converting MSG SMILES to InChI", lea
     inchi = Chem.MolToInchi(mol)
 
     if msg_labels.loc[i, "split"] == "train":
-        if filter(mol):
+        if filter(mol, flag_filter_atoms=True):
             msg_train_inchis.append(inchi)
     elif msg_labels.loc[i, "split"] == "test":
         msg_test_inchis.append(inchi)
@@ -148,6 +157,45 @@ msg_val_df.to_csv("../data/fp2mol/msg/preprocessed/msg_val.csv", index=False)
 
 excluded_inchis.update(msg_test_inchis + msg_val_inchis)
 
+########## NEIMS DATASET ###########
+
+neims_split = pd.read_csv('../data/neims/split.tsv', sep='\t')
+
+neims_labels = pd.read_csv('../data/neims/labels.tsv', sep='\t')
+neims_labels["name"] = neims_labels["spec"]
+neims_labels = neims_labels[["name", "smiles"]].reset_index(drop=True)
+
+neims_labels = neims_labels.merge(neims_split, on="name")
+
+neims_train_inchis = []
+neims_test_inchis = []
+neims_val_inchis = []
+
+for i in tqdm(range(len(neims_labels)), desc="Converting NEIMS SMILES to InChI", leave=False):
+    
+    mol = Chem.MolFromSmiles(neims_labels.loc[i, "smiles"])
+    smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
+    mol = Chem.MolFromSmiles(smi)
+    inchi = Chem.MolToInchi(mol)
+    if neims_labels.loc[i, "split"] == "train" and inchi not in excluded_inchis:
+        if filter(mol, flag_filter_atoms=True):
+            neims_train_inchis.append(inchi)
+    elif neims_labels.loc[i, "split"] == "test":
+        neims_test_inchis.append(inchi)
+    elif neims_labels.loc[i, "split"] == "val":
+        neims_val_inchis.append(inchi)
+
+
+
+neims_train_df = pd.DataFrame(neims_train_inchis, columns=["inchi"])
+neims_train_df.to_csv("../data/neims/neims/preprocessed/neims_train.csv", index=False)
+
+neims_test_df = pd.DataFrame(neims_test_inchis, columns=["inchi"])
+neims_test_df.to_csv("../data/neims/neims/preprocessed/neims_test.csv", index=False)
+
+neims_val_df = pd.DataFrame(neims_val_inchis, columns=["inchi"])
+neims_val_df.to_csv("../data/neims/neims/preprocessed/neims_val.csv", index=False)
+
 ########## HMDB DATASET ##########
 
 hmdb_set = set()
@@ -157,7 +205,7 @@ for smi in tqdm(raw_smiles, desc='Cleaning HMDB structures', leave=False):
         mol = Chem.MolFromSmiles(smi)
         smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
         mol = Chem.MolFromSmiles(smi)
-        if filter_with_atom_types(mol):
+        if filter(mol, flag_filter_atoms=True):
             hmdb_set.add(Chem.MolToInchi(mol))
     except:
         pass
@@ -189,7 +237,7 @@ for smi in tqdm(dss_set_raw, desc='Cleaning DSSTox structures', leave=False):
         mol = Chem.MolFromSmiles(smi)
         smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
         mol = Chem.MolFromSmiles(smi)
-        if filter_with_atom_types(mol):
+        if filter(mol, flag_filter_atoms=True):
             dss_set.add(Chem.MolToInchi(mol))
     except:
         pass
@@ -220,7 +268,7 @@ for smi in tqdm(coconut_set_raw, desc='Cleaning COCONUT structures', leave=False
         mol = Chem.MolFromSmiles(smi)
         smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
         mol = Chem.MolFromSmiles(smi)
-        if filter_with_atom_types(mol):
+        if filter(mol, flag_filter_atoms=True):
             coconut_set.add(Chem.MolToInchi(mol))
     except:
         pass
@@ -252,7 +300,7 @@ for smi in tqdm(moses_set_raw, desc='Cleaning MOSES structures', leave=False):
         mol = Chem.MolFromSmiles(smi)
         smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
         mol = Chem.MolFromSmiles(smi)
-        if filter_with_atom_types(mol):
+        if filter(mol, flag_filter_atoms=True):
             moses_set.add(Chem.MolToInchi(mol))
     except:
         pass
@@ -271,9 +319,34 @@ moses_train_df.to_csv("../data/fp2mol/moses/preprocessed/moses_train.csv", index
 moses_val_df = pd.DataFrame(moses_val_inchis, columns=["inchi"])
 moses_val_df.to_csv("../data/fp2mol/moses/preprocessed/moses_val.csv", index=False)
 
+########## ATMOMACCS DATASETS ##########
+atmomaccs_set = set()
+for dataset in ['wang', 'li', 'ferraz-caetano', 'kruger-broad']:
+    smiles = np.loadtxt(f'../data/atmomaccs/{dataset}-smiles.txt', dtype=np.str_, comments=None)
+    for smi in tqdm(smiles, desc='Cleaning ATMOMACCS dataset structures', leave=False):
+        try:
+            mol = Chem.MolFromSmiles(smi)
+            smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
+            mol = Chem.MolFromSmiles(smi)
+            if filter(mol, flag_filter_atoms=True):
+                atmomaccs_set.add(Chem.MolToInchi(mol))
+        except:
+            pass
+
+atmomaccs_inchis = list(atmomaccs_set)
+random.shuffle(atmomaccs_inchis)
+
+atmomaccs_train_inchis = atmomaccs_inchis[:int(0.95 * len(atmomaccs_inchis))]
+atmomaccs_train_inchis = [inchi for inchi in atmomaccs_train_inchis if inchi not in excluded_inchis]
+atmomaccs_train_df = pd.DataFrame(atmomaccs_train_inchis, columns=["inchi"])
+atmomaccs_train_df.to_csv("../data/fp2mol/atmomaccs/preprocessed/atmomaccs_train.csv", index=False)
+
+atmomaccs_val_inchis = atmomaccs_inchis[int(0.95 * len(atmomaccs_inchis)):]
+atmomaccs_val_df = pd.DataFrame(atmomaccs_val_inchis, columns=["inchi"])
+atmomaccs_val_df.to_csv("../data/fp2mol/atmomaccs/preprocessed/atmomaccs_val.csv", index=False)
 ########## COMBINED DATASET ##########
 
-combined_inchis = hmdb_inchis + dss_inchis + coconut_inchis + moses_inchis
+combined_inchis = hmdb_inchis + dss_inchis + coconut_inchis + moses_inchis + atmomaccs_inchis
 combined_inchis = list(set(combined_inchis))
 random.shuffle(combined_inchis)
 

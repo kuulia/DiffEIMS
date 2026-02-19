@@ -1,0 +1,12 @@
+defaults:
+    - _self_
+    - general : general_decoder_pretrain
+    - model : model_decoder_pretrain
+    - train : train_decoder_pretrain
+    - dataset : fp2mol
+
+hydra:
+  job:
+    chdir: True
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}-${general.name}

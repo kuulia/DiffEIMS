@@ -11,11 +11,21 @@ except ModuleNotFoundError as e:
     assert use_rdkit, "Didn't find rdkit"
 
 
-allowed_bonds = {'H': 1, 'C': 4, 'N': 3, 'O': 2, 'F': 1, 'B': 3, 'Al': 3, 'Si': 4, 'P': [3, 5],
-                 'S': 4, 'Cl': 1, 'As': 3, 'Br': 1, 'I': 1, 'Hg': [1, 2], 'Bi': [3, 5], 'Se': [2, 4, 6]}
+allowed_bonds = {'H': 1, 'C': 4, 'N': [3, 4], 'O': 2, 'F': 1, 'B': 3, 'Al': 3, 'Si': 4, 'P': [3, 5],
+                 'S': [2, 4, 6], 'Cl': 1, 'As': 3, 'Br': 1, 'I': 1, 'Hg': [1, 2], 'Bi': [3, 5], 'Se': [2, 4, 6]}
 bond_dict = [None, Chem.rdchem.BondType.SINGLE, Chem.rdchem.BondType.DOUBLE, Chem.rdchem.BondType.TRIPLE,
                  Chem.rdchem.BondType.AROMATIC]
-ATOM_VALENCY = {6: 4, 7: 3, 8: 2, 9: 1, 15: 3, 16: 2, 17: 1, 35: 1, 53: 1}
+ATOM_VALENCY = {
+    6: 4,       # C
+    7: 3,       # N, default for neutral, +1 handled in code
+    8: 2,       # O
+    9: 1,       # F
+    15: 3,      # P
+    16: 2,      # S
+    17: 1,      # Cl
+    35: 1,      # Br
+    53: 1       # I
+}
 
 
 class BasicMolecularMetrics(object):
@@ -187,6 +197,8 @@ def build_molecule_with_partial_charges(atom_types, edge_types, atom_decoder, ve
                 if an in (7, 8, 16) and (v - ATOM_VALENCY[an]) == 1:
                     mol.GetAtomWithIdx(idx).SetFormalCharge(1)
                     # print("Formal charge added")
+                if an == 16 and (v - ATOM_VALENCY[an]) in [2,4]:
+                    mol.GetAtomWithIdx(idx).SetFormalCharge(1)
     return mol
 
 

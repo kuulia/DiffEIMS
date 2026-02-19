@@ -23,11 +23,11 @@ from rdkit.Chem.rdchem import BondType as BT
 from rdkit.Chem import AllChem, DataStructs
 from rdkit.Chem.AllChem import GetMorganFingerprintAsBitVect
 from rdkit.Chem.rdMolDescriptors import GetMACCSKeysFingerprint
+from ...datasets.abstract_dataset import ATOM_DECODER
 
 from .. import utils
 from . import data
 
-ATOM_DECODER = ['C', 'O', 'P', 'N', 'S', 'Cl', 'F', 'H']
 TYPES = {atom: i for i, atom in enumerate(ATOM_DECODER)}
 BONDS = {BT.SINGLE: 0, BT.DOUBLE: 1, BT.TRIPLE: 2, BT.AROMATIC: 3}
 
