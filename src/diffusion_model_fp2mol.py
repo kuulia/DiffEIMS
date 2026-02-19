@@ -149,8 +149,9 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
                                true_X=X, true_E=E, true_y=data.y,
                                log=False)
         
-        self.train_metrics(masked_pred_X=pred.X, masked_pred_E=pred.E, true_X=X, true_E=E,
-                           log=False)
+        with torch.cuda.amp.autocast(enabled=False):
+            self.train_metrics(masked_pred_X=pred.X, masked_pred_E=pred.E, true_X=X, true_E=E,
+                            log=False)
 
         return {'loss': loss}
 
