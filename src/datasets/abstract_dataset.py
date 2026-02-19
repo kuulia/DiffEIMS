@@ -12,13 +12,13 @@ Key Components:
 - GLOBALS: `ATOM_TO_VALENCY`, `ATOM_TO_WEIGHT`, `ATOM_DECODER`: Lookup tables for atoms.
 """
 import copy
-
+import numpy as np
 import torch
 import pytorch_lightning as pl
 from torch_geometric.data import Dataset
 from torch_geometric.loader import DataLoader
 from torch_geometric.data.lightning import LightningDataset
-from torch.utils.data import IterableDataset
+from torch.utils.data import IterableDataset, SubsetRandomSampler
 
 import src.utils as utils
 from src.diffusion.distributions import DistributionNodes
@@ -26,6 +26,56 @@ from src.diffusion.distributions import DistributionNodes
 def kwargs_repr(**kwargs) -> str:
     """util function to format keyword arguments as a string."""
     return ', '.join([f'{k}={v}' for k, v in kwargs.items() if v is not None])
+
+class PartialEpochSampler(torch.utils.data.Sampler):
+    """
+    A sampler that randomly selects a subset of the dataset for each training epoch.
+
+    This is useful when:
+        - The dataset is very large and iterating over the full dataset every epoch
+          is computationally expensive.
+        - You want to speed up training by performing a "partial epoch", i.e.,
+          using only a fraction of the dataset per epoch.
+        - You still want to ensure randomness across epochs, so that all samples
+          eventually get seen after multiple epochs.
+
+    Arguments:
+        dataset_size (int): Total number of samples in the dataset.
+        fraction (float, optional): Fraction of the dataset to use per epoch.
+                                    Must be between 0.0 and 1.0. Default is 0.1.
+        seed (int, optional): Random seed for reproducible sampling. Default is None.
+
+    Behavior:
+        - Each epoch, a new random subset of size `int(dataset_size * fraction)` 
+          is sampled without replacement.
+        - The sampler returns the indices of the selected subset, which can be
+          passed to a PyTorch DataLoader.
+        - Setting `seed` ensures reproducibility of the subset selection.
+
+    Example:
+        >>> sampler = PartialEpochSampler(dataset_size=10000, fraction=0.2, seed=42)
+        >>> loader = DataLoader(dataset, sampler=sampler, batch_size=32)
+        >>> for batch in loader:
+        >>>     train(batch)
+    """
+    def __init__(self, dataset_size, fraction=0.1, seed=None):
+        if not 0.0 < fraction <= 1.0:
+            raise ValueError("fraction must be between 0.0 and 1.0")
+        self.dataset_size = dataset_size
+        self.fraction = fraction
+        self.num_samples = int(dataset_size * fraction)
+        self.seed = seed
+
+    def __iter__(self):
+        # Create a new random subset of indices each epoch
+        rng = np.random.default_rng(self.seed)
+        indices = rng.choice(self.dataset_size, size=self.num_samples, replace=False)
+        return iter(indices.tolist())
+
+    def __len__(self):
+        # Number of samples returned by the sampler in one epoch
+        return self.num_samples
+
 
 class CustomLightningDataset(LightningDataset):
     """
@@ -47,7 +97,8 @@ class CustomLightningDataset(LightningDataset):
         """
         kwargs.pop('batch_size', None)
         self.kwargs = kwargs
-
+        self.random_seed = getattr(cfg.train, 'seed', None)
+        self.fraction_train_epoch = getattr(cfg.train, 'fraction_train_epoch', 1.0)
         self.batch_size = cfg.train.batch_size if 'debug' not in cfg.general.name else 2
         self.eval_batch_size = cfg.train.eval_batch_size if 'debug' not in cfg.general.name else 1
 
@@ -74,8 +125,21 @@ class CustomLightningDataset(LightningDataset):
         shuffle = not isinstance(self.train_dataset, IterableDataset) # is instance of IterableDataset: e.g. to avoid streaming/lazy loading incompatibility
         shuffle &= self.kwargs.get('sampler', None) is None # a custom sampler is provided
         shuffle &= self.kwargs.get('batch_sampler', None) is None # a custom batch sampler is provided
-        return self.dataloader(self.train_dataset, shuffle=shuffle, batch_size=self.batch_size, **self.kwargs)
 
+        # Check if a partial fraction per epoch is configured
+        fraction = getattr(self, 'fraction_train_epoch', None)
+        if fraction is not None and 0.0 < fraction < 1.0:
+            # Override shuffle with a sampler
+            sampler = PartialEpochSampler(
+                dataset_size=len(self.train_dataset),
+                fraction=fraction,
+                seed=getattr(self, 'random_seed', None)
+            )
+            shuffle = False  # sampler controls randomness
+            return self.dataloader(self.train_dataset, sampler=sampler, batch_size=self.batch_size, **self.kwargs)
+
+        # Normal full-dataset behavior
+        return self.dataloader(self.train_dataset, shuffle=shuffle, batch_size=self.batch_size, **self.kwargs)
     def val_dataloader(self) -> DataLoader:
         """
         Constructs the validation dataloader.

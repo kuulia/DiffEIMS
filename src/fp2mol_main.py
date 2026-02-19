@@ -221,7 +221,7 @@ def main(cfg: DictConfig):
 
     loggers = [
         CSVLogger(save_dir=f"logs/{name}", name=name),
-        WandbLogger(name=name, save_dir=f"logs/{name}", project=cfg.general.wandb_name, log_model=False, config=utils.cfg_to_dict(cfg))
+        #WandbLogger(name=name, save_dir=f"logs/{name}", project=cfg.general.wandb_name, log_model=False, config=utils.cfg_to_dict(cfg))
     ]
 
     use_gpu = cfg.general.gpus > 0 and torch.cuda.is_available()
@@ -234,7 +234,8 @@ def main(cfg: DictConfig):
                       fast_dev_run=cfg.general.name == 'debug',
                       callbacks=callbacks,
                       log_every_n_steps=50 if name != 'debug' else 1,
-                      logger=loggers)
+                      logger=loggers,
+                      precision="bf16-mixed")
 
     if not cfg.general.test_only:
         trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.general.resume)
