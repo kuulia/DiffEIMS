@@ -163,6 +163,14 @@ class TrainMolecularMetricsDiscrete(nn.Module):
     def forward(self, masked_pred_X, masked_pred_E, true_X, true_E, log: bool):
         self.train_atom_metrics(masked_pred_X, true_X)
         self.train_bond_metrics(masked_pred_E, true_E)
+
+        # DETACH + MOVE TO CPU to save GPU memory
+        masked_pred_X_cpu = masked_pred_X.detach().cpu()
+        true_X_cpu = true_X.detach().cpu()
+        masked_pred_E_cpu = masked_pred_E.detach().cpu()
+        true_E_cpu = true_E.detach().cpu()
+        self.train_atom_metrics(masked_pred_X_cpu, true_X_cpu)
+        self.train_bond_metrics(masked_pred_E_cpu, true_E_cpu)
         if log:
             to_log = {}
             for key, val in self.train_atom_metrics.compute().items():
