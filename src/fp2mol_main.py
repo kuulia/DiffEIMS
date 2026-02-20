@@ -234,8 +234,7 @@ def main(cfg: DictConfig):
                       fast_dev_run=cfg.general.name == 'debug',
                       callbacks=callbacks,
                       log_every_n_steps=50 if name != 'debug' else 1,
-                      logger=loggers,
-                      precision="bf16-mixed")
+                      logger=loggers)
 
     if not cfg.general.test_only:
         trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.general.resume)
