@@ -264,8 +264,12 @@ class KNodeCycles:
     def k_cycles(self, adj_matrix, verbose=False):
         """
         Compute per-node and per-graph cycle counts up to k=6.
-        Logs and clamps negative values to avoid crashing.
+        Logs and softly clamps significantly negative values.
         """
+
+        NEG_THRESHOLD = -0.1  # warn below this
+        CLAMP_MIN = -0.1      # clamp floor
+
         self.adj_matrix = adj_matrix
         self.calculate_kpowers()
 
@@ -275,14 +279,24 @@ class KNodeCycles:
         k5x, k5y = self.k5_cycle()
         _, k6y = self.k6_cycle()
 
-        # List of (name, tensor) for easier logging
-        cycle_list = [("k3x", k3x), ("k4x", k4x), ("k5x", k5x), ("k6y", k6y)]
+        cycle_list = [
+            ("k3x", k3x),
+            ("k4x", k4x),
+            ("k5x", k5x),
+            ("k6y", k6y),
+        ]
 
         for name, tensor in cycle_list:
-            if (tensor < 0.).any():
-                logging.warning(f"{name} has negative entries: {tensor[tensor < 0.]}")
-            # Clamp negatives to zero
-            setattr(self, name, torch.clamp(tensor, min=0.))
+            if (tensor < NEG_THRESHOLD).any():
+                logging.warning(
+                    f"{name} has large negative entries: "
+                    f"{tensor[tensor < NEG_THRESHOLD].detach().cpu()}"
+                )
+
+            # Soft clamp (keeps small negative bias like -0.0833)
+            tensor = torch.clamp(tensor, min=CLAMP_MIN)
+
+            setattr(self, name, tensor)
 
         # Use clamped values
         k3x, k4x, k5x, k6y = self.k3x, self.k4x, self.k5x, self.k6y

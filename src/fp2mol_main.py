@@ -55,11 +55,8 @@ def get_resume_adaptive(cfg, model_kwargs):
 
     resume_path = os.path.join(root_dir, cfg.general.resume)
 
-    if cfg.model.type == 'discrete':
-        model = FP2MolDenoisingDiffusion.load_from_checkpoint(resume_path, **model_kwargs)
-    else:
-        raise NotImplementedError("Only discrete diffusion models are supported for FP2Mol dataset currently")
-    new_cfg = model.cfg
+    model = FP2MolDenoisingDiffusion.load_from_checkpoint(resume_path, **model_kwargs)
+
 
     for category in cfg:
         for arg in cfg[category]:
