@@ -35,7 +35,6 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
         self.cfg = cfg
         self.n_epochs = cfg.train.n_epochs
         self.name = cfg.general.name
-        self.model_dtype = torch.float32
         self.T = cfg.model.diffusion_steps
         self.val_num_samples = cfg.general.val_samples_to_generate
         self.test_num_samples = cfg.general.test_samples_to_generate
@@ -148,9 +147,16 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
         loss = self.train_loss(masked_pred_X=pred.X, masked_pred_E=pred.E, pred_y=pred.y,
                                true_X=X, true_E=E, true_y=data.y,
                                log=False)
-        
-        self.train_metrics(masked_pred_X=pred.X, masked_pred_E=pred.E, true_X=X, true_E=E,
-                        log=False)
+        with torch.no_grad():
+            with torch.autocast(device_type="cuda", enabled=False):
+                # calculate metrics with float precision and no_grad
+                self.train_metrics(
+                    masked_pred_X=pred.X.detach().float(),
+                    masked_pred_E=pred.E.detach().float(),
+                    true_X=X.detach().float(),
+                    true_E=E.detach().float(),
+                    log=False,
+                )
 
         return {'loss': loss}
 

@@ -162,7 +162,9 @@ class FP2MolDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return ['train.pt', 'val.pt', 'test.pt']
+        files = ['train.pt', 'val.pt', 'test.pt']
+        stage_file = files[self.file_idx]
+        return [stage_file]
 
     def process(self):
         RDLogger.DisableLog('rdApp.*')

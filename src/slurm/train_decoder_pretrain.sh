@@ -18,8 +18,22 @@ cd ms/DiffMS || exit 1
 # Record start time
 start_time=$(date +%s)
 
+# Start GPU logging
+(
+while true; do
+    echo "==== $(date) ====" >> gpu_log_${SLURM_JOB_ID}.txt
+    nvidia-smi --query-gpu=memory.used,memory.total,utilization.gpu \
+               --format=csv,noheader,nounits >> gpu_log_${SLURM_JOB_ID}.txt
+    sleep 10
+done
+) &
+LOG_PID=$!
+
 # Run training
 srun python src/fp2mol_main.py
+
+kill $LOG_PID 2>/dev/null
+wait $LOG_PID 2>/dev/null
 
 # Record end time and report runtime
 end_time=$(date +%s)
