@@ -24,4 +24,6 @@ graph_tf_y_transformer_ff_dim: 256
 graph_tf_y_transformer_n_layers: 1
 graph_tf_y_transformer_dropout: 0.1
 
+model_dtype: 'bfloat16'
+
 lambda_train: [1, 1, 0]

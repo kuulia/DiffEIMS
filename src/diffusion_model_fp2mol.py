@@ -22,10 +22,9 @@ from metrics.abstract_metrics import SumExceptBatchMetric, SumExceptBatchKL, NLL
 from src.metrics.diffms_metrics import K_ACC_Collection, K_SimilarityCollection, Validity
 from src import utils
 
-
 class FP2MolDenoisingDiffusion(pl.LightningModule):
     def __init__(self, cfg, dataset_infos, train_metrics, visualization_tools, extra_features,
-                 domain_features):
+                 domain_features, dtype = torch.float32):
         super().__init__()
 
         input_dims = dataset_infos.input_dims
@@ -33,6 +32,7 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
         nodes_dist = dataset_infos.nodes_dist
 
         self.cfg = cfg
+        self.model_dtype = dtype
         self.n_epochs = cfg.train.n_epochs
         self.name = cfg.general.name
         self.T = cfg.model.diffusion_steps
@@ -551,9 +551,9 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
         return nll
 
     def forward(self, noisy_data, extra_data, node_mask):
-        X = torch.cat((noisy_data['X_t'], extra_data.X), dim=2).float()
-        E = torch.cat((noisy_data['E_t'], extra_data.E), dim=3).float()
-        y = torch.hstack((noisy_data['y_t'], extra_data.y)).float()
+        X = torch.cat((noisy_data['X_t'], extra_data.X), dim=2).to(self.model_dtype)
+        E = torch.cat((noisy_data['E_t'], extra_data.E), dim=3).to(self.model_dtype)
+        y = torch.hstack((noisy_data['y_t'], extra_data.y)).to(self.model_dtype)
         return self.decoder(X, E, y, node_mask)
     
     @torch.no_grad()

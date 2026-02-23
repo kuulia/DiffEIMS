@@ -22,6 +22,11 @@ from src import utils
 from src.diffusion_model_fp2mol import FP2MolDenoisingDiffusion
 from src.diffusion.extra_features import DummyExtraFeatures, ExtraFeatures
 
+dtype_map = { 
+    'float32': torch.float32, 
+    'float16': torch.float16, 
+    'bfloat16': torch.bfloat16 
+}
 
 warnings.filterwarnings("ignore", category=PossibleUserWarning)
 
@@ -122,6 +127,10 @@ def main(cfg: DictConfig):
     else:
         raise NotImplementedError("Unknown dataset {}".format(cfg["dataset"]))
     
+
+    model_dtype = dtype_map[cfg.model.model_dtype]
+    torch.set_default_dtype(model_dtype)
+    logging.info(f'Model dtype set to {model_dtype}')
     from metrics.molecular_metrics import TrainMolecularMetrics, SamplingMolecularMetrics
     from metrics.molecular_metrics_discrete import TrainMolecularMetricsDiscrete
     from diffusion.extra_features_molecular import ExtraMolecularFeatures
@@ -149,7 +158,9 @@ def main(cfg: DictConfig):
     visualization_tools = MolecularVisualization(cfg.dataset.remove_h, dataset_infos=dataset_infos)
 
     model_kwargs = {'dataset_infos': dataset_infos, 'train_metrics': train_metrics,
-                    'visualization_tools': visualization_tools, 'extra_features': extra_features, 'domain_features': domain_features}
+                    'visualization_tools': visualization_tools, 'extra_features': extra_features, 
+                    'domain_features': domain_features,
+                    'dtype' : model_dtype}
 
     if cfg.general.test_only:
         # When testing, previous configuration is fully loaded
@@ -220,7 +231,6 @@ def main(cfg: DictConfig):
         CSVLogger(save_dir=f"logs/{name}", name=name),
         #WandbLogger(name=name, save_dir=f"logs/{name}", project=cfg.general.wandb_name, log_model=False, config=utils.cfg_to_dict(cfg))
     ]
-
     use_gpu = cfg.general.gpus > 0 and torch.cuda.is_available()
     trainer = Trainer(gradient_clip_val=cfg.train.clip_grad,
                       strategy="ddp",  # Needed to load old checkpoints
@@ -232,7 +242,7 @@ def main(cfg: DictConfig):
                       callbacks=callbacks,
                       log_every_n_steps=50 if name != 'debug' else 1,
                       logger=loggers,
-                      precision="bf16-mixed")
+                      precision=cfg.train.precision)
 
     if not cfg.general.test_only:
         trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.general.resume)

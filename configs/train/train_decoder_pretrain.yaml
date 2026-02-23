@@ -16,4 +16,4 @@ pct_start: 0.3
 seed: 42
 limit_val_batches: 0.5 # 'float', 1.0 default (full val batch)
 fraction_train_epoch: 0.5
-precision: 32
+precision: bf16-mixed
