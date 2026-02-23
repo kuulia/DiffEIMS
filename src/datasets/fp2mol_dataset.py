@@ -120,7 +120,8 @@ valency = [ATOM_TO_VALENCY.get(atom, 0) for atom in ATOM_DECODER]
 # COCONUT: https://zenodo.org/records/13692394
 
 class FP2MolDataset(InMemoryDataset):
-    def __init__(self, stage, root, filter_dataset: bool, transform=None, pre_transform=None, pre_filter=None, morgan_r=2, morgan_nBits=2048, dataset='hmdb'):
+    def __init__(self, stage, root, filter_dataset: bool, transform=None, pre_transform=None, 
+                 pre_filter=None, morgan_r=2, morgan_nBits=2048, dataset='hmdb'):
         self.stage = stage
         self.atom_decoder = ATOM_DECODER
         self.filter_dataset = filter_dataset
@@ -129,7 +130,9 @@ class FP2MolDataset(InMemoryDataset):
         self.morgan_nbits = morgan_nBits
         self.dataset = dataset
 
-        self._processed_dir = os.path.join(root, 'processed', f'morgan_r-{self.morgan_r}__morgan_nbits-{self.morgan_nbits}')
+        self._processed_dir = os.path.join(root, 'processed', 
+                                           f'morgan_r-{self.morgan_r}__morgan_nbits-{self.morgan_nbits}'
+                                           )
         self._raw_dir = os.path.join(root, 'preprocessed')
 
         if self.stage == 'train': self.file_idx = 0
@@ -162,9 +165,8 @@ class FP2MolDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        files = ['train.pt', 'val.pt', 'test.pt']
-        stage_file = files[self.file_idx]
-        return [stage_file]
+        files = ['train.pt', 'val.pt']
+        return files
 
     def process(self):
         RDLogger.DisableLog('rdApp.*')
@@ -187,7 +189,8 @@ class FP2MolDataset(InMemoryDataset):
             ]
 
             # Use joblib's Parallel with tqdm_joblib to show a progress bar.
-            with tqdm_joblib(tqdm(desc="Processing inchi.....", total=len(args_list), leave=False)) as progress_bar:
+            with tqdm_joblib(tqdm(desc="Processing inchi.....", 
+                                  total=len(args_list), leave=False)) as progress_bar:
 
                 results = Parallel(n_jobs=4)(delayed(process_single_inchi)(arg) for arg in args_list)
 
@@ -211,9 +214,21 @@ class FP2MolDataModule(MolecularDataModule):
         self.train_smiles = []
         self.dataset_name = cfg.dataset.dataset
         self._root_path = os.path.join(cfg.general.parent_dir, self.datadir, self.dataset_name)
-        datasets = {'train': FP2MolDataset(stage='train', root=self._root_path, filter_dataset=self.filter_dataset, morgan_r=cfg.dataset.morgan_r, morgan_nBits=cfg.dataset.morgan_nbits, dataset=cfg.dataset.dataset),
-                    'val': FP2MolDataset(stage='val', root=self._root_path, filter_dataset=self.filter_dataset, morgan_r=cfg.dataset.morgan_r, morgan_nBits=cfg.dataset.morgan_nbits, dataset=cfg.dataset.dataset),
-                    'test': FP2MolDataset(stage='val', root=self._root_path, filter_dataset=self.filter_dataset, morgan_r=cfg.dataset.morgan_r, morgan_nBits=cfg.dataset.morgan_nbits, dataset=cfg.dataset.dataset)}
+        datasets = {'train': FP2MolDataset(stage='train', root=self._root_path, 
+                                           filter_dataset=self.filter_dataset, 
+                                           morgan_r=cfg.dataset.morgan_r, 
+                                           morgan_nBits=cfg.dataset.morgan_nbits, 
+                                           dataset=cfg.dataset.dataset),
+                    'val': FP2MolDataset(stage='val', root=self._root_path, 
+                                         filter_dataset=self.filter_dataset, 
+                                         morgan_r=cfg.dataset.morgan_r, 
+                                         morgan_nBits=cfg.dataset.morgan_nbits, 
+                                         dataset=cfg.dataset.dataset),
+                    'test': FP2MolDataset(stage='val', root=self._root_path, 
+                                          filter_dataset=self.filter_dataset, 
+                                          morgan_r=cfg.dataset.morgan_r, 
+                                          morgan_nBits=cfg.dataset.morgan_nbits, 
+                                          dataset=cfg.dataset.dataset)}
         super().__init__(cfg, datasets)
 
 
