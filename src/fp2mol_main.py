@@ -32,22 +32,40 @@ warnings.filterwarnings("ignore", category=PossibleUserWarning)
 
 
 def get_resume(cfg, model_kwargs):
-    """ Resumes a run. It loads previous config without allowing to update keys (used for testing). """
+    """
+    Resumes a run using a previous checkpoint without allowing adaptive config updates.
+    Used for testing or strict continuation runs.
+
+    Args:
+        cfg: current config object
+        model_kwargs: additional kwargs to pass to `load_from_checkpoint`
+
+    Returns:
+        cfg: config loaded from the checkpoint, with updated run name and test_only flag
+        model: loaded FP2MolDenoisingDiffusion model
+    """
+    # Save current config in case we need to restore anything
     saved_cfg = cfg.copy()
+
+    # Generate new run name for the resumed run
     name = cfg.general.name + '_resume'
-    resume = cfg.general.test_only
-    val_samples_to_generate = cfg.general.val_samples_to_generate
-    test_samples_to_generate = cfg.general.test_samples_to_generate
-    if cfg.model.type == 'discrete':
-        model = FP2MolDenoisingDiffusion.load_from_checkpoint(resume, **model_kwargs)
-    else:
-        raise NotImplementedError("Only discrete diffusion models are supported for FP2Mol dataset currently")
+
+    # Path to the checkpoint (use test_only field as resume path)
+    resume_path = cfg.general.resume
+
+    # Load model from checkpoint
+    model = FP2MolDenoisingDiffusion.load_from_checkpoint(resume_path, **model_kwargs)
+
+    # Load config from the checkpoint
     cfg = model.cfg
-    cfg.general.test_only = resume
+
+    # Restore test_only flag and update run name
+    cfg.general.resume = resume_path
     cfg.general.name = name
-    cfg.general.val_samples_to_generate = val_samples_to_generate
-    cfg.general.test_samples_to_generate = test_samples_to_generate
+
+    # Keep other keys from saved config if necessary
     cfg = utils.update_config_with_new_keys(cfg, saved_cfg)
+
     return cfg, model
 
 
@@ -162,14 +180,11 @@ def main(cfg: DictConfig):
                     'domain_features': domain_features,
                     'dtype' : model_dtype}
 
-    if cfg.general.test_only:
+    if cfg.general.resume is not None:
         # When testing, previous configuration is fully loaded
         cfg, _ = get_resume(cfg, model_kwargs)
-        os.chdir(cfg.general.test_only.split('checkpoints')[0])
-    elif cfg.general.resume is not None:
-        # When resuming, we can override some parts of previous configuration
-        cfg, _ = get_resume_adaptive(cfg, model_kwargs)
         os.chdir(cfg.general.resume.split('checkpoints')[0])
+        logging.info(f'Resuming run {cfg.general.resume}')
 
     try:
         os.makedirs('preds/')
