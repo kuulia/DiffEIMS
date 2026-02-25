@@ -497,8 +497,9 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
         alpha_t_bar = self.noise_schedule.get_alpha_bar(t_normalized=t_float)      # (bs, 1)
 
         Qtb = self.transition_model.get_Qt_bar(alpha_t_bar, device=self.device)  # (bs, dx_in, dx_out), (bs, de_in, de_out)
-        assert (abs(Qtb.X.sum(dim=2) - 1.) < 1e-4).all(), Qtb.X.sum(dim=2) - 1
-        assert (abs(Qtb.E.sum(dim=2) - 1.) < 1e-4).all()
+        eps = 1e-3  # safe for bf16
+        assert (abs(Qtb.X.sum(dim=2) - 1.) < eps).all(), Qtb.X.sum(dim=2) - 1
+        assert (abs(Qtb.E.sum(dim=2) - 1.) < eps).all()
 
         # Compute transition probabilities
         probX = X @ Qtb.X  # (bs, n, dx_out)
