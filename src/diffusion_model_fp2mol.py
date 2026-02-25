@@ -480,11 +480,16 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
 
         # Sample a timestep t.
         lowest_t = 1
-        t_int = torch.randint(lowest_t, self.T + 1, size=(X.size(0), 1), device=X.device, dtype=self.model_dtype)  # (bs, 1)
+        t_int = torch.randint(lowest_t, self.T + 1, size=(X.size(0), 1), device=X.device, dtype=torch.int32)  # (bs, 1)
         s_int = t_int - 1
 
-        t_float = t_int / self.T
-        s_float = s_int / self.T
+        # Ensure float
+        t_float = t_int.float() / self.T
+        s_float = s_int.float() / self.T
+
+        # Convert
+        t_float = t_float.to(self.model_dtype)
+        s_float = s_float.to(self.model_dtype)
 
         # beta_t and alpha_s_bar are used for denoising/loss computation
         beta_t = self.noise_schedule(t_normalized=t_float)                         # (bs, 1)
