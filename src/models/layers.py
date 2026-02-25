@@ -11,18 +11,23 @@ class Xtoy(nn.Module):
         self.dtype = dtype
 
     def forward(self, X, x_mask):
-        """ X: bs, n, dx. """
         X = X.to(self.dtype)
-        x_mask = x_mask.to(self.dtype)
-        x_mask = x_mask.expand(-1, -1, X.shape[-1])
-        float_imask = 1 - x_mask
-        m = X.sum(dim=1) / torch.sum(x_mask, dim=1)
+
+        x_mask = x_mask.bool()
+        mask_float = x_mask.to(self.dtype)
+
+        denom = mask_float.sum(dim=1) + 1e-6
+        m = (X * mask_float).sum(dim=1) / denom
+
+        float_imask = (~x_mask).to(self.dtype)
+
         mi = (X + 1e5 * float_imask).min(dim=1)[0]
         ma = (X - 1e5 * float_imask).max(dim=1)[0]
-        std = torch.sum(((X - m[:, None, :]) ** 2) * x_mask, dim=1) / torch.sum(x_mask, dim=1)
-        z = torch.hstack((m, mi, ma, std))
-        out = self.lin(z)
-        return out
+
+        std = (((X - m[:, None, :]) ** 2) * mask_float).sum(dim=1) / denom
+
+        z = torch.cat((m, mi, ma, std), dim=-1)
+        return self.lin(z)
 
 
 class Etoy(nn.Module):
@@ -34,22 +39,37 @@ class Etoy(nn.Module):
         self.dtype = dtype
 
     def forward(self, E, e_mask1, e_mask2):
-        """ E: bs, n, n, de
-            Features relative to the diagonal of E could potentially be added.
         """
+        E: bs, n, n, de
+        """
+
+        # Ensure feature dtype
         E = E.to(self.dtype)
-        e_mask1 = e_mask1.to(self.dtype)
-        e_mask2 = e_mask2.to(self.dtype)
-        mask = (e_mask1 * e_mask2).expand(-1, -1, -1, E.shape[-1])
-        float_imask = 1 - mask.to(self.dtype)
-        divide = torch.sum(mask, dim=(1, 2))
-        m = E.sum(dim=(1, 2)) / divide
+
+        # Build boolean mask
+        mask = (e_mask1 * e_mask2).expand(-1, -1, -1, E.shape[-1]).bool()
+
+        # Float version for arithmetic
+        mask_float = mask.to(self.dtype)
+
+        # Safe denominator (avoid divide-by-zero)
+        denom = mask_float.sum(dim=(1, 2)) + 1e-6
+
+        # Masked mean (IMPORTANT: mask before summing)
+        m = (E * mask_float).sum(dim=(1, 2)) / denom
+
+        # Inverted mask for min/max
+        float_imask = (~mask).to(self.dtype)
+
         mi = (E + 1e5 * float_imask).min(dim=2)[0].min(dim=1)[0]
         ma = (E - 1e5 * float_imask).max(dim=2)[0].max(dim=1)[0]
-        std = torch.sum(((E - m[:, None, None, :]) ** 2) * mask, dim=(1, 2)) / divide
-        z = torch.hstack((m, mi, ma, std))
-        out = self.lin(z)
-        return out
+
+        # Masked variance
+        std = (((E - m[:, None, None, :]) ** 2) * mask_float).sum(dim=(1, 2)) / denom
+
+        z = torch.cat((m, mi, ma, std), dim=-1)
+
+        return self.lin(z)
 
 
 def masked_softmax(x, mask, **kwargs):
