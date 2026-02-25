@@ -27,6 +27,7 @@ class XEyTransformerLayer(nn.Module):
                  dim_ffE: int = 128, dim_ffy: int = 2048, dropout: float = 0.1,
                  layer_norm_eps: float = 1e-5, device=None, dtype=None) -> None:
         kw = {'device': device, 'dtype': dtype}
+        self.dtype = dtype
         super().__init__()
 
         self.self_attn = NodeEdgeBlock(dx, de, dy, n_head, **kw)
@@ -65,6 +66,9 @@ class XEyTransformerLayer(nn.Module):
             node_mask: (bs, n) Mask for the src keys per batch (optional)
             Output: newX, newE, new_y with the same shape.
         """
+        X = X.to(self.dtype)
+        E = E.to(self.dtype)
+        y = y.to(self.dtype)
 
         newX, newE, new_y = self.self_attn(X, E, y, node_mask=node_mask)
 
@@ -94,7 +98,8 @@ class XEyTransformerLayer(nn.Module):
 
 class NodeEdgeBlock(nn.Module):
     """ Self attention layer that also updates the representations on the edges. """
-    def __init__(self, dx, de, dy, n_head, **kwargs):
+    def __init__(self, dx, de, dy, n_head, device=None, dtype=None, **kwargs) -> None:
+        kw = {'device': device, 'dtype': dtype}
         super().__init__()
         assert dx % n_head == 0, f"dx: {dx} -- nhead: {n_head}"
         self.dx = dx
@@ -104,31 +109,31 @@ class NodeEdgeBlock(nn.Module):
         self.n_head = n_head
 
         # Attention
-        self.q = Linear(dx, dx)
-        self.k = Linear(dx, dx)
-        self.v = Linear(dx, dx)
+        self.q = Linear(dx, dx, **kw)
+        self.k = Linear(dx, dx, **kw)
+        self.v = Linear(dx, dx, **kw)
 
         # FiLM E to X
-        self.e_add = Linear(de, dx)
-        self.e_mul = Linear(de, dx)
+        self.e_add = Linear(de, dx, **kw)
+        self.e_mul = Linear(de, dx, **kw)
 
         # FiLM y to E
-        self.y_e_mul = Linear(dy, dx)           # Warning: here it's dx and not de
-        self.y_e_add = Linear(dy, dx)
+        self.y_e_mul = Linear(dy, dx, **kw)           # Warning: here it's dx and not de
+        self.y_e_add = Linear(dy, dx, **kw)
 
         # FiLM y to X
-        self.y_x_mul = Linear(dy, dx)
-        self.y_x_add = Linear(dy, dx)
+        self.y_x_mul = Linear(dy, dx, **kw)
+        self.y_x_add = Linear(dy, dx, **kw)
 
         # Process y
-        self.y_y = Linear(dy, dy)
-        self.x_y = Xtoy(dx, dy)
-        self.e_y = Etoy(de, dy)
+        self.y_y = Linear(dy, dy, **kw)
+        self.x_y = Xtoy(dx, dy, **kw)
+        self.e_y = Etoy(de, dy, **kw)
 
         # Output layers
-        self.x_out = Linear(dx, dx)
-        self.e_out = Linear(dx, de)
-        self.y_out = nn.Sequential(nn.Linear(dy, dy), nn.ReLU(), nn.Linear(dy, dy))
+        self.x_out = Linear(dx, dx, **kw)
+        self.e_out = Linear(dx, de, **kw)
+        self.y_out = nn.Sequential(nn.Linear(dy, dy, **kw), nn.ReLU(), nn.Linear(dy, dy, **kw))
 
     def forward(self, X, E, y, node_mask):
         """
@@ -292,30 +297,35 @@ class GraphTransformerV2(nn.Module):
     def __init__(self, n_layers: int, input_dims: dict, hidden_mlp_dims: dict, hidden_dims: dict,
                  output_dims: dict, act_fn_in=nn.ReLU(), act_fn_out=nn.ReLU(), y_encoder_fp_dim: int = 2048,
                  y_encoder_n_heads: int = 8, y_encoder_transformer_ff_dim: int = 256, 
-                 y_encoder_num_layers: int = 1, y_encoder_dropout: float = 0.1, **kwargs
+                 y_encoder_num_layers: int = 1, y_encoder_dropout: float = 0.1, 
+                 device=None, dtype=None, **kwargs
                 ):
+        kw = {'device': device, 'dtype': dtype}
         super().__init__()
         self.n_layers = n_layers
         self.out_dim_X = output_dims['X']
         self.out_dim_E = output_dims['E']
         self.out_dim_y = output_dims['y']
+        self.kw = kw
 
         self.y_encoder = FPMultiHeadAttention(
             fp_dim=y_encoder_fp_dim,
             n_heads=y_encoder_n_heads,
             transformer_ff_dim=y_encoder_transformer_ff_dim,
             num_layers=y_encoder_num_layers,
-            dropout=y_encoder_dropout
+            dropout=y_encoder_dropout,
+            device=device,
+            dtype=dtype
         )
 
-        self.mlp_in_X = nn.Sequential(nn.Linear(input_dims['X'], hidden_mlp_dims['X']), act_fn_in,
-                                      nn.Linear(hidden_mlp_dims['X'], hidden_dims['dx']), act_fn_in)
+        self.mlp_in_X = nn.Sequential(nn.Linear(input_dims['X'], hidden_mlp_dims['X'], **kw), act_fn_in,
+                                      nn.Linear(hidden_mlp_dims['X'], hidden_dims['dx'], **kw), act_fn_in)
 
-        self.mlp_in_E = nn.Sequential(nn.Linear(input_dims['E'], hidden_mlp_dims['E']), act_fn_in,
-                                      nn.Linear(hidden_mlp_dims['E'], hidden_dims['de']), act_fn_in)
+        self.mlp_in_E = nn.Sequential(nn.Linear(input_dims['E'], hidden_mlp_dims['E'], **kw), act_fn_in,
+                                      nn.Linear(hidden_mlp_dims['E'], hidden_dims['de'], **kw), act_fn_in)
 
-        self.mlp_in_y = nn.Sequential(nn.Linear(input_dims['y'], hidden_mlp_dims['y']), act_fn_in,
-                                      nn.Linear(hidden_mlp_dims['y'], hidden_dims['dy']), act_fn_in)
+        self.mlp_in_y = nn.Sequential(nn.Linear(input_dims['y'], hidden_mlp_dims['y'], **kw), act_fn_in,
+                                      nn.Linear(hidden_mlp_dims['y'], hidden_dims['dy'], **kw), act_fn_in)
 
         self.tf_layers = nn.ModuleList([XEyTransformerLayer(dx=hidden_dims['dx'],
                                                             de=hidden_dims['de'],
@@ -323,22 +333,24 @@ class GraphTransformerV2(nn.Module):
                                                             n_head=hidden_dims['n_head'],
                                                             dim_ffX=hidden_dims['dim_ffX'],
                                                             dim_ffE=hidden_dims['dim_ffE'],
-                                                            dim_ffy=hidden_dims['dim_ffy'],)
+                                                            dim_ffy=hidden_dims['dim_ffy'],
+                                                            device=device,
+                                                            dtype=dtype)
                                         for i in range(n_layers)])
 
-        self.mlp_out_X = nn.Sequential(nn.Linear(hidden_dims['dx'], hidden_mlp_dims['X']), act_fn_out,
-                                       nn.Linear(hidden_mlp_dims['X'], output_dims['X']))
+        self.mlp_out_X = nn.Sequential(nn.Linear(hidden_dims['dx'], hidden_mlp_dims['X'], **kw), act_fn_out,
+                                       nn.Linear(hidden_mlp_dims['X'], output_dims['X'], **kw))
 
-        self.mlp_out_E = nn.Sequential(nn.Linear(hidden_dims['de'], hidden_mlp_dims['E']), act_fn_out,
-                                       nn.Linear(hidden_mlp_dims['E'], output_dims['E']))
+        self.mlp_out_E = nn.Sequential(nn.Linear(hidden_dims['de'], hidden_mlp_dims['E'], **kw), act_fn_out,
+                                       nn.Linear(hidden_mlp_dims['E'], output_dims['E'], **kw))
 
-        self.mlp_out_y = nn.Sequential(nn.Linear(hidden_dims['dy'], hidden_mlp_dims['y']), act_fn_out,
-                                       nn.Linear(hidden_mlp_dims['y'], output_dims['y']))
+        self.mlp_out_y = nn.Sequential(nn.Linear(hidden_dims['dy'], hidden_mlp_dims['y'], **kw), act_fn_out,
+                                       nn.Linear(hidden_mlp_dims['y'], output_dims['y'], **kw))
 
     def forward(self, X, E, y, node_mask):
         bs, n = X.shape[0], X.shape[1]
 
-        diag_mask = torch.eye(n)
+        diag_mask = torch.eye(n, **self.kw)
         diag_mask = ~diag_mask.type_as(E).bool()
         diag_mask = diag_mask.unsqueeze(0).unsqueeze(-1).expand(bs, -1, -1, -1)
 
@@ -376,8 +388,11 @@ class FPMultiHeadAttention(nn.Module):
         transformer_ff_dim: int = 256,
         num_layers: int = 1,
         dropout: float = 0.1,
-        layer_norm_eps: float = 1e-5
+        layer_norm_eps: float = 1e-5,
+        device=None,
+        dtype=None
     ):
+        kw = {'device': device, 'dtype': dtype}
         super().__init__()
 
         if fp_dim % n_heads != 0:
@@ -386,12 +401,13 @@ class FPMultiHeadAttention(nn.Module):
         self.fp_dim = fp_dim
         self.n_heads = n_heads
         self.hidden_dim = fp_dim // n_heads
+        self.kw = kw
 
         self.mlp_in = nn.Sequential(
-            nn.Linear(fp_dim, fp_dim),
+            nn.Linear(fp_dim, fp_dim, **kw),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(fp_dim, fp_dim),
+            nn.Linear(fp_dim, fp_dim, **kw),
             nn.Dropout(dropout)
         )
 
@@ -402,9 +418,12 @@ class FPMultiHeadAttention(nn.Module):
             dropout=dropout,
             activation="relu",
             layer_norm_eps=layer_norm_eps,
-            batch_first=False
+            batch_first=False,
+            device=device,
+            dtype=dtype
         )
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, 
+                                                         num_layers=num_layers)
 
 
     def forward(self, y: torch.Tensor) -> torch.Tensor:

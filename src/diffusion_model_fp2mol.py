@@ -99,7 +99,8 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
                 y_encoder_n_heads=cfg.model.graph_tf_y_transformer_n_heads,
                 y_encoder_transformer_ff_dim=cfg.model.graph_tf_y_transformer_ff_dim,
                 y_encoder_num_layers=cfg.model.graph_tf_y_transformer_n_layers,
-                y_encoder_dropout=cfg.model.graph_tf_y_transformer_dropout,         
+                y_encoder_dropout=cfg.model.graph_tf_y_transformer_dropout,
+                dtype=self.model_dtype
             )
         
         self.noise_schedule = PredefinedNoiseScheduleDiscrete(cfg.model.diffusion_noise_schedule, timesteps=cfg.model.diffusion_steps)
@@ -114,16 +115,16 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
             self.limit_dist = utils.PlaceHolder(X=x_limit, E=e_limit, y=y_limit)
         elif cfg.model.transition == 'marginal':
 
-            node_types = self.dataset_info.node_types.float()
+            node_types = self.dataset_info.node_types.to(self.model_dtype)
             x_marginals = node_types / torch.sum(node_types)
 
-            edge_types = self.dataset_info.edge_types.float()
+            edge_types = self.dataset_info.edge_types.to(self.model_dtype)
             e_marginals = edge_types / torch.sum(edge_types)
             logging.info(f"Marginal distribution of the classes: {x_marginals} for nodes, {e_marginals} for edges")
             self.transition_model = MarginalUniformTransition(x_marginals=x_marginals, e_marginals=e_marginals,
                                                               y_classes=self.ydim_output)
             self.limit_dist = utils.PlaceHolder(X=x_marginals, E=e_marginals,
-                                                y=torch.ones(self.ydim_output) / self.ydim_output)
+                                                y=torch.ones(self.ydim_output, dtype=self.model_dtype) / self.ydim_output)
 
         self.save_hyperparameters(ignore=['train_metrics', 'sampling_metrics', 'dtype'])
         self.start_epoch_time = None
@@ -446,8 +447,8 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
 
         sampled0 = diffusion_utils.sample_discrete_features(probX=probX0, probE=probE0, node_mask=node_mask)
 
-        X0 = F.one_hot(sampled0.X, num_classes=self.Xdim_output).float()
-        E0 = F.one_hot(sampled0.E, num_classes=self.Edim_output).float()
+        X0 = F.one_hot(sampled0.X, num_classes=self.Xdim_output).to(self.model_dtype)
+        E0 = F.one_hot(sampled0.E, num_classes=self.Edim_output).to(self.model_dtype)
         y0 = y
         assert (X.shape == X0.shape) and (E.shape == E0.shape)
 
@@ -479,7 +480,7 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
 
         # Sample a timestep t.
         lowest_t = 1
-        t_int = torch.randint(lowest_t, self.T + 1, size=(X.size(0), 1), device=X.device).float()  # (bs, 1)
+        t_int = torch.randint(lowest_t, self.T + 1, size=(X.size(0), 1), device=X.device, dtype=self.model_dtype)  # (bs, 1)
         s_int = t_int - 1
 
         t_float = t_int / self.T
@@ -567,7 +568,7 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
 
         # Iteratively sample p(z_s | z_t) for t = 1, ..., T, with s = t - 1.
         for s_int in tqdm(reversed(range(0, self.T)), desc='Sampling', leave=False):
-            s_array = s_int * torch.ones((len(batch), 1), dtype=torch.float32, device=self.device)
+            s_array = s_int * torch.ones((len(batch), 1), dtype=self.model_dtype, device=self.device)
             t_array = s_array + 1
             s_norm = s_array / self.T
             t_norm = t_array / self.T
@@ -637,8 +638,8 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
 
         sampled_s = diffusion_utils.sample_discrete_features(prob_X, prob_E, node_mask=node_mask)
 
-        X_s = F.one_hot(sampled_s.X, num_classes=self.Xdim_output).float()
-        E_s = F.one_hot(sampled_s.E, num_classes=self.Edim_output).float()
+        X_s = F.one_hot(sampled_s.X, num_classes=self.Xdim_output).to(self.model_dtype)
+        E_s = F.one_hot(sampled_s.E, num_classes=self.Edim_output).to(self.model_dtype)
 
         assert (E_s == torch.transpose(E_s, 1, 2)).all()
         assert (X_t.shape == X_s.shape) and (E_t.shape == E_s.shape)
