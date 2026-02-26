@@ -224,21 +224,23 @@ class GraphTransformer(nn.Module):
     dims : dict -- contains dimensions for each feature type
     """
     def __init__(self, n_layers: int, input_dims: dict, hidden_mlp_dims: dict, hidden_dims: dict,
-                 output_dims: dict, act_fn_in=nn.ReLU(), act_fn_out=nn.ReLU(), **kwargs):
+                 output_dims: dict, act_fn_in=nn.ReLU(), act_fn_out=nn.ReLU(),
+                 device=None, dtype=None, **kwargs):
+        kw = {'device': device, 'dtype': dtype}
         super().__init__()
         self.n_layers = n_layers
         self.out_dim_X = output_dims['X']
         self.out_dim_E = output_dims['E']
         self.out_dim_y = output_dims['y']
 
-        self.mlp_in_X = nn.Sequential(nn.Linear(input_dims['X'], hidden_mlp_dims['X']), act_fn_in,
-                                      nn.Linear(hidden_mlp_dims['X'], hidden_dims['dx']), act_fn_in)
+        self.mlp_in_X = nn.Sequential(nn.Linear(input_dims['X'], hidden_mlp_dims['X'], **kw), act_fn_in,
+                                      nn.Linear(hidden_mlp_dims['X'], hidden_dims['dx'], **kw), act_fn_in)
 
-        self.mlp_in_E = nn.Sequential(nn.Linear(input_dims['E'], hidden_mlp_dims['E']), act_fn_in,
-                                      nn.Linear(hidden_mlp_dims['E'], hidden_dims['de']), act_fn_in)
+        self.mlp_in_E = nn.Sequential(nn.Linear(input_dims['E'], hidden_mlp_dims['E'], **kw), act_fn_in,
+                                      nn.Linear(hidden_mlp_dims['E'], hidden_dims['de'], **kw), act_fn_in)
 
-        self.mlp_in_y = nn.Sequential(nn.Linear(input_dims['y'], hidden_mlp_dims['y']), act_fn_in,
-                                      nn.Linear(hidden_mlp_dims['y'], hidden_dims['dy']), act_fn_in)
+        self.mlp_in_y = nn.Sequential(nn.Linear(input_dims['y'], hidden_mlp_dims['y'], **kw), act_fn_in,
+                                      nn.Linear(hidden_mlp_dims['y'], hidden_dims['dy'], **kw), act_fn_in)
 
         self.tf_layers = nn.ModuleList([XEyTransformerLayer(dx=hidden_dims['dx'],
                                                             de=hidden_dims['de'],
@@ -246,17 +248,19 @@ class GraphTransformer(nn.Module):
                                                             n_head=hidden_dims['n_head'],
                                                             dim_ffX=hidden_dims['dim_ffX'],
                                                             dim_ffE=hidden_dims['dim_ffE'],
-                                                            dim_ffy=hidden_dims['dim_ffy'],)
+                                                            dim_ffy=hidden_dims['dim_ffy'],
+                                                            device=device,
+                                                            dtype=dtype)
                                         for i in range(n_layers)])
 
-        self.mlp_out_X = nn.Sequential(nn.Linear(hidden_dims['dx'], hidden_mlp_dims['X']), act_fn_out,
-                                       nn.Linear(hidden_mlp_dims['X'], output_dims['X']))
+        self.mlp_out_X = nn.Sequential(nn.Linear(hidden_dims['dx'], hidden_mlp_dims['X'], **kw), act_fn_out,
+                                       nn.Linear(hidden_mlp_dims['X'], output_dims['X'], **kw))
 
-        self.mlp_out_E = nn.Sequential(nn.Linear(hidden_dims['de'], hidden_mlp_dims['E']), act_fn_out,
-                                       nn.Linear(hidden_mlp_dims['E'], output_dims['E']))
+        self.mlp_out_E = nn.Sequential(nn.Linear(hidden_dims['de'], hidden_mlp_dims['E'], **kw), act_fn_out,
+                                       nn.Linear(hidden_mlp_dims['E'], output_dims['E'], **kw))
 
-        self.mlp_out_y = nn.Sequential(nn.Linear(hidden_dims['dy'], hidden_mlp_dims['y']), act_fn_out,
-                                       nn.Linear(hidden_mlp_dims['y'], output_dims['y']))
+        self.mlp_out_y = nn.Sequential(nn.Linear(hidden_dims['dy'], hidden_mlp_dims['y'], **kw), act_fn_out,
+                                       nn.Linear(hidden_mlp_dims['y'], output_dims['y'], **kw))
 
     def forward(self, X, E, y, node_mask):
         bs, n = X.shape[0], X.shape[1]
