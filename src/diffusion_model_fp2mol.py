@@ -33,6 +33,11 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
 
         self.cfg = cfg
         self.model_dtype = dtype
+        self.use_mixed_precision = dtype in (torch.float16, torch.bfloat16)
+        if self.use_mixed_precision:
+            logging.info(f'Mixed precision is enabled, model_dtype: {dtype}')
+        else:
+            logging.info(f'Mixed precision is disabled, model_dtype: {dtype}')
         self.n_epochs = cfg.train.n_epochs
         self.name = cfg.general.name
         self.T = cfg.model.diffusion_steps
@@ -85,7 +90,8 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
                                         hidden_dims=cfg.model.hidden_dims,
                                         output_dims=output_dims,
                                         act_fn_in=nn.ReLU(),
-                                        act_fn_out=nn.ReLU())
+                                        act_fn_out=nn.ReLU(),
+                                        dtype=self.model_dtype)
         elif self.cfg.model.model == 'graph_tf_v2':
             self.decoder = GraphTransformerV2(
                 n_layers=cfg.model.n_layers,
@@ -115,16 +121,16 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
             self.limit_dist = utils.PlaceHolder(X=x_limit, E=e_limit, y=y_limit)
         elif cfg.model.transition == 'marginal':
 
-            node_types = self.dataset_info.node_types.to(self.model_dtype)
+            node_types = self.dataset_info.node_types.float()
             x_marginals = node_types / torch.sum(node_types)
 
-            edge_types = self.dataset_info.edge_types.to(self.model_dtype)
+            edge_types = self.dataset_info.edge_types.float()
             e_marginals = edge_types / torch.sum(edge_types)
             logging.info(f"Marginal distribution of the classes: {x_marginals} for nodes, {e_marginals} for edges")
             self.transition_model = MarginalUniformTransition(x_marginals=x_marginals, e_marginals=e_marginals,
                                                               y_classes=self.ydim_output)
             self.limit_dist = utils.PlaceHolder(X=x_marginals, E=e_marginals,
-                                                y=torch.ones(self.ydim_output, dtype=self.model_dtype) / self.ydim_output)
+                                                y=torch.ones(self.ydim_output, dtype=torch.float32) / self.ydim_output)
 
         self.save_hyperparameters(ignore=['train_metrics', 'sampling_metrics', 'dtype'])
         self.start_epoch_time = None
@@ -149,13 +155,23 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
                                true_X=X, true_E=E, true_y=data.y,
                                log=False)
         with torch.no_grad():
-            with torch.autocast(device_type="cuda", enabled=False):
-                # calculate metrics with float precision and no_grad
+            if self.use_mixed_precision:
+                # Disable autocast to force float32 metric computation
+                with torch.autocast(device_type="cuda", enabled=False):
+                    self.train_metrics(
+                        masked_pred_X=pred.X.detach().float(),
+                        masked_pred_E=pred.E.detach().float(),
+                        true_X=X.detach().float(),
+                        true_E=E.detach().float(),
+                        log=False,
+                    )
+            else:
+                # Already float32, no need to mess with autocast
                 self.train_metrics(
-                    masked_pred_X=pred.X.detach().float(),
-                    masked_pred_E=pred.E.detach().float(),
-                    true_X=X.detach().float(),
-                    true_E=E.detach().float(),
+                    masked_pred_X=pred.X.detach(),
+                    masked_pred_E=pred.E.detach(),
+                    true_X=X.detach(),
+                    true_E=E.detach(),
                     log=False,
                 )
 
