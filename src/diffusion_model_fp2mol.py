@@ -91,6 +91,7 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
                                         output_dims=output_dims,
                                         act_fn_in=nn.ReLU(),
                                         act_fn_out=nn.ReLU(),
+                                        device=self.device,
                                         dtype=self.model_dtype)
         elif self.cfg.model.model == 'graph_tf_v2':
             self.decoder = GraphTransformerV2(
@@ -106,6 +107,7 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
                 y_encoder_transformer_ff_dim=cfg.model.graph_tf_y_transformer_ff_dim,
                 y_encoder_num_layers=cfg.model.graph_tf_y_transformer_n_layers,
                 y_encoder_dropout=cfg.model.graph_tf_y_transformer_dropout,
+                device=self.device,
                 dtype=self.model_dtype
             )
         
@@ -203,6 +205,7 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
         self.start_epoch_time = time.time()
         self.train_loss.reset()
         self.train_metrics.reset()
+        torch.cuda.empty_cache()
 
     def on_train_epoch_end(self) -> None:
         to_log = self.train_loss.log_epoch_metrics()
