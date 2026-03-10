@@ -76,16 +76,26 @@ def get_resume_adaptive(cfg, model_kwargs):
     return new_cfg, model
 
 def load_decoder_from_lightning_ckpt(model, ckpt_path):
-    """ Load a model from a PyTorch Lightning checkpoint. """
-    state_dict = torch.load(ckpt_path, map_location='cpu')["state_dict"]
-    cleaned_state_dict = {}
-    for k, v in state_dict.items():
-        if k.startswith('model.'):
-            k = k[6:]
-            cleaned_state_dict[k] = v
+    """Load decoder weights from a PyTorch Lightning checkpoint."""
 
-    model.decoder.load_state_dict(cleaned_state_dict, strict=True)
-    logging.info(f"Loaded model from: '{ckpt_path}'")
+    ckpt = torch.load(ckpt_path, map_location="cpu")
+    state_dict = ckpt["state_dict"]
+
+    decoder_state_dict = {}
+
+    for k, v in state_dict.items():
+
+        if k.startswith("decoder."):
+            decoder_state_dict[k[len("decoder."):]] = v
+
+        elif k.startswith("model.decoder."):   # support other Lightning formats
+            decoder_state_dict[k[len("model.decoder."):]] = v
+
+    missing, unexpected = model.decoder.load_state_dict(decoder_state_dict, strict=False)
+
+    logging.info(f"Loaded decoder from: '{ckpt_path}'")
+    logging.info(f"Missing keys: {missing}")
+    logging.info(f"Unexpected keys: {unexpected}")
 
 def freeze_weights(model, cfg):
     if cfg.general.finetune_strategy == 'freeze_transformer_layers':
