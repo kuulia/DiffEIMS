@@ -11,7 +11,7 @@ gpus: 1                     # Multi-gpu is not implemented on this branch
 decoder: null # path to pretrained decoder
 encoder: null # path to pretrained encoder
 
-resume: '../../../outputs/2026-02-23/10-52-55-pretrain/checkpoints/pretrain/best.ckpt' # If resume, path to ckpt file from outputs direpctory in main directory
+resume: '../../../outputs/2026-03-03/13-40-08-pretrain/checkpoints/pretrain_resume/last.ckpt' # If resume, path to ckpt file from outputs direpctory in main directory
 test_only: null
 load_weights: null
 
