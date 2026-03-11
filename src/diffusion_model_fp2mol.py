@@ -215,24 +215,79 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
         return {'loss': loss}
 
     def configure_optimizers(self):
-        if self.cfg.train.scheduler == 'const':
-            return torch.optim.AdamW(self.parameters(), lr=self.cfg.train.lr, amsgrad=True, weight_decay=self.cfg.train.weight_decay)
-        elif self.cfg.train.scheduler == 'one_cycle':
-            opt = torch.optim.AdamW(self.parameters(), lr=self.cfg.train.lr, amsgrad=True, weight_decay=self.cfg.train.weight_decay)
-            stepping_batches = self.trainer.estimated_stepping_batches
-            scheduler = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=self.cfg.train.lr, total_steps=stepping_batches, pct_start=self.cfg.train.pct_start)
-            lr_scheduler = {
-                'scheduler': scheduler,
-                'name': 'learning_rate',
-                'interval':'step',
-                'frequency': 1,
+
+        opt = torch.optim.AdamW(
+            self.parameters(),
+            lr=self.cfg.train.lr,
+            amsgrad=True,
+            weight_decay=self.cfg.train.weight_decay,
+        )
+
+        # Constant LR
+        if self.cfg.train.scheduler == "const":
+            return {"optimizer": opt}
+
+        # OneCycle scheduler
+        elif self.cfg.train.scheduler == "one_cycle":
+
+            # Prefer fixed total_steps from config (resume-safe)
+            if hasattr(self.cfg.train, "total_steps") and self.cfg.train.total_steps is not None:
+                total_steps = self.cfg.train.total_steps
+            else:
+                # Fallback to Lightning estimate (less robust)
+                total_steps = self.trainer.estimated_stepping_batches
+
+            scheduler = torch.optim.lr_scheduler.OneCycleLR(
+                opt,
+                max_lr=self.cfg.train.lr,
+                total_steps=total_steps,
+                pct_start=self.cfg.train.pct_start,
+                anneal_strategy="cos",
+                div_factor=25.0,
+                final_div_factor=1e4,
+            )
+
+            return {
+                "optimizer": opt,
+                "lr_scheduler": {
+                    "scheduler": scheduler,
+                    "interval": "step",
+                    "frequency": 1,
+                    "name": "learning_rate",
+                },
             }
 
-            return [opt], [lr_scheduler]
         else:
-            raise ValueError('Unknown Scheduler')
+            raise ValueError(f"Unknown scheduler: {self.cfg.train.scheduler}")
 
     def on_fit_start(self) -> None:
+
+        # reset val metrics
+        self.val_nll.reset()
+        self.val_X_kl.reset()
+        self.val_E_kl.reset()
+        self.val_X_logp.reset()
+        self.val_E_logp.reset()
+        self.val_k_acc.reset()
+        self.val_sim_metrics.reset()
+        self.val_validity.reset()
+        self.val_CE.reset()
+
+        # reset test metrics
+        self.test_nll.reset()
+        self.test_X_kl.reset()
+        self.test_E_kl.reset()
+        self.test_X_logp.reset()
+        self.test_E_logp.reset()
+        self.test_k_acc.reset()
+        self.test_sim_metrics.reset()
+        self.test_validity.reset()
+        self.test_CE.reset()
+
+        
+        self.train_loss.reset()
+        self.train_metrics.reset()
+
         self.train_iterations = len(self.trainer.datamodule.train_dataloader())
         logging.info(f"Size of the input features: X-{self.Xdim}, E-{self.Edim}, y-{self.ydim}")
         
