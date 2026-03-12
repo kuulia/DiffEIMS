@@ -143,10 +143,10 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
         self.val_counter = 1
 
     def training_step(self, data, i):
+        '''
         if data.edge_index.numel() == 0:
             logging.info("Found a batch with no edges. Skipping.")
             return
-
         # Only log memory summary every 100 batches
         do_memory_log = (i % 100 == 0)
 
@@ -157,53 +157,61 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
                 f.write(f"\n=== GPU memory BEFORE processing batch {i} ===\n")
                 f.write(torch.cuda.memory_summary(device=self.device, abbreviated=False))
                 f.write("\n\n")
-
+        '''
         dense_data, node_mask = utils.to_dense(data.x, data.edge_index, data.edge_attr, data.batch)
         dense_data = dense_data.mask(node_mask)
         X, E = dense_data.X, dense_data.E
 
+        '''
         if do_memory_log:
             with open(mem_log_file, "a") as f:
                 f.write(f"=== GPU memory AFTER to_dense & mask batch {i} ===\n")
                 f.write(torch.cuda.memory_summary(device=self.device, abbreviated=False))
                 f.write("\n\n")
+        '''
 
         noisy_data = self.apply_noise(X, E, data.y, node_mask)
 
+        '''
         if do_memory_log:
             with open(mem_log_file, "a") as f:
                 f.write(f"=== GPU memory AFTER apply_noise batch {i} ===\n")
                 f.write(torch.cuda.memory_summary(device=self.device, abbreviated=False))
                 f.write("\n\n")
+        '''
 
         extra_data = self.compute_extra_data(noisy_data)
-
+        '''
         if do_memory_log:
             with open(mem_log_file, "a") as f:
                 f.write(f"=== GPU memory AFTER compute_extra_data batch {i} ===\n")
                 f.write(torch.cuda.memory_summary(device=self.device, abbreviated=False))
                 f.write("\n\n")
-
+        '''
         pred = self.forward(noisy_data, extra_data, node_mask)
-
+        '''
         if do_memory_log:
             with open(mem_log_file, "a") as f:
                 f.write(f"=== GPU memory AFTER forward batch {i} ===\n")
                 f.write(torch.cuda.memory_summary(device=self.device, abbreviated=False))
                 f.write("\n\n")
-
+        '''
         loss = self.train_loss(masked_pred_X=pred.X, masked_pred_E=pred.E, pred_y=pred.y,
                             true_X=X, true_E=E, true_y=data.y,
                             log=False)
 
+        self.train_metrics(pred.X, pred.E, X, E, log=False)
+        '''
         if do_memory_log:
             with open(mem_log_file, "a") as f:
                 f.write(f"=== GPU memory AFTER loss computation batch {i} ===\n")
                 f.write(torch.cuda.memory_summary(device=self.device, abbreviated=False))
                 f.write("\n\n")
-
+        '''
         # Clean up intermediate tensors
         del noisy_data, extra_data, dense_data
+
+        '''
         torch.cuda.empty_cache()
 
         if do_memory_log:
@@ -211,7 +219,7 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
                 f.write(f"=== GPU memory AFTER clean up {i} ===\n")
                 f.write(torch.cuda.memory_summary(device=self.device, abbreviated=False))
                 f.write("\n\n")
-
+        '''
         return {'loss': loss}
 
     def configure_optimizers(self):

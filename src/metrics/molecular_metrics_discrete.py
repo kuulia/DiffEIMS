@@ -34,8 +34,9 @@ class CEPerClass(Metric):
         self.total_samples += prob.numel()
 
     def compute(self):
+        if self.total_samples == 0:
+            return torch.tensor(0., device=self.total_ce.device)
         return self.total_ce / self.total_samples
-
 
 class HydrogenCE(CEPerClass):
     def __init__(self, i):
