@@ -76,86 +76,87 @@ def filter_with_atom_types(mol):
         return False
     
     return True
-########## CANOPUS DATASET ##########
+if False:
+	########## CANOPUS DATASET ##########
 
-canopus_split = pd.read_csv('../data/canopus/splits/canopus_hplus_100_0.tsv', sep='\t')
+	canopus_split = pd.read_csv('../data/canopus/splits/canopus_hplus_100_0.tsv', sep='\t')
 
-canopus_labels = pd.read_csv('../data/canopus/labels.tsv', sep='\t')
-canopus_labels["name"] = canopus_labels["spec"]
-canopus_labels = canopus_labels[["name", "smiles"]].reset_index(drop=True)
+	canopus_labels = pd.read_csv('../data/canopus/labels.tsv', sep='\t')
+	canopus_labels["name"] = canopus_labels["spec"]
+	canopus_labels = canopus_labels[["name", "smiles"]].reset_index(drop=True)
 
-canopus_labels = canopus_labels.merge(canopus_split, on="name")
+	canopus_labels = canopus_labels.merge(canopus_split, on="name")
 
-canopus_train_inchis = []
-canopus_test_inchis = []
-canopus_val_inchis = []
+	canopus_train_inchis = []
+	canopus_test_inchis = []
+	canopus_val_inchis = []
 
-for i in tqdm(range(len(canopus_labels)), desc="Converting CANOPUS SMILES to InChI", leave=False):
-    
-    mol = Chem.MolFromSmiles(canopus_labels.loc[i, "smiles"])
-    smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
-    mol = Chem.MolFromSmiles(smi)
-    inchi = Chem.MolToInchi(mol)
+	for i in tqdm(range(len(canopus_labels)), desc="Converting CANOPUS SMILES to InChI", leave=False):
+	    
+	    mol = Chem.MolFromSmiles(canopus_labels.loc[i, "smiles"])
+	    smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
+	    mol = Chem.MolFromSmiles(smi)
+	    inchi = Chem.MolToInchi(mol)
 
-    if canopus_labels.loc[i, "split"] == "train":
-        if filter(mol, flag_filter_atoms=True):
-            canopus_train_inchis.append(inchi)
-    elif canopus_labels.loc[i, "split"] == "test":
-        canopus_test_inchis.append(inchi)
-    elif canopus_labels.loc[i, "split"] == "val":
-        canopus_val_inchis.append(inchi)
+	    if canopus_labels.loc[i, "split"] == "train":
+	        if filter(mol, flag_filter_atoms=True):
+	            canopus_train_inchis.append(inchi)
+	    elif canopus_labels.loc[i, "split"] == "test":
+	        canopus_test_inchis.append(inchi)
+	    elif canopus_labels.loc[i, "split"] == "val":
+	        canopus_val_inchis.append(inchi)
 
-canopus_train_df = pd.DataFrame(set(canopus_train_inchis), columns=["inchi"])
-canopus_train_df.to_csv("../data/fp2mol/canopus/preprocessed/canopus_train.csv", index=False)
+	canopus_train_df = pd.DataFrame(set(canopus_train_inchis), columns=["inchi"])
+	canopus_train_df.to_csv("../data/fp2mol/canopus/preprocessed/canopus_train.csv", index=False)
 
-canopus_test_df = pd.DataFrame(canopus_test_inchis, columns=["inchi"])
-canopus_test_df.to_csv("../data/fp2mol/canopus/preprocessed/canopus_test.csv", index=False)
+	canopus_test_df = pd.DataFrame(canopus_test_inchis, columns=["inchi"])
+	canopus_test_df.to_csv("../data/fp2mol/canopus/preprocessed/canopus_test.csv", index=False)
 
-canopus_val_df = pd.DataFrame(canopus_val_inchis, columns=["inchi"])
-canopus_val_df.to_csv("../data/fp2mol/canopus/preprocessed/canopus_val.csv", index=False)
+	canopus_val_df = pd.DataFrame(canopus_val_inchis, columns=["inchi"])
+	canopus_val_df.to_csv("../data/fp2mol/canopus/preprocessed/canopus_val.csv", index=False)
 
-excluded_inchis = set(canopus_test_inchis + canopus_val_inchis)
+	excluded_inchis = set(canopus_test_inchis + canopus_val_inchis)
 
-########## MSG DATASET ##########
+	########## MSG DATASET ##########
 
-msg_split = pd.read_csv('../data/msg/split.tsv', sep='\t')
+	msg_split = pd.read_csv('../data/msg/split.tsv', sep='\t')
 
-msg_labels = pd.read_csv('../data/msg/labels.tsv', sep='\t')
-msg_labels["name"] = msg_labels["spec"]
-msg_labels = msg_labels[["name", "smiles"]].reset_index(drop=True)
+	msg_labels = pd.read_csv('../data/msg/labels.tsv', sep='\t')
+	msg_labels["name"] = msg_labels["spec"]
+	msg_labels = msg_labels[["name", "smiles"]].reset_index(drop=True)
 
-msg_labels = msg_labels.merge(msg_split, on="name")
+	msg_labels = msg_labels.merge(msg_split, on="name")
 
-msg_train_inchis = []
-msg_test_inchis = []
-msg_val_inchis = []
+	msg_train_inchis = []
+	msg_test_inchis = []
+	msg_val_inchis = []
 
-for i in tqdm(range(len(msg_labels)), desc="Converting MSG SMILES to InChI", leave=False):
-    
-    mol = Chem.MolFromSmiles(msg_labels.loc[i, "smiles"])
-    smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
-    mol = Chem.MolFromSmiles(smi)
-    inchi = Chem.MolToInchi(mol)
+	for i in tqdm(range(len(msg_labels)), desc="Converting MSG SMILES to InChI", leave=False):
+	    
+	    mol = Chem.MolFromSmiles(msg_labels.loc[i, "smiles"])
+	    smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
+	    mol = Chem.MolFromSmiles(smi)
+	    inchi = Chem.MolToInchi(mol)
 
-    if msg_labels.loc[i, "split"] == "train":
-        if filter(mol, flag_filter_atoms=True):
-            msg_train_inchis.append(inchi)
-    elif msg_labels.loc[i, "split"] == "test":
-        msg_test_inchis.append(inchi)
-    elif msg_labels.loc[i, "split"] == "val":
-        msg_val_inchis.append(inchi)
+	    if msg_labels.loc[i, "split"] == "train":
+	        if filter(mol, flag_filter_atoms=True):
+	            msg_train_inchis.append(inchi)
+	    elif msg_labels.loc[i, "split"] == "test":
+	        msg_test_inchis.append(inchi)
+	    elif msg_labels.loc[i, "split"] == "val":
+	        msg_val_inchis.append(inchi)
 
-msg_train_df = pd.DataFrame(set(msg_train_inchis), columns=["inchi"])
-msg_train_df.to_csv("../data/fp2mol/msg/preprocessed/msg_train.csv", index=False)
+	msg_train_df = pd.DataFrame(set(msg_train_inchis), columns=["inchi"])
+	msg_train_df.to_csv("../data/fp2mol/msg/preprocessed/msg_train.csv", index=False)
 
-msg_test_df = pd.DataFrame(msg_test_inchis, columns=["inchi"])
-msg_test_df.to_csv("../data/fp2mol/msg/preprocessed/msg_test.csv", index=False)
+	msg_test_df = pd.DataFrame(msg_test_inchis, columns=["inchi"])
+	msg_test_df.to_csv("../data/fp2mol/msg/preprocessed/msg_test.csv", index=False)
 
-msg_val_df = pd.DataFrame(msg_val_inchis, columns=["inchi"])
-msg_val_df.to_csv("../data/fp2mol/msg/preprocessed/msg_val.csv", index=False)
+	msg_val_df = pd.DataFrame(msg_val_inchis, columns=["inchi"])
+	msg_val_df.to_csv("../data/fp2mol/msg/preprocessed/msg_val.csv", index=False)
 
-excluded_inchis.update(msg_test_inchis + msg_val_inchis)
-
+	excluded_inchis.update(msg_test_inchis + msg_val_inchis)
+excluded_inchis = []
 ########## NEIMS (TMS) DATASET ###########
 
 neims_split_tms = pd.read_csv('../data/neims_tms/split.tsv', sep='\t')

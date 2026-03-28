@@ -134,6 +134,8 @@ def main(cfg: DictConfig):
         logging.info('fp2mol config loaded')
     elif dataset_config['name'] == 'neims': 
         logging.info('neims config loaded')
+    elif dataset_config['name'] == 'neims_tms':
+        logging.info('neims_tms config loaded')
     else:
         raise NotImplementedError("Unknown dataset {}".format(cfg["dataset"]))
         
