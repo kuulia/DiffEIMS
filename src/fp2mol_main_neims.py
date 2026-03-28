@@ -76,7 +76,9 @@ def get_resume_adaptive(cfg, model_kwargs):
     return new_cfg, model
 
 def load_decoder_from_lightning_ckpt(model, ckpt_path):
-    """Load decoder weights from a PyTorch Lightning checkpoint."""
+    """DEPRECATED, USE load_decoder_weights
+    
+    Load decoder weights from a PyTorch Lightning checkpoint."""
 
     ckpt = torch.load(ckpt_path, map_location="cpu")
     state_dict = ckpt["state_dict"]
@@ -96,6 +98,111 @@ def load_decoder_from_lightning_ckpt(model, ckpt_path):
     logging.info(f"Loaded decoder from: '{ckpt_path}'")
     logging.info(f"Missing keys: {missing}")
     logging.info(f"Unexpected keys: {unexpected}")
+
+import torch
+import logging
+from pathlib import Path
+
+
+def load_decoder_weights(model, ckpt_path):
+    """
+    Load decoder weights from either:
+    - PyTorch Lightning checkpoint (.ckpt)
+    - Standalone decoder weights (.pt)
+
+    Includes robust warnings for common failure cases.
+    """
+
+    ckpt_path = Path(ckpt_path)
+
+    if not ckpt_path.exists():
+        raise FileNotFoundError(f"Checkpoint not found: {ckpt_path}")
+
+    logging.info(f"Loading decoder weights from: {ckpt_path}")
+
+    ckpt = torch.load(ckpt_path, map_location="cpu")
+
+    decoder_state_dict = {}
+
+    # -------------------------------------------------
+    # CASE 1: standalone .pt file (already extracted)
+    # -------------------------------------------------
+    if ckpt_path.suffix == ".pt" and "state_dict" not in ckpt:
+
+        if not isinstance(ckpt, dict):
+            raise TypeError(
+                f"{ckpt_path} does not contain a valid state_dict (expected dict, got {type(ckpt)})"
+            )
+
+        decoder_state_dict = ckpt
+
+        logging.info("Detected standalone decoder .pt file")
+
+    # -------------------------------------------------
+    # CASE 2: Lightning checkpoint
+    # -------------------------------------------------
+    else:
+
+        if "state_dict" not in ckpt:
+            logging.warning(
+                "No 'state_dict' key found in checkpoint. Trying to interpret file as raw state_dict."
+            )
+
+        state_dict = ckpt["state_dict"] if "state_dict" in ckpt else ckpt
+
+        if not isinstance(state_dict, dict):
+            raise TypeError(
+                f"Invalid checkpoint format: expected dict or state_dict, got {type(state_dict)}"
+            )
+
+        for k, v in state_dict.items():
+
+            if k.startswith("decoder."):
+                decoder_state_dict[k[len("decoder."):]] = v
+
+            elif k.startswith("model.decoder."):
+                decoder_state_dict[k[len("model.decoder."):]] = v
+
+        if len(decoder_state_dict) == 0:
+            logging.warning(
+                "No decoder weights were found in the checkpoint. "
+                "Check that the checkpoint actually contains a decoder."
+            )
+
+    # -------------------------------------------------
+    # SANITY CHECKS BEFORE LOADING
+    # -------------------------------------------------
+    if len(decoder_state_dict) == 0:
+        raise RuntimeError("Decoder state_dict is empty — aborting load.")
+
+    # Check if the keys look like a decoder
+    if not any("tf_layers" in k for k in decoder_state_dict.keys()):
+        logging.warning(
+            "Loaded weights do not appear to contain transformer layers (tf_layers). "
+            "This may not be a valid decoder checkpoint."
+        )
+
+    # -------------------------------------------------
+    # LOAD
+    # -------------------------------------------------
+    missing, unexpected = model.decoder.load_state_dict(
+        decoder_state_dict,
+        strict=False
+    )
+
+    # -------------------------------------------------
+    # POST-LOAD WARNINGS
+    # -------------------------------------------------
+    if len(missing) > 0:
+        logging.warning(f"Missing decoder keys ({len(missing)}): {missing}")
+
+    if len(unexpected) > 0:
+        logging.warning(f"Unexpected decoder keys ({len(unexpected)}): {unexpected}")
+
+    if len(missing) == 0 and len(unexpected) == 0:
+        logging.info("Decoder weights loaded cleanly (no missing or unexpected keys).")
+
+    logging.info("Decoder loading complete.")
 
 def freeze_weights(model, cfg):
     if cfg.general.finetune_strategy == 'freeze_transformer_layers':
@@ -194,6 +301,8 @@ def main(cfg: DictConfig):
             logging.info(f"Trying to load model from: '{cfg.general.pretrained}'")
             if cfg.general.pretrained.endswith('.ckpt'):
                 load_decoder_from_lightning_ckpt(model, cfg.general.pretrained)
+            elif cfg.general.pretrained.endswith('.pt'):
+                load_decoder_weights(model, cfg.general.pretrained)
             else:
                 raise NotImplementedError("Only PyTorch Lightning checkpoints currently supported!")
     except Exception as e:
