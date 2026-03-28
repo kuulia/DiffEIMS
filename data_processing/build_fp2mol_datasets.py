@@ -41,11 +41,11 @@ def filter(mol, flag_filter_atoms = False):
         mw = Descriptors.MolWt(mol)
         if mw >= 1500 or mw < 16.0 :
             return False
-        """
+
         for atom in mol.GetAtoms():
             if atom.GetFormalCharge() != 0:
                 return False
-        """
+
         if flag_filter_atoms:
             for atom in mol.GetAtoms():
                 if atom.GetSymbol() not in FILTER_ATOMS:
@@ -76,7 +76,6 @@ def filter_with_atom_types(mol):
         return False
     
     return True
-
 ########## CANOPUS DATASET ##########
 
 canopus_split = pd.read_csv('../data/canopus/splits/canopus_hplus_100_0.tsv', sep='\t')
@@ -157,6 +156,46 @@ msg_val_df.to_csv("../data/fp2mol/msg/preprocessed/msg_val.csv", index=False)
 
 excluded_inchis.update(msg_test_inchis + msg_val_inchis)
 
+########## NEIMS (TMS) DATASET ###########
+
+neims_split_tms = pd.read_csv('../data/neims_tms/split.tsv', sep='\t')
+
+neims_labels_tms = pd.read_csv('../data/neims_tms/labels.tsv', sep='\t')
+neims_labels_tms["name"] = neims_labels_tms["spec"]
+neims_labels_tms = neims_labels_tms[["name", "smiles"]].reset_index(drop=True)
+
+neims_labels_tms = neims_labels_tms.merge(neims_split_tms, on="name")
+
+neims_train_inchis_tms = []
+neims_test_inchis_tms = []
+neims_val_inchis_tms = []
+
+for i in tqdm(range(len(neims_labels_tms)), desc="Converting NEIMS_tms SMILES to InChI", leave=False):
+    
+    mol = Chem.MolFromSmiles(neims_labels_tms.loc[i, "smiles"])
+    smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
+    mol = Chem.MolFromSmiles(smi)
+    inchi = Chem.MolToInchi(mol)
+    if neims_labels_tms.loc[i, "split"] == "train" and inchi not in excluded_inchis:
+        if filter(mol, flag_filter_atoms=True):
+            neims_train_inchis_tms.append(inchi)
+    elif neims_labels_tms.loc[i, "split"] == "test":
+        neims_test_inchis_tms.append(inchi)
+    elif neims_labels_tms.loc[i, "split"] == "val":
+        neims_val_inchis_tms.append(inchi)
+
+
+
+neims_train_df = pd.DataFrame(neims_train_inchis_tms, columns=["inchi"])
+neims_train_df.to_csv("../data/neims_tms/neims_tms/preprocessed/neims_tms_train.csv", index=False)
+
+neims_test_df = pd.DataFrame(neims_test_inchis_tms, columns=["inchi"])
+neims_test_df.to_csv("../data/neims_tms/neims_tms/preprocessed/neims_tms_test.csv", index=False)
+
+neims_val_df = pd.DataFrame(neims_val_inchis_tms, columns=["inchi"])
+neims_val_df.to_csv("../data/neims_tms/neims_tms/preprocessed/neims_tms_val.csv", index=False)
+
+exit()
 ########## NEIMS DATASET ###########
 
 neims_split = pd.read_csv('../data/neims/split.tsv', sep='\t')
@@ -195,6 +234,7 @@ neims_test_df.to_csv("../data/neims/neims/preprocessed/neims_test.csv", index=Fa
 
 neims_val_df = pd.DataFrame(neims_val_inchis, columns=["inchi"])
 neims_val_df.to_csv("../data/neims/neims/preprocessed/neims_val.csv", index=False)
+
 
 ########## HMDB DATASET ##########
 
