@@ -41,11 +41,11 @@ def filter(mol, flag_filter_atoms = False):
         mw = Descriptors.MolWt(mol)
         if mw >= 1500 or mw < 16.0 :
             return False
-
+        '''
         for atom in mol.GetAtoms():
             if atom.GetFormalCharge() != 0:
                 return False
-
+        '''
         if flag_filter_atoms:
             for atom in mol.GetAtoms():
                 if atom.GetSymbol() not in FILTER_ATOMS:
@@ -177,6 +177,8 @@ for i in tqdm(range(len(neims_labels_tms)), desc="Converting NEIMS_tms SMILES to
     smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
     mol = Chem.MolFromSmiles(smi)
     inchi = Chem.MolToInchi(mol)
+    if not filter(mol, flag_filter_atoms=True):
+            continue
     if neims_labels_tms.loc[i, "split"] == "train" and inchi not in excluded_inchis:
         if filter(mol, flag_filter_atoms=True):
             neims_train_inchis_tms.append(inchi)

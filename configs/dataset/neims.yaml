@@ -7,10 +7,10 @@ denoise_nodes: False # Apply denoising to molecular graph node features.
 merge: 'downproject_4096'  # 'none' | 'mist_fp' | 'merge-encoder_output-linear' |  'merge-encoder_output-mlp' | 'downproject_4096', Combine spectrum and moelcule embeddings
 morgan_nbits: 2048 # Morgan fingerprint size (number of bits).
 morgan_r: 2 # Morgan fingerprint radius.
-split_file: '../../../data/neims/split.tsv'
+split_file: '../../../data/neims_tms/split.tsv'
 spec_features: 'peakformula' # 'null' | 'binned' | 'mz_xformer' | 'peakformula', called in get_spec_featurizer()
 mol_features: 'fingerprint' # 'null' | 'fingerprint', FingerprintFeaturizer
-subform_folder: '../../../data/neims/subformulae/subformulae_default/subforms' # Subformulae files for peakformula featurization. TODO: MIST preprocessing script: assign_subforms
+subform_folder: '../../../data/neims_tms/subformulae/subforms' # Subformulae files for peakformula featurization. TODO: MIST preprocessing script: assign_subforms
 augment_data: True # Enable PeakFormula.augment_peak_dict
 remove_prob: 0.055555 # 0.0-1.0 Affected when augment_data: True
 remove_weights: 'quadratic' # exp | quadratic | uniform, Affected when augment_data: True
@@ -18,8 +18,8 @@ inten_prob: 0.45 # 0.0-1.0 Affected when augment_data: True, gaussian perturbati
 inten_transform: 'log' # float | zero | log | cat, intensity scaling method
 cls_type: 'zeros' # zeros | ms1, cls token, special token behavior for ms/ms data
 magma_aux_loss: False # add magma in PeakFormula when spec_features: peakformula
-labels_file: '../../../data/neims/labels.tsv'  # Labels data with columns: dataset,	spec, ionization, formula, smiles, inchikey, instrument
-spec_folder: '../../../data/neims/spec_files'  # Folder containing spectrum files OR .pkl
+labels_file: '../../../data/neims_tms/labels.tsv'  # Labels data with columns: dataset,	spec, ionization, formula, smiles, inchikey, instrument
+spec_folder: '../../../data/neims_tms/spec_files'  # Folder containing spectrum files OR .pkl
 cache_featurizers: False  # Featurization caching, safer to keep at False
 set_pooling: 'intensity' # intensity | mean | root | cls
 max_count: null # max number of intensity peaks
