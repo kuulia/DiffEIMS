@@ -101,8 +101,10 @@ class CustomLightningDataset(LightningDataset):
         self.fraction_train_epoch = getattr(cfg.train, 'fraction_train_epoch', 1.0)
         self.batch_size = cfg.train.batch_size if 'debug' not in cfg.general.name else 2
         self.eval_batch_size = cfg.train.eval_batch_size if 'debug' not in cfg.general.name else 1
-
-        super().__init__(train_dataset=datasets['train'], val_dataset=datasets['val'], test_dataset=datasets['test'],)
+        try:
+            super().__init__(train_dataset=datasets['train'], val_dataset=datasets['val'], test_dataset=datasets['test'],)
+        except KeyError:
+            super().__init__(train_dataset=None, val_dataset=None, test_dataset=datasets['test'])
         for k, v in kwargs.items(): # overwrite default kwargs from LightningDataset
             self.kwargs[k] = v
         self.kwargs.pop('batch_size', None)

@@ -102,7 +102,10 @@ def get_paired_spectra(
         df_pkl = pd.read_pickle(f'{spec_folder}/{kwargs.get("collated_pkl_file")}')  # pass as kwarg
 
         # Create a mapping from spec name (from label file) to spectrum array
-        spec_to_array = dict(zip(compound_id_file["spec"], df_pkl["spec"]))
+        if 'UID' in df_pkl.columns:
+            spec_to_array = dict(zip(df_pkl["UID"], df_pkl["spec"]))
+        else:
+            spec_to_array = dict(zip(compound_id_file["spec"], df_pkl["spec"]))
         #print(spec_to_array)
         # Only keep those spec entries that exist in the collated .pkl file
         spectra_arrays = {name: spec_to_array[name] for name in spec_names}
@@ -152,8 +155,16 @@ def get_paired_spectra(
             )
             for spec_name in tq(spec_names)
         ]
-        spectra_smiles = compound_id_file['smiles'].values
-        spectra_inchikey = compound_id_file['inchikey'].values
+        if 'smiles' in compound_id_file.columns:
+            spectra_smiles = compound_id_file['smiles'].values
+            spectra_smiles = [s if s not in ('na', 'nan', 'None', '') else None for s in spectra_smiles]
+        else:
+            spectra_smiles = [None] * len(compound_id_file)
+        if 'inchikey' in compound_id_file.columns:
+            spectra_inchikey = compound_id_file['inchikey'].values
+            spectra_inchikey = [s if s not in ('na', 'nan', 'None', '') else None for s in spectra_inchikey]
+        else:
+            spectra_inchikey = [None] * len(compound_id_file)
     else:
         spectra_formulas = [name_to_formula.get(n, "") for n in spec_names]
         spectra_instruments = [name_to_instrument.get(n, "") for n in spec_names]
@@ -184,12 +195,17 @@ def get_paired_spectra(
             if smi is not None
         ]
     else:
-        mol_list = [
-            Mol.MolFromSmiles(smiles, inchikey=inchikey)
-            if smiles is not None
-            else Mol.MolFromSmiles("")
-            for smiles, inchikey in tq(zip(spectra_smiles, spectra_inchikey))
-        ]
+        mol_list = []
+        for smiles, inchikey, spec in zip(spectra_smiles, spectra_inchikey, spectra_list):
+            if smiles is not None:
+                mol_list.append(Mol.MolFromSmiles(smiles, inchikey=inchikey))
+            else:
+                # No SMILES available — create Mol from formula if possible
+                formula = spec.get_spectra_formula() if hasattr(spec, 'get_spectra_formula') else ""
+                if formula:
+                    mol_list.append(Mol.MolFromFormula(formula))
+                else:
+                    mol_list.append(Mol.MolFromSmiles(""))
         spectra_list = [spec for spec, smi in tq(zip(spectra_list, spectra_smiles))]
     # remove any samples that contain atoms other than in atom_decoder
     updated_spectra_list = []
@@ -967,6 +983,10 @@ class SpecDataModule(pl.LightningDataModule):
         """train_dataloader."""
         if self.forward_labels is not None:
             self.train.upsample_forward()
+
+        if self.train is None:
+            return None
+        
         return SpecDataModule.get_paired_loader(
             self.train,
             shuffle=True,

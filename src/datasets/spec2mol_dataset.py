@@ -53,16 +53,23 @@ class Spec2MolDataModule(MolecularDataModule):
         # randomly shuffle test set with fixed seed
         random.seed(42)
         random.shuffle(test)
-
-        ms_datasets = {'train': datasets.SpectraMolDataset(spectra_mol_list=train, featurizer=paired_featurizer, **cfg.dataset),
-                    'val': datasets.SpectraMolDataset(spectra_mol_list=val, featurizer=paired_featurizer, **cfg.dataset),
-                    'test': datasets.SpectraMolDataset(spectra_mol_list=test, featurizer=paired_featurizer, **cfg.dataset)}
+        if len(train) == 0 and len(val) == 0:
+            logging.info(f'Found only test data: {len(test)}')
+            ms_datasets = {'test': datasets.SpectraMolDataset(spectra_mol_list=test, featurizer=paired_featurizer, **cfg.dataset)}
+        else:
+            ms_datasets = {'train': datasets.SpectraMolDataset(spectra_mol_list=train, featurizer=paired_featurizer, **cfg.dataset),
+                        'val': datasets.SpectraMolDataset(spectra_mol_list=val, featurizer=paired_featurizer, **cfg.dataset),
+                        'test': datasets.SpectraMolDataset(spectra_mol_list=test, featurizer=paired_featurizer, **cfg.dataset)}
         super().__init__(cfg, ms_datasets)
 
     def train_dataloader(self) -> DataLoader:
+        if self.train_dataset is None:
+            return None
         return get_paired_loader_graph(self.train_dataset, shuffle=True, batch_size=self.batch_size, **self.kwargs)
 
     def val_dataloader(self) -> DataLoader:
+        if self.train_dataset is None:
+            return None
         return get_paired_loader_graph(self.val_dataset, shuffle=False, batch_size=self.eval_batch_size, **self.kwargs)
     
     def test_dataloader(self) -> DataLoader:
@@ -73,27 +80,46 @@ class Spec2MolDataModule(MolecularDataModule):
 
         # No bond, single bond, double bond, triple bond, aromatic bond
         multiplier = torch.tensor([0, 1, 2, 3, 1.5])
+        try:
+            for batch in self.train_dataloader():
+                data = batch['graph']
+                n = data.x.shape[0]
 
-        for batch in self.train_dataloader():
-            data = batch['graph']
-            n = data.x.shape[0]
+                for atom in range(n):
+                    edges = data.edge_attr[data.edge_index[0] == atom]
+                    edges_total = edges.sum(dim=0)
+                    valency = (edges_total * multiplier).sum()
+                    valencies[valency.long().item()] += 1
+            valencies = valencies / valencies.sum()
+        except:
+            for batch in self.test_dataloader():
+                data = batch['graph']
+                n = data.x.shape[0]
 
-            for atom in range(n):
-                edges = data.edge_attr[data.edge_index[0] == atom]
-                edges_total = edges.sum(dim=0)
-                valency = (edges_total * multiplier).sum()
-                valencies[valency.long().item()] += 1
-        valencies = valencies / valencies.sum()
+                for atom in range(n):
+                    edges = data.edge_attr[data.edge_index[0] == atom]
+                    edges_total = edges.sum(dim=0)
+                    valency = (edges_total * multiplier).sum()
+                    valencies[valency.long().item()] += 1
+                valencies = valencies / valencies.sum()
         return valencies
     
     def node_counts(self, max_nodes_possible=150):
         all_counts = torch.zeros(max_nodes_possible)
-        for loader in [self.train_dataloader(), self.val_dataloader()]:
-            for batch in loader:
-                data = batch['graph']
-                unique, counts = torch.unique(data.batch, return_counts=True)
-                for count in counts:
-                    all_counts[count] += 1
+        try:
+            for loader in [self.train_dataloader(), self.val_dataloader()]:
+                for batch in loader:
+                    data = batch['graph']
+                    unique, counts = torch.unique(data.batch, return_counts=True)
+                    for count in counts:
+                        all_counts[count] += 1
+        except:
+            for loader in [self.test_dataloader()]:
+                for batch in loader:
+                    data = batch['graph']
+                    unique, counts = torch.unique(data.batch, return_counts=True)
+                    for count in counts:
+                        all_counts[count] += 1
         max_index = max(all_counts.nonzero())
         all_counts = all_counts[:max_index + 1]
         all_counts = all_counts / all_counts.sum()
@@ -101,46 +127,87 @@ class Spec2MolDataModule(MolecularDataModule):
 
     def node_types(self):
         num_classes = None
-        for batch in self.train_dataloader():
-            data = batch['graph']
-            num_classes = data.x.shape[1]
-            break
+        try:
+            for batch in self.train_dataloader():
+                data = batch['graph']
+                num_classes = data.x.shape[1]
+                break
 
-        counts = torch.zeros(num_classes)
+            counts = torch.zeros(num_classes)
 
-        for i, batch in enumerate(self.train_dataloader()):
-            data = batch['graph']
-            counts += data.x.sum(dim=0)
+            for i, batch in enumerate(self.train_dataloader()):
+                data = batch['graph']
+                counts += data.x.sum(dim=0)
 
-        counts = counts / counts.sum()
+            counts = counts / counts.sum()
+        except:
+            for batch in self.test_dataloader():
+                data = batch['graph']
+                num_classes = data.x.shape[1]
+                break
+
+            counts = torch.zeros(num_classes)
+
+            for i, batch in enumerate(self.test_dataloader()):
+                data = batch['graph']
+                counts += data.x.sum(dim=0)
+
+            counts = counts / counts.sum()
         return counts
     
     def edge_counts(self):
         num_classes = None
-        for batch in self.train_dataloader():
-            data = batch['graph']
-            num_classes = data.edge_attr.shape[1]
-            break
 
-        d = torch.zeros(num_classes, dtype=torch.float)
+        try:
+            for batch in self.train_dataloader():
+                data = batch['graph']
+                num_classes = data.edge_attr.shape[1]
+                break
 
-        for i, batch in enumerate(self.train_dataloader()):
-            data = batch['graph']
-            unique, counts = torch.unique(data.batch, return_counts=True)
+            d = torch.zeros(num_classes, dtype=torch.float)
 
-            all_pairs = 0
-            for count in counts:
-                all_pairs += count * (count - 1)
+            for i, batch in enumerate(self.train_dataloader()):
+                data = batch['graph']
+                unique, counts = torch.unique(data.batch, return_counts=True)
 
-            num_edges = data.edge_index.shape[1]
-            num_non_edges = all_pairs - num_edges
+                all_pairs = 0
+                for count in counts:
+                    all_pairs += count * (count - 1)
 
-            edge_types = data.edge_attr.sum(dim=0)
-            assert num_non_edges >= 0
-            d[0] += num_non_edges
-            d[1:] += edge_types[1:]
+                num_edges = data.edge_index.shape[1]
+                num_non_edges = all_pairs - num_edges
 
-        d = d / d.sum()
+                edge_types = data.edge_attr.sum(dim=0)
+                assert num_non_edges >= 0
+                d[0] += num_non_edges
+                d[1:] += edge_types[1:]
+
+            d = d / d.sum()
+        except:
+            for batch in self.test_dataloader():
+                data = batch['graph']
+                num_classes = data.edge_attr.shape[1]
+                break
+
+            d = torch.zeros(num_classes, dtype=torch.float)
+
+            for i, batch in enumerate(self.test_dataloader()):
+                data = batch['graph']
+                unique, counts = torch.unique(data.batch, return_counts=True)
+
+                all_pairs = 0
+                for count in counts:
+                    all_pairs += count * (count - 1)
+
+                num_edges = data.edge_index.shape[1]
+                num_non_edges = all_pairs - num_edges
+
+                edge_types = data.edge_attr.sum(dim=0)
+                assert num_non_edges >= 0
+                d[0] += num_non_edges
+                d[1:] += edge_types[1:]
+
+            d = d / d.sum()
         return d
 
 
@@ -214,25 +281,49 @@ class Spec2MolDatasetInfos(AbstractDatasetInfos):
         self.complete_infos(n_nodes=self.n_nodes, node_types=self.node_types)
 
     def compute_input_output_dims(self, datamodule, extra_features, domain_features):
-        example_batch = next(iter(datamodule.train_dataloader()))['graph']
-        ex_dense, node_mask = utils.to_dense(example_batch.x, example_batch.edge_index, example_batch.edge_attr,
-                                             example_batch.batch)
-        example_data = {'X_t': ex_dense.X, 'E_t': ex_dense.E, 'y_t': example_batch['y'], 'node_mask': node_mask}
+        try:
+            example_batch = next(iter(datamodule.train_dataloader()))['graph']
+            ex_dense, node_mask = utils.to_dense(example_batch.x, example_batch.edge_index, example_batch.edge_attr,
+                                                example_batch.batch)
+            example_data = {'X_t': ex_dense.X, 'E_t': ex_dense.E, 'y_t': example_batch['y'], 'node_mask': node_mask}
 
-        self.input_dims = {'X': example_batch['x'].size(1),
-                           'E': example_batch['edge_attr'].size(1),
-                           'y': example_batch['y'].size(1) + 1}      # + 1 due to time conditioning
-
-        ex_extra_feat = extra_features(example_data)
-        self.input_dims['X'] += ex_extra_feat.X.size(-1)
-        self.input_dims['E'] += ex_extra_feat.E.size(-1)
-        self.input_dims['y'] += ex_extra_feat.y.size(-1)
-
-        ex_extra_molecular_feat = domain_features(example_data)
-        self.input_dims['X'] += ex_extra_molecular_feat.X.size(-1)
-        self.input_dims['E'] += ex_extra_molecular_feat.E.size(-1)
-        self.input_dims['y'] += ex_extra_molecular_feat.y.size(-1)
-
-        self.output_dims = {'X': example_batch['x'].size(1),
+            self.input_dims = {'X': example_batch['x'].size(1),
                             'E': example_batch['edge_attr'].size(1),
-                            'y': example_batch['y'].size(1)}
+                            'y': example_batch['y'].size(1) + 1}      # + 1 due to time conditioning
+
+            ex_extra_feat = extra_features(example_data)
+            self.input_dims['X'] += ex_extra_feat.X.size(-1)
+            self.input_dims['E'] += ex_extra_feat.E.size(-1)
+            self.input_dims['y'] += ex_extra_feat.y.size(-1)
+
+            ex_extra_molecular_feat = domain_features(example_data)
+            self.input_dims['X'] += ex_extra_molecular_feat.X.size(-1)
+            self.input_dims['E'] += ex_extra_molecular_feat.E.size(-1)
+            self.input_dims['y'] += ex_extra_molecular_feat.y.size(-1)
+
+            self.output_dims = {'X': example_batch['x'].size(1),
+                                'E': example_batch['edge_attr'].size(1),
+                                'y': example_batch['y'].size(1)}
+        except:
+            example_batch = next(iter(datamodule.test_dataloader()))['graph']
+            ex_dense, node_mask = utils.to_dense(example_batch.x, example_batch.edge_index, example_batch.edge_attr,
+                                                example_batch.batch)
+            example_data = {'X_t': ex_dense.X, 'E_t': ex_dense.E, 'y_t': example_batch['y'], 'node_mask': node_mask}
+
+            self.input_dims = {'X': example_batch['x'].size(1),
+                            'E': example_batch['edge_attr'].size(1),
+                            'y': example_batch['y'].size(1) + 1}      # + 1 due to time conditioning
+
+            ex_extra_feat = extra_features(example_data)
+            self.input_dims['X'] += ex_extra_feat.X.size(-1)
+            self.input_dims['E'] += ex_extra_feat.E.size(-1)
+            self.input_dims['y'] += ex_extra_feat.y.size(-1)
+
+            ex_extra_molecular_feat = domain_features(example_data)
+            self.input_dims['X'] += ex_extra_molecular_feat.X.size(-1)
+            self.input_dims['E'] += ex_extra_molecular_feat.E.size(-1)
+            self.input_dims['y'] += ex_extra_molecular_feat.y.size(-1)
+
+            self.output_dims = {'X': example_batch['x'].size(1),
+                                'E': example_batch['edge_attr'].size(1),
+                                'y': example_batch['y'].size(1)}
