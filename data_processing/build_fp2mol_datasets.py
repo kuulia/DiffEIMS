@@ -76,6 +76,7 @@ def filter_with_atom_types(mol):
         return False
     
     return True
+'''
 if False:
 	########## CANOPUS DATASET ##########
 
@@ -91,20 +92,19 @@ if False:
 	canopus_test_inchis = []
 	canopus_val_inchis = []
 
-	for i in tqdm(range(len(canopus_labels)), desc="Converting CANOPUS SMILES to InChI", leave=False):
-	    
-	    mol = Chem.MolFromSmiles(canopus_labels.loc[i, "smiles"])
-	    smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
-	    mol = Chem.MolFromSmiles(smi)
-	    inchi = Chem.MolToInchi(mol)
+	for i in tqdm(range(len(canopus_labels)), desc="Converting CANOPUS SMILES to InChI", leave=False):    
+        mol = Chem.MolFromSmiles(canopus_labels.loc[i, "smiles"])
+        smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
+        mol = Chem.MolFromSmiles(smi)
+        inchi = Chem.MolToInchi(mol)
 
-	    if canopus_labels.loc[i, "split"] == "train":
-	        if filter(mol, flag_filter_atoms=True):
-	            canopus_train_inchis.append(inchi)
-	    elif canopus_labels.loc[i, "split"] == "test":
-	        canopus_test_inchis.append(inchi)
-	    elif canopus_labels.loc[i, "split"] == "val":
-	        canopus_val_inchis.append(inchi)
+        if canopus_labels.loc[i, "split"] == "train":
+            if filter(mol, flag_filter_atoms=True):
+                canopus_train_inchis.append(inchi)
+        elif canopus_labels.loc[i, "split"] == "test":
+            canopus_test_inchis.append(inchi)
+        elif canopus_labels.loc[i, "split"] == "val":
+            canopus_val_inchis.append(inchi)
 
 	canopus_train_df = pd.DataFrame(set(canopus_train_inchis), columns=["inchi"])
 	canopus_train_df.to_csv("../data/fp2mol/canopus/preprocessed/canopus_train.csv", index=False)
@@ -156,7 +156,9 @@ if False:
 	msg_val_df.to_csv("../data/fp2mol/msg/preprocessed/msg_val.csv", index=False)
 
 	excluded_inchis.update(msg_test_inchis + msg_val_inchis)
+'''
 excluded_inchis = []
+'''
 ########## NEIMS (TMS) DATASET ###########
 
 neims_split_tms = pd.read_csv('../data/neims_tms/split.tsv', sep='\t')
@@ -197,8 +199,49 @@ neims_test_df.to_csv("../data/neims_tms/neims_tms/preprocessed/neims_tms_test.cs
 
 neims_val_df = pd.DataFrame(neims_val_inchis_tms, columns=["inchi"])
 neims_val_df.to_csv("../data/neims_tms/neims_tms/preprocessed/neims_tms_val.csv", index=False)
+'''
+
+########## gecko_atmomaccs DATASET ###########
+
+neims_split = pd.read_csv('../data/gecko_atmomaccs/split.tsv', sep='\t')
+
+neims_labels = pd.read_csv('../data/gecko_atmomaccs/labels.tsv', sep='\t')
+neims_labels["name"] = neims_labels["spec"]
+neims_labels = neims_labels[["name", "smiles"]].reset_index(drop=True)
+
+neims_labels = neims_labels.merge(neims_split, on="name")
+
+neims_train_inchis = []
+neims_test_inchis = []
+neims_val_inchis = []
+
+for i in tqdm(range(len(neims_labels)), desc="Converting NEIMS SMILES to InChI", leave=False):
+    
+    mol = Chem.MolFromSmiles(neims_labels.loc[i, "smiles"])
+    smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
+    mol = Chem.MolFromSmiles(smi)
+    inchi = Chem.MolToInchi(mol)
+    if neims_labels.loc[i, "split"] == "train" and inchi not in excluded_inchis:
+        if filter(mol, flag_filter_atoms=True):
+            neims_train_inchis.append(inchi)
+    elif neims_labels.loc[i, "split"] == "test":
+        neims_test_inchis.append(inchi)
+    elif neims_labels.loc[i, "split"] == "val":
+        neims_val_inchis.append(inchi)
+
+
+
+neims_train_df = pd.DataFrame(neims_train_inchis, columns=["inchi"])
+neims_train_df.to_csv("../data/gecko_atmomaccs/gecko_atmomaccs/preprocessed/gecko_atmomaccs_train.csv", index=False)
+
+neims_test_df = pd.DataFrame(neims_test_inchis, columns=["inchi"])
+neims_test_df.to_csv("../data/gecko_atmomaccs/gecko_atmomaccs/preprocessed/gecko_atmomaccs_test.csv", index=False)
+
+neims_val_df = pd.DataFrame(neims_val_inchis, columns=["inchi"])
+neims_val_df.to_csv("../data/gecko_atmomaccs/gecko_atmomaccs/preprocessed/gecko_atmomaccs_val.csv", index=False)
 
 exit()
+'''
 ########## NEIMS DATASET ###########
 
 neims_split = pd.read_csv('../data/neims/split.tsv', sep='\t')
@@ -237,7 +280,6 @@ neims_test_df.to_csv("../data/neims/neims/preprocessed/neims_test.csv", index=Fa
 
 neims_val_df = pd.DataFrame(neims_val_inchis, columns=["inchi"])
 neims_val_df.to_csv("../data/neims/neims/preprocessed/neims_val.csv", index=False)
-
 
 ########## HMDB DATASET ##########
 
@@ -402,3 +444,4 @@ combined_train_df.to_csv("../data/fp2mol/combined/preprocessed/combined_train.cs
 
 combined_val_df = pd.DataFrame(combined_val_inchis, columns=["inchi"])
 combined_val_df.to_csv("../data/fp2mol/combined/preprocessed/combined_val.csv", index=False)
+'''
