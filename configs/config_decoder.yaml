@@ -3,7 +3,7 @@ defaults:
     - general : general_decoder
     - model : model_decoder
     - train : train_decoder
-    - dataset : neims
+    - dataset : gecko_atmomaccs
 
 hydra:
   job:

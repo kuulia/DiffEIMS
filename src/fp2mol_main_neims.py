@@ -37,10 +37,7 @@ def get_resume(cfg, model_kwargs):
     resume = cfg.general.test_only
     val_samples_to_generate = cfg.general.val_samples_to_generate
     test_samples_to_generate = cfg.general.test_samples_to_generate
-    if cfg.model.type == 'discrete':
-        model = FP2MolDenoisingDiffusion.load_from_checkpoint(resume, **model_kwargs)
-    else:
-        raise NotImplementedError("Only discrete diffusion models are supported for FP2Mol dataset currently")
+    model = FP2MolDenoisingDiffusion.load_from_checkpoint(resume, **model_kwargs)
     cfg = model.cfg
     cfg.general.test_only = resume
     cfg.general.name = name
@@ -59,10 +56,7 @@ def get_resume_adaptive(cfg, model_kwargs):
 
     resume_path = os.path.join(root_dir, cfg.general.resume)
 
-    if cfg.model.type == 'discrete':
-        model = FP2MolDenoisingDiffusion.load_from_checkpoint(resume_path, **model_kwargs)
-    else:
-        raise NotImplementedError("Only discrete diffusion models are supported for FP2Mol dataset currently")
+    model = FP2MolDenoisingDiffusion.load_from_checkpoint(resume_path, **model_kwargs)
     new_cfg = model.cfg
 
     for category in cfg:
@@ -243,6 +237,8 @@ def main(cfg: DictConfig):
         logging.info('neims config loaded')
     elif dataset_config['name'] == 'neims_tms':
         logging.info('neims_tms config loaded')
+    elif dataset_config['name'] == 'gecko_atmomaccs':
+        logging.info('gecko_atmomaccs config loaded')
     else:
         raise NotImplementedError("Unknown dataset {}".format(cfg["dataset"]))
         
