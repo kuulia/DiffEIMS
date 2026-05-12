@@ -6,6 +6,7 @@ file
 """
 from pathlib import Path
 import logging
+import pickle
 from abc import ABC, abstractmethod
 from typing import List, Dict, Callable
 
@@ -638,6 +639,8 @@ class PeakFormula(SpecFeaturizer):
     def __init__(
         self,
         subform_folder: str,
+        subform_pkl: bool = False,
+        subform_pkl_file: str = "subforms.pkl",
         forward_labels: str = None,
         augment_data: bool = False,
         augment_prob: float = 1,
@@ -646,7 +649,7 @@ class PeakFormula(SpecFeaturizer):
         inten_prob: float = 0.1,
         cls_type: str = "ms1",
         magma_aux_loss: bool = False,
-        magma_folder: str = None, 
+        magma_folder: str = None,
         forward_aug_folder: str = None,
         max_peaks: int = None,
         inten_transform: str = "float",
@@ -666,24 +669,61 @@ class PeakFormula(SpecFeaturizer):
         self.max_peaks = max_peaks
         self.inten_transform = inten_transform
         self.aug_nbits = magma_modulo
-        subform_files = list(Path(subform_folder).glob("*.json"))
-        self.spec_name_to_subform_file = {i.stem: i for i in subform_files}
+        self.subform_pkl = subform_pkl
 
-        if self.forward_labels is not None and self.forward_aug_folder is not None:
-            self.forward_aug_folder = Path(self.forward_aug_folder)
-            subform_files = self.forward_aug_folder.glob("*.json")
-            self.spec_name_to_subform_file.update({i.stem: i for i in subform_files})
+        subform_folder_path = Path(subform_folder)
 
-        self.spec_name_to_magma_file = {}
-        if self.magma_aux_loss:
-            self.magma_folder = Path(magma_folder)
-            name_map = {
-                i: self.magma_folder / f"{i}.magma"
-                for i in self.spec_name_to_subform_file.keys()
-            }
-            self.spec_name_to_magma_file = {
-                k: v for k, v in name_map.items() if v.exists()
-            }
+        if subform_pkl:
+            # --- Pickle path: load one file per dataset into memory ---
+            pkl_path = subform_folder_path / subform_pkl_file
+            logging.info(f"Loading subforms from pickle: {pkl_path}")
+            with open(pkl_path, "rb") as f:
+                self.spec_name_to_subform = pickle.load(f)
+
+            if self.forward_labels is not None and self.forward_aug_folder is not None:
+                self.forward_aug_folder = Path(self.forward_aug_folder)
+                aug_pkl_path = self.forward_aug_folder / subform_pkl_file
+                if aug_pkl_path.exists():
+                    logging.info(f"Loading aug subforms from pickle: {aug_pkl_path}")
+                    with open(aug_pkl_path, "rb") as f:
+                        aug_subforms = pickle.load(f)
+                    self.spec_name_to_subform.update(aug_subforms)
+                else:
+                    logging.warning(
+                        f"Forward aug subform pickle not found: {aug_pkl_path}; skipping."
+                    )
+
+            # Build magma lookup from the pickle keys
+            self.spec_name_to_magma_file = {}
+            if self.magma_aux_loss:
+                self.magma_folder = Path(magma_folder)
+                name_map = {
+                    i: self.magma_folder / f"{i}.magma"
+                    for i in self.spec_name_to_subform.keys()
+                }
+                self.spec_name_to_magma_file = {
+                    k: v for k, v in name_map.items() if v.exists()
+                }
+        else:
+            # --- Legacy path: one JSON file per spectrum ---
+            subform_files = list(subform_folder_path.glob("*.json"))
+            self.spec_name_to_subform_file = {i.stem: i for i in subform_files}
+
+            if self.forward_labels is not None and self.forward_aug_folder is not None:
+                self.forward_aug_folder = Path(self.forward_aug_folder)
+                subform_files = self.forward_aug_folder.glob("*.json")
+                self.spec_name_to_subform_file.update({i.stem: i for i in subform_files})
+
+            self.spec_name_to_magma_file = {}
+            if self.magma_aux_loss:
+                self.magma_folder = Path(magma_folder)
+                name_map = {
+                    i: self.magma_folder / f"{i}.magma"
+                    for i in self.spec_name_to_subform_file.keys()
+                }
+                self.spec_name_to_magma_file = {
+                    k: v for k, v in name_map.items() if v.exists()
+                }
 
     def _get_peak_dict(self, spec: data.Spectra) -> dict:
         """_get_peak_dict.
@@ -695,14 +735,20 @@ class PeakFormula(SpecFeaturizer):
             dict:
         """
         spec_name = spec.get_spec_name()
-        subform_file = Path(self.spec_name_to_subform_file[spec_name])
 
-        if not subform_file.exists():
-            logging.warning(f'{subform_file} does not exist!')
-            return {}
-
-        with open(subform_file, "r") as fp:
-            tree = json.load(fp)
+        if self.subform_pkl:
+            # Fast in-memory lookup — no file I/O per spectrum
+            tree = self.spec_name_to_subform.get(spec_name)
+            if tree is None:
+                logging.warning(f"No subform entry for '{spec_name}' in pickle!")
+                return {}
+        else:
+            subform_file = Path(self.spec_name_to_subform_file[spec_name])
+            if not subform_file.exists():
+                logging.warning(f'{subform_file} does not exist!')
+                return {}
+            with open(subform_file, "r") as fp:
+                tree = json.load(fp)
 
         root_form = tree["cand_form"]
         root_ion = tree["cand_ion"]
