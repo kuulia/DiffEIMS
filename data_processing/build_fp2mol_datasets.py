@@ -200,7 +200,47 @@ neims_test_df.to_csv("../data/neims_tms/neims_tms/preprocessed/neims_tms_test.cs
 neims_val_df = pd.DataFrame(neims_val_inchis_tms, columns=["inchi"])
 neims_val_df.to_csv("../data/neims_tms/neims_tms/preprocessed/neims_tms_val.csv", index=False)
 '''
+########## msg_neims DATASET ###########
 
+msg_neims_split = pd.read_csv('../data/msg_neims/split.tsv', sep='\t')
+
+msg_neims_labels = pd.read_csv('../data/msg_neims/labels.tsv', sep='\t')
+msg_neims_labels["name"] = msg_neims_labels["spec"]
+msg_neims_labels = msg_neims_labels[["name", "smiles"]].reset_index(drop=True)
+
+msg_neims_labels = msg_neims_labels.merge(msg_neims_split, on="name")
+
+msg_neims_train_inchis = []
+msg_neims_test_inchis = []
+msg_neims_val_inchis = []
+
+for i in tqdm(range(len(msg_neims_labels)), desc="Converting MSG_NEIMS SMILES to InChI", leave=False):
+    
+    mol = Chem.MolFromSmiles(msg_neims_labels.loc[i, "smiles"])
+    smi = Chem.MolToSmiles(mol, isomericSmiles=False) # remove stereochemistry information
+    mol = Chem.MolFromSmiles(smi)
+    inchi = Chem.MolToInchi(mol)
+    if msg_neims_labels.loc[i, "split"] == "train" and inchi not in excluded_inchis:
+        if filter(mol, flag_filter_atoms=True):
+            msg_neims_train_inchis.append(inchi)
+    elif msg_neims_labels.loc[i, "split"] == "test":
+        msg_neims_test_inchis.append(inchi)
+    elif msg_neims_labels.loc[i, "split"] == "val":
+        msg_neims_val_inchis.append(inchi)
+
+
+
+msg_neims_train_df = pd.DataFrame(msg_neims_train_inchis, columns=["inchi"])
+msg_neims_train_df.to_csv("../data/msg_neims/msg_neims/preprocessed/msg_neims_train.csv", index=False)
+
+msg_neims_test_df = pd.DataFrame(msg_neims_test_inchis, columns=["inchi"])
+msg_neims_test_df.to_csv("../data/msg_neims/msg_neims/preprocessed/msg_neims_test.csv", index=False)
+
+msg_neims_val_df = pd.DataFrame(msg_neims_val_inchis, columns=["inchi"])
+msg_neims_val_df.to_csv("../data/msg_neims/msg_neims/preprocessed/msg_neims_val.csv", index=False)
+
+exit()
+'''
 ########## gecko_atmomaccs DATASET ###########
 
 neims_split = pd.read_csv('../data/gecko_atmomaccs/split.tsv', sep='\t')
@@ -241,6 +281,7 @@ neims_val_df = pd.DataFrame(neims_val_inchis, columns=["inchi"])
 neims_val_df.to_csv("../data/gecko_atmomaccs/gecko_atmomaccs/preprocessed/gecko_atmomaccs_val.csv", index=False)
 
 exit()
+'''
 '''
 ########## NEIMS DATASET ###########
 
