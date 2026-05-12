@@ -354,7 +354,7 @@ def main(cfg: DictConfig):
             torch.set_float32_matmul_precision('medium')
         except:
             logging.info("Could not enable float32 matmul precision - medium")
-
+    logging.info(f'Current path: {Path.cwd()}')
     if not cfg.general.test_only:
         trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.general.resume)
         if cfg.general.name not in ['debug', 'test'] and not getattr(cfg.general, "skip_test", False):
