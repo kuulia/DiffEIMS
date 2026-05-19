@@ -233,12 +233,14 @@ def main(cfg: DictConfig):
 
     if dataset_config["name"] == "fp2mol":
         logging.info('fp2mol config loaded')
-    elif dataset_config['name'] == 'neims': 
+    elif dataset_config['name'] == 'neims':
         logging.info('neims config loaded')
     elif dataset_config['name'] == 'neims_tms':
         logging.info('neims_tms config loaded')
     elif dataset_config['name'] == 'gecko_atmomaccs':
         logging.info('gecko_atmomaccs config loaded')
+    elif dataset_config['name'] == 'msg_neims':
+        logging.info('msg_neims config loaded')
     else:
         raise NotImplementedError("Unknown dataset {}".format(cfg["dataset"]))
         

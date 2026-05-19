@@ -8,8 +8,8 @@ wandb_name: 'mass_spec_exp'
 gpus: 1                     # Multi-gpu is not implemented on this branch
 
 
-decoder: '../../../data/checkpoints/checkpoints/augment/quadratic/inten45/1_new/decoder.pt' # path to pretrained decoder
-encoder: '../../../data/checkpoints/checkpoints/augment/quadratic/inten45/1_new/encoder.pt' # path to pretrained encoder
+decoder: '../../../data/checkpoints/checkpoints/pretrain/decoder58.pt' # path to pretrained decoder
+encoder: '../../../data/checkpoints/checkpoints/msg/first/1/encoder.pt' # path to pretrained encoder
 
 resume: null # If resume, path to ckpt file from outputs direpctory in main directory
 test_only: null

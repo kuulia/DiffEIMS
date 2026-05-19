@@ -12,7 +12,7 @@ decoder: null # path to pretrained decoder
 encoder: null # path to pretrained encoder
 
 resume: null # If resume, path to ckpt file from outputs direpctory in main directory
-test_only: '../../../outputs/2026-03-11/18-17-53-pretrain/checkpoints/pretrain_resume/last-v3.ckpt'
+test_only: null # '../../../outputs/2026-03-11/18-17-53-pretrain/checkpoints/pretrain_resume/last-v3.ckpt'
 load_weights: null
 
 
@@ -22,8 +22,7 @@ encoder_finetune_strategy: null # null | freeze | ft-unfold | freeze-unfold | fr
 decoder_finetune_strategy: null  # null | freeze | ft-input | freeze-input | ft-transformer | freeze-transformer | ft-output 
 
 finetune_strategy: null # null | freeze_transformer_layers
-#pretrained: '../../../data/checkpoints/checkpoints/pretrain/epoch=58.ckpt' # '../../../data/checkpoints/checkpoints/pretrain/epoch=33.ckpt'
-pretrained: null
+pretrained: '../../../data/checkpoints/checkpoints/pretrain/epoch=58.ckpt' # '../../../data/checkpoints/checkpoints/pretrain/epoch=33.ckpt'
 
 check_val_every_n_epochs: 1
 sample_every_val: 1000
