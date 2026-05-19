@@ -3,7 +3,7 @@ defaults:
     - general : general_decoder
     - model : model_decoder
     - train : train_decoder
-    - dataset : msg_neims
+    - dataset : mixed_augment_test
 
 hydra:
   job:

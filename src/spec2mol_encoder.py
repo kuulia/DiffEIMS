@@ -216,7 +216,8 @@ def main(cfg: DictConfig):
 
     dataset_config = cfg["dataset"]
 
-    if dataset_config["name"] not in ("canopus", "msg", "neims", "neims_tms", "msg_neims"):
+    if dataset_config["name"] not in ("canopus", "msg", "neims", "neims_tms", 
+                                      "msg_neims", "mixed_augment_test"):
         raise NotImplementedError("Unknown dataset {}".format(cfg["dataset"]))
 
     datamodule = spec2mol_dataset.Spec2MolDataModule(cfg) # TODO: Add hyper for n_bits

@@ -3,10 +3,10 @@ defaults:
     - general : general_e2e
     - model : model_e2e
     - train : train_e2e
-    - dataset : mixed_augment_test
+    - dataset : yee
 
 hydra:
   job:
     chdir: True
   run:
-    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}-${general.name}
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}-inference
