@@ -123,6 +123,18 @@ class SpectralDataPreprocessor(DataPreprocessor):
 
         return set(test) | set(val)
 
+    def get_exclusions(self) -> Set[str]:
+        """Return test+val InChIs without writing any output."""
+        df = self._load()
+        exclusions: Set[str] = set()
+        for _, row in tqdm(df.iterrows(), total=len(df),
+                           desc=f"Collecting exclusions from {self.name}", leave=False):
+            if row["split"] in ("test", "val"):
+                inchi = self._smiles_to_inchi(row["smiles"], filter_atoms=True)
+                if inchi:
+                    exclusions.add(inchi)
+        return exclusions
+
 
 # ---------------------------------------------------------------------------
 # Structure-only datasets  (raw SMILES, auto 95/5 split)
@@ -265,97 +277,154 @@ class CombinedPreprocessor(DataPreprocessor):
 
 
 # ---------------------------------------------------------------------------
-# Pipeline entry point
+# Dataset registry
 # ---------------------------------------------------------------------------
 
-if __name__ == "__main__":
-    DATA   = Path("../data")
-    FP2MOL = DATA / "fp2mol"
-
-    spectral_datasets = [
+def _build_registry(data: Path, fp2mol: Path):
+    spectral: List[SpectralDataPreprocessor] = [
         SpectralDataPreprocessor(
             name="canopus",
-            data_dir=DATA / "canopus",
-            output_dir=FP2MOL / "canopus/preprocessed",
+            data_dir=data / "canopus",
+            output_dir=fp2mol / "canopus/preprocessed",
             split_file="splits/canopus_hplus_100_0.tsv",
         ),
         SpectralDataPreprocessor(
             name="msg",
-            data_dir=DATA / "msg",
-            output_dir=FP2MOL / "msg/preprocessed",
+            data_dir=data / "msg",
+            output_dir=fp2mol / "msg/preprocessed",
         ),
         SpectralDataPreprocessor(
             name="neims_tms",
-            data_dir=DATA / "neims_tms",
-            output_dir=DATA / "neims_tms/neims_tms/preprocessed",
+            data_dir=data / "neims_tms",
+            output_dir=data / "neims_tms/neims_tms/preprocessed",
         ),
         SpectralDataPreprocessor(
             name="msg_neims",
-            data_dir=DATA / "msg_neims",
-            output_dir=DATA / "msg_neims/msg_neims/preprocessed",
+            data_dir=data / "msg_neims",
+            output_dir=data / "msg_neims/msg_neims/preprocessed",
         ),
         SpectralDataPreprocessor(
             name="gecko_atmomaccs",
-            data_dir=DATA / "gecko_atmomaccs",
-            output_dir=DATA / "gecko_atmomaccs/gecko_atmomaccs/preprocessed",
+            data_dir=data / "gecko_atmomaccs",
+            output_dir=data / "gecko_atmomaccs/gecko_atmomaccs/preprocessed",
         ),
         SpectralDataPreprocessor(
             name="neims",
-            data_dir=DATA / "neims",
-            output_dir=DATA / "neims/neims/preprocessed",
+            data_dir=data / "neims",
+            output_dir=data / "neims/neims/preprocessed",
         ),
         SpectralDataPreprocessor(
             name="mixed_augment_test",
-            data_dir=DATA / "mixed_augment_test",
-            output_dir=DATA / "mixed_augment_test/preprocessed",
+            data_dir=data / "mixed_augment_test",
+            output_dir=data / "mixed_augment_test/preprocessed",
         ),
     ]
-
-    structure_datasets: List[StructureDataPreprocessor] = [
+    structure: List[StructureDataPreprocessor] = [
         HMDBPreprocessor(
-            sdf_path=FP2MOL / "raw/structures.sdf",
-            output_dir=FP2MOL / "hmdb/preprocessed",
+            sdf_path=fp2mol / "raw/structures.sdf",
+            output_dir=fp2mol / "hmdb/preprocessed",
         ),
         DSSToxPreprocessor(
-            raw_dir=FP2MOL / "raw",
-            output_dir=FP2MOL / "dss/preprocessed",
+            raw_dir=fp2mol / "raw",
+            output_dir=fp2mol / "dss/preprocessed",
         ),
         CSVSmilesPreprocessor(
             name="coconut",
-            csv_path=FP2MOL / "raw/coconut_csv-03-2025.csv",
+            csv_path=fp2mol / "raw/coconut_csv-03-2025.csv",
             smiles_col="canonical_smiles",
-            output_dir=FP2MOL / "coconut/preprocessed",
+            output_dir=fp2mol / "coconut/preprocessed",
         ),
         CSVSmilesPreprocessor(
             name="moses",
-            csv_path=FP2MOL / "raw/moses.csv",
+            csv_path=fp2mol / "raw/moses.csv",
             smiles_col="SMILES",
-            output_dir=FP2MOL / "moses/preprocessed",
+            output_dir=fp2mol / "moses/preprocessed",
         ),
         ATMOMACSPreprocessor(
-            data_dir=DATA / "atmomaccs",
-            output_dir=FP2MOL / "atmomaccs/preprocessed",
+            data_dir=data / "atmomaccs",
+            output_dir=fp2mol / "atmomaccs/preprocessed",
         ),
     ]
+    combined = CombinedPreprocessor(
+        sources=structure,
+        output_dir=fp2mol / "combined/preprocessed",
+    )
+    return spectral, structure, combined
 
-    # Spectral test/val sets are excluded from all downstream training splits
-    excluded_inchis: Set[str] = set()
-    for ds in spectral_datasets:
-        try:
-            excluded_inchis |= ds.process(excluded_inchis)
-        except Exception as e:
-            print(f"[SKIP] {ds.name}: {e}")
 
-    for ds in structure_datasets:
-        try:
-            ds.process(excluded_inchis)
-        except Exception as e:
-            print(f"[SKIP] {ds.name}: {e}")
-
+def _run(ds: DataPreprocessor, excluded_inchis: Set[str]) -> Set[str]:
     try:
-        CombinedPreprocessor(
-            sources=structure_datasets,
-            output_dir=FP2MOL / "combined/preprocessed",
-        ).process(excluded_inchis)
+        return ds.process(excluded_inchis)
     except Exception as e:
-        print(f"[SKIP] combined: {e}")
+        print(f"[SKIP] {getattr(ds, 'name', type(ds).__name__)}: {e}")
+        return set()
+
+
+# ---------------------------------------------------------------------------
+# Pipeline entry point
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Preprocess fp2mol datasets.")
+    parser.add_argument(
+        "--dataset", "-d",
+        metavar="NAME",
+        help="Run only this dataset. Omit to run all.",
+    )
+    parser.add_argument(
+        "--exclude-from", "-e",
+        nargs="+",
+        metavar="NAME",
+        dest="exclude_from",
+        help="Spectral dataset names whose test/val InChIs are excluded from training "
+             "(default when running a single dataset: none).",
+    )
+    parser.add_argument(
+        "--data-dir",
+        default="../data",
+        metavar="PATH",
+        help="Root data directory (default: ../data).",
+    )
+    args = parser.parse_args()
+
+    DATA   = Path(args.data_dir)
+    FP2MOL = DATA / "fp2mol"
+
+    spectral_datasets, structure_datasets, combined = _build_registry(DATA, FP2MOL)
+
+    spectral_by_name: dict = {ds.name: ds for ds in spectral_datasets}
+    all_datasets: dict = {ds.name: ds for ds in spectral_datasets + structure_datasets}
+    all_datasets["combined"] = combined
+
+    # Build exclusion set from requested spectral sources
+    excluded_inchis: Set[str] = set()
+    exclude_sources = args.exclude_from
+    if exclude_sources is None and args.dataset is None:
+        # Full run: collect exclusions from every spectral dataset
+        exclude_sources = list(spectral_by_name.keys())
+
+    for name in (exclude_sources or []):
+        if name not in spectral_by_name:
+            print(f"[WARN] --exclude-from '{name}' is not a known spectral dataset, skipping.")
+            continue
+        try:
+            excluded_inchis |= spectral_by_name[name].get_exclusions()
+        except Exception as e:
+            print(f"[WARN] Could not collect exclusions from '{name}': {e}")
+
+    if args.dataset:
+        if args.dataset not in all_datasets:
+            parser.error(
+                f"Unknown dataset '{args.dataset}'. "
+                f"Available: {', '.join(sorted(all_datasets))}"
+            )
+        _run(all_datasets[args.dataset], excluded_inchis)
+    else:
+        # Full pipeline: spectral process() also writes output, so run them again
+        for ds in spectral_datasets:
+            _run(ds, excluded_inchis)
+        for ds in structure_datasets:
+            _run(ds, excluded_inchis)
+        _run(combined, excluded_inchis)
