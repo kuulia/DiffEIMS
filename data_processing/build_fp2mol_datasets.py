@@ -30,7 +30,8 @@ def _canonicalize(smi: str):
         return None, None
 
 
-def _passes_filter(mol, filter_atoms: bool = True) -> bool:
+def _passes_filter(mol, filter_atoms: bool = True,
+                   max_heavy_atoms: Optional[int] = None) -> bool:
     if mol is None:
         return False
     try:
@@ -42,6 +43,8 @@ def _passes_filter(mol, filter_atoms: bool = True) -> bool:
         if filter_atoms:
             if any(a.GetSymbol() not in FILTER_ATOMS for a in mol.GetAtoms()):
                 return False
+        if max_heavy_atoms is not None and mol.GetNumHeavyAtoms() > max_heavy_atoms:
+            return False
     except Exception:
         return False
     return True
@@ -61,9 +64,11 @@ def _to_inchi(mol) -> Optional[str]:
 class DataPreprocessor(ABC):
     """Base class for fp2mol dataset preprocessing."""
 
+    max_heavy_atoms: Optional[int] = None  # set per-instance to cap heavy atom count
+
     def _smiles_to_inchi(self, smi: str, filter_atoms: bool = True) -> Optional[str]:
         mol, _ = _canonicalize(smi)
-        if mol is None or not _passes_filter(mol, filter_atoms):
+        if mol is None or not _passes_filter(mol, filter_atoms, self.max_heavy_atoms):
             return None
         return _to_inchi(mol)
 
@@ -318,6 +323,17 @@ def _build_registry(data: Path, fp2mol: Path):
             data_dir=data / "mixed_augment_test",
             output_dir=data / "mixed_augment_test/preprocessed",
         ),
+        SpectralDataPreprocessor(
+            name="mixed_augment",
+            data_dir=data / "mixed_augment",
+            output_dir=data / "mixed_augment/preprocessed",
+        ),
+        SpectralDataPreprocessor(
+            name="mixed_atmomaccs",
+            data_dir=data / "mixed_atmomaccs",
+            output_dir=data / "mixed_atmomaccs/preprocessed",
+            split_file="split_random.tsv",
+        ),
     ]
     structure: List[StructureDataPreprocessor] = [
         HMDBPreprocessor(
@@ -387,12 +403,26 @@ if __name__ == "__main__":
         metavar="PATH",
         help="Root data directory (default: ../data).",
     )
+    parser.add_argument(
+        "--max-heavy-atoms",
+        type=int,
+        default=None,
+        metavar="N",
+        dest="max_heavy_atoms",
+        help="Drop molecules with more than N heavy (non-hydrogen) atoms. "
+             "Omit to keep all sizes (default: no cap).",
+    )
     args = parser.parse_args()
 
     DATA   = Path(args.data_dir)
     FP2MOL = DATA / "fp2mol"
 
     spectral_datasets, structure_datasets, combined = _build_registry(DATA, FP2MOL)
+
+    if args.max_heavy_atoms is not None:
+        for ds in spectral_datasets + structure_datasets + [combined]:
+            ds.max_heavy_atoms = args.max_heavy_atoms
+        print(f"[INFO] Heavy atom cap: {args.max_heavy_atoms}")
 
     spectral_by_name: dict = {ds.name: ds for ds in spectral_datasets}
     all_datasets: dict = {ds.name: ds for ds in spectral_datasets + structure_datasets}
