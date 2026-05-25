@@ -205,7 +205,13 @@ class NeimsDataModule(MolecularDataModule):
         self.filter_dataset = cfg.dataset.filter
         self.train_smiles = []
         self.dataset_name = cfg.dataset.name
-        self._root_path = os.path.join(cfg.general.parent_dir, self.datadir, self.dataset_name)
+        # Some datasets (e.g. neims) store data in a nested subdir named after the dataset,
+        # while others (e.g. gecko_new) place data directly under datadir. Check for the
+        # preprocessed/ subdirectory rather than the root dir to avoid false positives from
+        # empty dirs left by previous runs.
+        nested = os.path.join(cfg.general.parent_dir, self.datadir, self.dataset_name)
+        self._root_path = nested if os.path.isdir(os.path.join(nested, 'preprocessed')) \
+            else os.path.join(cfg.general.parent_dir, self.datadir)
         module_kwargs = dict(
             root=self._root_path,
             filter_dataset=self.filter_dataset,
@@ -235,6 +241,7 @@ class Neims_infos(AbstractDatasetInfos):
         self.num_atom_types = len(self.atom_decoder)
         self.max_weight = max(self.atom_weights.values())
 
+        os.makedirs(f'{datamodule._root_path}/stats', exist_ok=True)
         meta_files = dict(n_nodes=f'{datamodule._root_path}/stats/n_counts.txt',
                           node_types=f'{datamodule._root_path}/stats/atom_types.txt',
                           edge_types=f'{datamodule._root_path}/stats/edge_types.txt',
