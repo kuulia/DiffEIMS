@@ -243,6 +243,8 @@ def main(cfg: DictConfig):
         logging.info('msg_neims config loaded')
     elif dataset_config['name'] == 'mixed_augment_test':
         logging.info('mixed_augment_test config loaded')
+    elif dataset_config['name'] == 'gecko_new':
+        logging.info('gecko_new config loaded')
     else:
         raise NotImplementedError("Unknown dataset {}".format(cfg["dataset"]))
         
