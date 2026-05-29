@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=checkpoints
-#SBATCH --output=%A_%a.out
+#SBATCH --output=outfiles/ch_%A.out
 #SBATCH --time=1:00:00
 #SBATCH --mem=64G
 #SBATCH --cpus-per-task=1

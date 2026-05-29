@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=tr_diffms_dec
-#SBATCH --output=%A_%a.out
+#SBATCH --output=outfiles/dec_ft_%A.out
 #SBATCH --time=15:00:00
 #SBATCH --mem=32G
 #SBATCH --cpus-per-task=8
@@ -19,6 +19,7 @@ cd ms/DiffMS || exit 1
 start_time=$(date +%s)
 
 # Run training
+echo "srun python src/fp2mol_main_neims.py"
 srun python src/fp2mol_main_neims.py
 
 # Record end time and report runtime

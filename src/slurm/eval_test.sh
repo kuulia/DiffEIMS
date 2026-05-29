@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=eval_diffms
-#SBATCH --output=%A_%a.out
+#SBATCH --output=outfiles/%A_%a.out
 #SBATCH --time=12:00:00
 #SBATCH --mem=32G
 #SBATCH --cpus-per-task=8

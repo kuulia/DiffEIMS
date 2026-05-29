@@ -134,6 +134,7 @@ def main(cfg: DictConfig):
 
     logger.addHandler(fh)
 
+    logging.info(f"Output directory: {os.getcwd()}")
     logging.info(cfg)
 
     dataset_config = cfg["dataset"]
