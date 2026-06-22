@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=tr_diffms_e2e
 #SBATCH --output=outfiles/e2e_ft_%A.out
-#SBATCH --time=20:00:00
+#SBATCH --time=32:00:00
 #SBATCH --mem=64G
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:h200:1
