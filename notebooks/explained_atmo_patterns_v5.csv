@@ -1,0 +1,39 @@
+,Pattern,Name,Question
+0,[C][NX3;H2;!$(NC=O)]([H])[H],"amine, primary",How many primary amines are there?
+1,[C][NX3;H;!$(NC=O)]([C])[H],"amine, secondary",How many secondary amines are there?
+2,[C][NX3;H0;!$(NC=O);!$(N=O)]([C])[C],"amine, tertiary",How many tertiary amines are there?
+3,[CX4][H],alkane CH,How many alkane CH bonds are there?
+4,[CX3;$(C=C)][H],alkene CH,How many alkene CH bonds are there?
+5,[c][H],aromatic CH,How many aromatic CH bonds are there?
+6,"[#6,#1][CX3](=O)[#6,#1]",carbonyl,How many carbonyl groups are there?
+7,[C;!$(C=O)][OX2H][H],hydroxyl (alkyl),How many hydroxyl groups are there in an alkyl group?
+8,[CX3](=O)[OX2H][H],carboxylic acid,How many carboxylic acids are there?
+9,"[CX3H1,CX3](=O)[OX2H0][#6]","ester, all",How many ester groups are there?
+10,[OD2]([C;!R;!$(C=O)])[C;!R;!$(C=O)],ether,How many ether groups are there?
+11,"[#6][OD2][OD2,OD1][#6]",peroxide,How many peroxide groups are there?
+12,"[#6][$([NX3](=O)=O),$([NX3+](=O)[O-])](~[O])(~[O])",nitro,How many nitro groups are there?
+13,[c;!$(C=O)][OX2H][H],aromatic hydroxyl,How many aromatic hydroxyl groups are there?
+14,"[#6;!$(C=O)][OD2][OX2H,OD1][#1]",hydroperoxide,How many hydroperoxide groups are there?
+15,"[CX3](=O)[NX3;!$(N=O)]([#6,#1])[#6,#1]",amide,How many amide groups are there?
+16,"[#6][O][NX3;$([NX3](=[OX1])(=[OX1])O),$([NX3+]([OX1-])(=[OX1])O)](~[O])(~[O])",nitrate,How many nitrate groups are there?
+17,"[#6][O][SX4;$([SX4](=O)(=O)(O)O),$([SX4+2]([O-])([O-])(O)O)](~[O])(~[O])(~[O])",organosulfate,How many organosulfate groups are there?
+18,[C](=O)OO[N](~O)~[O],carbonylperoxynitrate,How many carbonylperoxynitrate groups are there?
+19,[CX3;$(C([#6])(=[O])[#6])](=[O;!$([O][O])]),ketone,How many ketone groups are there?
+20,"[CX3;$(C([#6,#1])(=[O])[#6,#1])]([#6,#1])(=[O;!$([O][O])])[H]",aldehyde,How many aldehyde groups are there?
+21,[CX3;$(C(=[O])[NX3;!$(N=O)])](=[O])[N]([#1])[#1],"amide, primary",How many primary amide groups are there?
+22,[CX3;$(C(=[O])[NX3;!$(N=O)]([#6])[#1])](=[O])[N][#1],"amide, secondary",How many secondary amide groups are there?
+23,[CX3;$(C(=[O])[NX3;!$(N=O)]([#6])[#6])](=[O])[N],"amide, tertiary",How many tertiary amide groups are there?
+24,[C](=O)O[O][H],carbonylperoxyacid,How many carbonylperoxyacid groups are there?
+25,[#6][O;!$(OOC(=O))][O;!$(OOC(=O))][N](~O)~[O],peroxy nitrate,How many peroxy nitrate groups are there?
+26,"c~[O,o]~[c,C&!$(C=O)]","ether, aromatic",How many aromatic ether groups are there?
+27,[OD2;R]([C;!$(C=O);R])[C;!$(C=O);R],ether (alicyclic),How many alicyclic ether groups are there?
+28,[N;!$(NC=O);!$(N=O);$(Na)],"amine, aromatic",How many aromatic amines are there?
+29,"[#6][OX2H0][CX3,CX3H1](=O)[C;$(C[N](~[O])~[O]),$(CC[N](~[O])~[O]),$(CCC[N](~[O])~[O]),$(CCCC[N](~[O])~[O]),$(CCCCC[N](~[O])~[O])]",nitroester,How many nitroesters are there?
+30,[$(C=CC=O);A;R],C=C-C=O in non-aromatic ring,How many non-aromatic rings with C=C-C=O are there?
+31,C=C,C=C (non-aromatic),How many non-aromatic C=C groups are there?
+32,"[C;$(C[NX3][CH,CC](=O)),$(CC[NX3][CH,CC](=O)),$(CCC[NX3][CH,CC](=O)),$(CCCC[NX3][CH,CC](=O)),$(CCCCC[NX3][CH,CC](=O))]",nC-OHside-a,How many carbons are there in the side chain of an amide (attached to the amide nitrogen)?
+33,Aromatic ring,aromatic ring,How many aromatic rings are there?
+34,Non-aromatic ring,non-aromatic ring,How many non-aromatic rings are there?
+35,Nitrophenol,nitrophenol,How many nitrophenol groups are there?
+36,[#6],carbon number,How many carbon atoms are there?
+37,[#8],oxygen number,How many oxygen atoms are there?

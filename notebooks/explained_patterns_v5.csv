@@ -1,0 +1,168 @@
+Key ,Pattern,rdkit descr.,Question
+0, "", #extra empty key, empty key
+1," ('?', 0)", # ISOTOPE A , How many isotopes are there?
+2," ('[#104]', 0)", # limit the above def'n since the RDKit only accepts up to #104, How many atoms are there that have an atomic number above 103?
+3," ('[#32,#33,#34,#50,#51,#52,#82,#83,#84]', 0)"," # Group IVa,Va,VIa Rows 4-6  ","How many atoms are there that belong to groups IVa, Va, Via, rows 4-6?"
+4," ('[Ac,Th,Pa,U,Np,Pu,Am,Cm,Bk,Cf,Es,Fm,Md,No,Lr]', 0)", # actinide , How many actinides are there? 
+5," ('[Sc,Ti,Y,Zr,Hf]', 0)"," # Group IIIB,IVB (Sc...)   ","How many atoms are there that belong to group IIIB or IVB?"
+6," ('[La,Ce,Pr,Nd,Pm,Sm,Eu,Gd,Tb,Dy,Ho,Er,Tm,Yb,Lu]', 0)", # Lanthanide , How many lanthanides are there?
+7," ('[V,Cr,Mn,Nb,Mo,Tc,Ta,W,Re]', 0)"," # Group VB,VIB,VIIB ","How many atoms are there that belong to groups VB, VIB or VIIB?"
+8," ('[!#6;!#1]1~*~*~*~1', 0)", # QAAA@1 , How many heteroatoms are at a 3 bond distance from a ring fragment?
+9," ('[Fe,Co,Ni,Ru,Rh,Pd,Os,Ir,Pt]', 0)", # Group VIII (Fe...) , How many atoms are there that belong to Group VIII?
+10," ('[Be,Mg,Ca,Sr,Ba,Ra]', 0)", # Group IIa (Alkaline earth) , How many atoms are there that belong to Group IIa?
+11," ('*1~*~*~*~1', 0)", # 4M Ring , How many four-membered rings are there?
+12," ('[Cu,Zn,Ag,Cd,Au,Hg]', 0)"," # Group IB,IIB (Cu..) ","How many atoms are there that belong to Group IB, IIB?"
+13," ('[#8]~[#7](~[#6])~[#6]', 0)", # ON(C)C , How many hydroxylamine-derivatives are there?
+14," ('[#16]-[#16]', 0)", # S-S , How many disulfide bonds are there?
+15," ('[#8]~[#6](~[#8])~[#8]', 0)", # OC(O)O , How many methanetriols are there?
+16," ('[!#6!#1]1~*~*~1', 0)", # QAA@1 , How many heteroatoms are at a 2 bond distance from a ring?
+17," ('[#6]#[#6]', 0)", #CTC , How many sets of 2 triple-bonded carbons are there?
+18," ('[#5,#13,#31,#49,#81]', 0)", # Group IIIA (B...)  , How many atoms are there that belong to Group VIII?
+19," ('*1~*~*~*~*~*~*~1', 0)", # 7M Ring , How many seven-membered rings are there? 
+20," ('[#14]', 0)", #Si , How many silicon atoms are iWn the molecule?
+21," ('[#6]=[#6](~[!#6;!#1])~[!#6;!#1]', 0)", # C=C(Q)Q ,"How many sets of double-bonded carbons are there, with one carbon bonded to two heteroatoms?"
+22," ('*1~*~*~1', 0)", # 3M Ring , How many three-membered rings are there?
+23," ('[#7]~[#6](~[#8])~[#8]', 0)", # NC(O)O , How many aminomethanediol groups are there?
+24," ('[#7]-[#8]', 0)", # N-O , How many single bonds between nitrogen and oxygen are there?
+25," ('[#7]~[#6](~[#7])~[#7]', 0)", # NC(N)N , How many methanetriamine groups are there?
+26," ('[#6]=;@[#6](@*)@*', 0)", # C$=C($A)$A , How many double-bonded carbons are there that have three ring bonds?
+27," ('[I]', 0)", # I , How many iodine atoms are there?
+28," ('[!#6;!#1]~[CH2]~[!#6;!#1]', 0)", # QCH2Q , How many aliphatic carbons are bonded to two heteroatoms? 
+29," ('[#15]', 0)", # P , How many phosphor atoms are there?
+30," ('[#6]~[!#6;!#1](~[#6])(~[#6])~*', 0)", # CQ(C)(C)A , How many heteroatoms are bonded to three carbon atoms?
+31," ('[!#6!#1]~[F,Cl,Br,I]', 0)", # QX , How many heteroatoms are bonded to a halogen?
+32," ('[#6]~[#16]~[#7]', 0)", # CSN , How many aminothiomethane groups are there?
+33," ('[#7]~[#16]', 0)", # NS , How many bonds are there between nitrogen and sulfur?
+34," ('[CH2]=*', 0)", # CH2=A , How many double-bonded methylidene groups are there?
+35," ('[Li,Na,K,Rb,Cs,Fr]', 0)", # Group IA (Alkali Metal) , How many alkali metals are there?
+36," ('[#16R]', 0)", # S Heterocycle , How many sulfur-containing heterocycles are there?
+37," ('[#7]~[#6](~[#8])~[#7]', 0)", # NC(O)N , How many diaminocarbinol groups are there?
+38," ('[#7]~[#6](~[#6])~[#7]', 0)", # NC(C)N , How many diaminoethyl groups are there there?
+39," ('[#8]~[#16](~[#8])~[#8]', 0)", # OS(O)O , How many sulfur atoms are bonded to three oxygens?
+40," ('[#16]-[#8]', 0)", # S-O , How many thioperoxide bonds (S-O) are there?
+41," ('[#6]#[#7]', 0)", # CTN , How many cyano groups are there?
+42," ('F', 0)", # F , How many fluorine atoms are there?
+43," ('[!#6;!#1;!H0]~*~[!#6;!#1;!H0]', 0)", # QHAQH ,"How many heteroatoms, each bonded to hydrogen, are separated by one atom?"
+44," ('[!#1;!#6;!#7;!#8;!#9;!#14;!#15;!#16;!#17;!#35;!#53]', 0)", # OTHER ,"How many atoms other than H, C, N, O, Si, P, S, F, Cl, Br, and I are there?"
+45," ('[#6]=[#6]~[#7]', 0)", # C=CN , How many aminoethylidene groups are there?
+46," ('Br', 0)", # BR , How many bromine atoms are there?
+47," ('[#16]~*~[#7]', 0)", # SAN ,"How many bonds are there where sulfur is connected to nitrogen via two bonds?"
+48," ('[#8]~[!#6;!#1](~[#8])(~[#8])', 0)", # OQ(O)O ,"How many heteroatoms are bonded to two oxygen atoms, where the heteroatom is also bonded to one other oxygen atom?"
+49," ('[!+0]', 0)", # CHARGE   , How many atoms have a formal charge?
+50," ('[#6]=[#6](~[#6])~[#6]', 0)", # C=C(C)C , How many isobutylene groups are there?
+51," ('[#6]~[#16]~[#8]', 0)", # CSO ,"How many carbons are bonded to both sulfur and oxygen in the same bond path?"
+52," ('[#7]~[#7]', 0)", # NN , How many nitrogen-nitrogen bonds?
+53," ('[!#6;!#1;!H0]~*~*~*~[!#6;!#1;!H0]', 0)", # QHAAAQH ,"How many heteroatoms, each bonded to hydrogen, are connected by a three-atom chain?"
+54," ('[!#6;!#1;!H0]~*~*~[!#6;!#1;!H0]', 0)", # QHAAQH ,"How many heteroatoms, each bonded to hydrogen, are connected by a two-atom chain?"
+55," ('[#8]~[#16]~[#8]', 0)", #OSO ,"How many sulfur atoms are bonded to two oxygen atoms?"
+56," ('[#8]~[#7](~[#8])~[#6]', 0)", # ON(O)C , How many dioxyamine groups are there? 
+57," ('[#8R]', 0)", # O Heterocycle ,"How many oxygen-containing heterocycles are there?"
+58," ('[!#6;!#1]~[#16]~[!#6;!#1]', 0)", # QSQ ,"How many sulfur atoms are bonded to two non-carbon, non-hydrogen atoms?"
+59," ('[#16]!,*,*', 0)", # Snot%A%A ,"Does the molecule contain no sulfur atoms?"  
+60," ('[#16]=[#8]', 0)", # S=O , How many double bonds between sulfur and oxygen are there?
+61," ('*~[#16](~*)~*', 0)", # AS(A)A , How many sulfur atoms are bonded to three atoms?
+62," ('*@*!@*@*', 0)", # A$!A$A ,"How many bonds connect two ring structures?"
+63," ('[#7]=[#8]', 0)", # N=O , How many nitroxyl groups are there?
+64," ('*@*!@[#16]', 0)", # A$A!S ,"How many carbon atoms are bonded to a ring atom?"
+65," ('c,n', 0)", # C%N ,"How many aromatic carbon or nitrogen atoms are there?"
+66," ('[#6]~[#6](~[#6])(~[#6])~*', 0)", # CC(C)(C)A , How many isobutanyl groups are bonded to an aliphatic carbon? 
+67," ('[!#6!#1]~[#16]', 0)", # QS ,"How many non-carbon, non-hydrogen atoms are bonded to sulfur atoms?"
+68," ('[!#6;!#1;!H0]~[!#6;!#1;!H0]', 0)", # QHQH (&...) SPEC Incomplete ,"How many heteroatoms are each bonded to hydrogen and bonded to another heteroatom?"
+69," ('[!#6;!#1]~[!#6;!#1;!H0]', 0)", # QQH ,"How many bonds are there between heteroatoms, where one of them is bonded to hydrogen?"
+70," ('[!#6;!#1]~[#7]~[!#6;!#1]', 0)", # QNQ , How many heteroatoms are bonded to the same nitrogen atom?
+71," ('[#7]~[#8]', 0)", # NO , How many hydroxylamine groups are there?
+72," ('[#8]~*~*~[#8]', 0)", # OAAO ,"How many oxygen atoms are separated by exactly two bonds?"
+73," ('[#16]=*', 0)", # S=A ,"How many sulfur atoms are double-bonded to any atom?"
+74," ('[CH3]~*~[CH3]', 0)", # CH3ACH3 ,"How many methyl groups are bonded to the same atom with a single bond between them?"
+75," ('*!@[#7]@*', 0)", # A!N$A ,"How many nitrogen atoms in a ring are bonded to atoms outside the ring?"
+76," ('[#6]=[#6](~*)~*', 0)", # C=C(A)A ,"How many carbons are involved in double bonds, where one carbon is bonded to two other atoms (including another carbon)?"
+77," ('[#7]~*~[#7]', 0)", # NAN , How many nitrogens are bonded to the same atom?
+78," ('[#6]=[#7]', 0)", # C=N , How many nitrogens are double-bonded to a carbon?
+79," ('[#7]~*~*~[#7]', 0)", # NAAN , How many pairs of nitrogens are there that are 2 atoms apart?
+80," ('[#7]~*~*~*~[#7]', 0)", # NAAAN , How many pairs of nitrogens are there that are 3 atoms apart?
+81," ('[#16]~*(~*)~*', 0)", # SA(A)A ,"How many atoms are bonded by three bonds, with one bond being connected to a sulfur atom?"
+82," ('*~[CH2]~[!#6;!#1;!H0]', 0)", # ACH2QH ,"How many heteroatoms are bonded to a methylene group and a hydrogen atom?"
+83," ('[!#6;!#1]1~*~*~*~*~1', 0)", # QAAAA@1 ,"How many heteroatoms are part of a ring structure?"
+84," ('[NH2]', 0)", #NH2 , How many primary amines are there?
+85," ('[#6]~[#7](~[#6])~[#6]', 0)", # CN(C)C , How many nitrogens are bonded to three carbons? 
+86," ('[C;H2,H3][!#6;!#1][C;H2,H3]', 0)", # CH2QCH2 ,"How many methylene groups are attached to the same heteroatom?"
+87," ('[F,Cl,Br,I]!@*@*', 0)", # X!A$A , How many halides are bonded to a ring? 
+88," ('[#16]', 0)", # S , How many sulfur atoms are there there?
+89," ('[#8]~*~*~*~[#8]', 0)", # OAAAO , How many oxygens are separated by 3 atoms? 
+90," ('[$([!#6;!#1;!H0]~*~*~[CH2]~*),$([!#6;!#1;!H0;R]1@[R]@[R]@[CH2;R]1),$([!#6;!#1;!H0]~[R]1@[R]@[CH2;R]1)]', 0)", # QHAACH2A ,"How many heteroatoms are bonded to a hydrogen atom and are separated by two atoms from a methylene group?"
+91," ('[$([!#6;!#1;!H0]~*~*~*~[CH2]~*),$([!#6;!#1;!H0;R]1@[R]@[R]@[R]@[CH2;R]1),$([!#6;!#1;!H0]~[R]1@[R]@[R]@[CH2;R]1),$([!#6;!#1;!H0]~*~[R]1@[R]@[CH2;R]1)]', 0)", # QHAAACH2A ,"How many heteroatoms are bonded to a hydrogen atom and are separated by three atoms from a methylene group?"
+92," ('[#8]~[#6](~[#7])~[#6]', 0)", # OC(N)C ,"How many carbons are bonded to another carbon, a nitrogen, and an oxygen atom in the structure?"
+93," ('[!#6!#1]~[CH3]', 0)", # QCH3 , How many heteroatoms are bonded to a methyl group?
+94," ('[!#6!#1]~[#7]', 0)", # QN , How many heteroatoms are bonded to a nitrogen atom?
+95," ('[#7]~*~*~[#8]', 0)", # NAAO ,"How many nitrogen and oxygen atom pairs are separated by exactly two atoms?"
+96," ('*1~*~*~*~*~1', 0)", # 5 M ring , How many five-membered rings are there?
+97," ('[#7]~*~*~*~[#8]', 0)", # NAAAO ,"How many nitrogen and oxygen atom pairs are separated by exactly three atoms?"  
+98," ('[!#6;!#1]1~*~*~*~*~*~1', 0)", # QAAAAA@1 ,"How many heteroatoms are located five atoms away from a ring?"
+99," ('[#6]=[#6]', 0)", # C=C , How many pairs of double-bonded carbons are there?
+100," ('*~[CH2]~[#7]', 0)", # ACH2N ,"How many methylene groups are directly bonded to a nitrogen atom?"
+101,"('[$([R]@1@[R]@[R]@[R]@[R]@[R]@[R]@[R]1),$([R]@1@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]1),$([R]@1@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]1),$([R]@1@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]1),$([R]@1@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]1),$([R]@1@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]1),$([R]@1@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]@[R]1)]', 0)", # 8M Ring or larger. This only handles up to ring sizes of 14 ,"How many rings with 8 to 14 members are there?"
+102," ('[!#6!#1]~[#8]', 0)", # QO ,"How many heteroatoms are bonded to oxygen?"
+103," ('Cl', 0)", # CL , How many chlorine atoms are there?
+104," ('[!#6;!#1;!H0]~*~[CH2]~*', 0)", # QHACH2A ,"How many methylene groups are bonded to a heteroatom that is also bonded to a hydrogen?"
+105," ('*@*(@*)@*', 0)", # A$A($A)$A ,"How many atoms are part of a ring structure with three bonds connecting them?"
+106," ('[!#6;!#1]~*(~[!#6;!#1])~[!#6;!#1]', 0)", # QA(Q)Q , How many atoms are bonded to three heteroatoms?
+107," ('[F,Cl,Br,I]~*(~*)~*', 0)", # XA(A)A ,"How many atoms are bonded with three bonds, one of which is to a halogen?"
+108," ('[CH3]~*~*~*~[CH2]~*', 0)", # CH3AAACH2A , How many methyl groups are separated by four bonds from a methine group?
+109," ('*~[CH2]~[#8]', 0)", # ACH2O , How many oxygens are bonded to an aliphatic carbon?
+110," ('[#7]~[#6]~[#8]', 0)", # NCO , How many carbons are bonded to a nitrogen and an oxygen atom?
+111," ('[#7]~*~[CH2]~*', 0)", # NACH2A ,"How many methylene bridges are connected to two atoms, one of which is also bonded to a nitrogen atom?"
+112," ('*~*(~*)(~*)~*', 0)", # AA(A)(A)A , How many atoms are bonded with at least four bonds to other atoms?
+113," ('[#8]!:*:*', 0)", # Onot%A%A ,"How many oxygens are bonded non-aromatically to atoms that are part of an aromatic system?"
+114," ('[CH3]~[CH2]~*', 0)", # CH3CH2A ,"How many ethyl groups are there?"
+115," ('[CH3]~*~[CH2]~*', 0)", # CH3ACH2A , How many methyl groups are separated by two bonds from a methine group?
+116," ('[$([CH3]~*~*~[CH2]~*),$([CH3]~*1~*~[CH2]1)]', 0)", # CH3AACH2A , How many methyl groups are separated by three bonds from a methine group?
+117," ('[#7]~*~[#8]', 0)", # NAO , How many pairs of nitrogen and oxygen atoms are separated by one atom?
+118," ('[$(*~[CH2]~[CH2]~*),$(*1~[CH2]~[CH2]1)]', 1)", # ACH2CH2A > 1 , How many instances are there of two methylenes bonded together?
+119," ('[#7]=*', 0)", # N=A ,"How many nitrogen atoms are involved in double bonds?"
+120," ('[!#6R]', 1)", # Heterocyclic atom > 1 (&...) Spec Incomplete ,"How many rings contain more than one heteroatom?"
+121," ('[#7R]', 0)", # N Heterocycle , How many nitrogen-containing rings are there?
+122," ('*~[#7](~*)~*', 0)", # AN(A)A , How many nitrogens are bonded to three atoms?
+123," ('[#8]~[#6]~[#8]', 0)", # OCO , How many carbons are bonded to two oxygens?
+124," ('[!#6!#1]~[!#6!#1]', 0)", # QQ , How many pairs of heteroatoms are bonded together?
+125," ('?', 0)", # Aromatic Ring > 1 , How many aromatic rings are there?
+126," ('*!@[#8]!@*', 0)", # A!O!A , How many oxygens are bonded to non-ring atoms with two bonds? 
+127," ('*@*!@[#8]', 1)", # A$A!O > 1 (&...) Spec Incomplete , How many instances are there of any atom connected to an oxygen atom that is in a ring?
+128," ('[$(*~[CH2]~*~*~*~[CH2]~*),$([R]1@[CH2;R]@[R]@[R]@[R]@[CH2;R]1),$(*~[CH2]~[R]1@[R]@[R]@[CH2;R]1),$(*~[CH2]~*~[R]1@[R]@[CH2;R]1)]', 0)", # ACH2AAACH2A , How many instances are there of two methylene groups separated by three atoms?
+129," ('[$(*~[CH2]~*~*~[CH2]~*),$([R]1@[CH2]@[R]@[R]@[CH2;R]1),$(*~[CH2]~[R]1@[R]@[CH2;R]1)]', 0)", # ACH2AACH2A , How many instances are there of two methylene groups separated by two atoms?
+130," ('[!#6;!#1]~[!#6;!#1]', 1)", # QQ > 1 (&...)  Spec Incomplete , How many instances are there of two heteroatoms bonded together?
+131," ('[!#6;!#1;!H0]', 1)", # QH > 1 , How many instances are there of hydrogen atoms bonded to heteroatoms?
+132," ('[#8]~*~[CH2]~*', 0)", # OACH2A , How many oxygens are separated by one atom from an aliphatic carbon?
+133," ('*@*!@[#7]', 0)", # A$A!N , How many atoms are connected to a nitrogen atom and is in a ring?
+134," ('[F,Cl,Br,I]', 0)", # X (HALOGEN) , How many halogen atoms are there?
+135," ('[#7]!:*:*', 0)", # Nnot%A%A ,"How many nitrogen atoms are connected by non-aromatic bonds to two atoms?"
+136," ('[#8]=*', 1)", # O=A>1  ,"How many oxygen atoms are involved in double bonds?"
+137," ('[!CR]', 0)", # Heterocycle ,"How many non-aromatic carbons are in a ring?"
+138," ('[!#6!#1]~[CH2]~*', 1)", # QCH2A>1 (&...) Spec Incomplete , How many heteroatoms are bonded to a methylene bridge?
+139," ('[O!H0]', 0)", # OH , How many hydroxyl groups are there?
+140," ('[#8]', 3)", # O > 3 (&...) Spec Incomplete , How many oxygen atoms are there?
+141," ('[CH3]', 2)", # CH3 > 2  (&...) Spec Incomplete , How many methyl groups are there?
+142," ('[#7]', 1)", # N > 1 , How many nitrogen atoms are there?
+143," ('*@*!@[#8]', 0)", # A$A!O , How many instances are there of any atom connected to an oxygen atom that is in a ring?
+144," ('*!:*:*!:*', 0)", # Anot%A%Anot%A ,"How many pairs of atoms are connected via an aromatic bond, each connected to at least one other atom with a non-aromatic bond?"
+145," ('*1~*~*~*~*~*~1', 1)", # 6M ring > 1 , How many six-membered rings are there?
+146," ('[#8]', 2)", # O > 2 , How many oxygen atoms are there?
+147," ('[$(*~[CH2]~[CH2]~*),$([R]1@[CH2;R]@[CH2;R]1)]', 0)", # ACH2CH2A , How many instances are there of two methylene groups bonded together?
+148," ('*~[!#6;!#1](~*)~*', 0)", # AQ(A)A , How many heteroatoms are bonded to three atoms?
+149," ('[CH3,H4]', 1)", # CH3 > 1 , How many methyl groups are there?
+150," ('*!@*@*!@*', 0)", # A!A$A!A , How many bonds are there between two atoms that each have a ring bond?
+151," ('[#7!H0]', 0)", # NH , How many nitrogen atoms are bonded to at least one hydrogen? 
+152," ('[#8]~[#6](~[#6])~[#6]', 0)", # OC(C)C , How many carbon atoms are bonded to two carbon atoms and one oxygen atom?
+153," ('[!#6!#1]~[CH2]~*', 0)", # QCH2A , How many methylene bridges are bonded to a heteroatom?
+154," ('[#6]=[#8]', 0)", # C=O , How many carbonyl groups are there?
+155," ('*!@[CH2]!@*', 0)", # A!CH2!A , How many methylene bridges are connected by non-ring bonds?
+156," ('[#7]~*(~*)~*', 0)", # NA(A)A ,"How many atoms are bonded to three atoms, one of which is a nitrogen?"
+157," ('[#6]-[#8]', 0)", # C-O , How many single bonds are there between an oxygen and carbon? 
+158," ('[#6]-[#7]', 0)", # C-N , How many single bonds are there between a nitrogen and carbon? 
+159," ('[#8]', 1)", # O>1 , How many oxygen atoms are there?
+160," ('[CH3,H4]', 0)", #CH3 , How many methyl groups are there?
+161," ('[#7]', 0)", # N , How many nitrogen atoms are there?
+162," ('a', 0)", # Aromatic , How many aromatic rings are there?
+163," ('*1~*~*~*~*~*~1', 0)", # 6M Ring , How many six-membered rings are there?
+164," ('[#8]', 0)", # O , How many oxygen atoms are there? 
+165," ('[R]', 0)", # Ring , How many ring fragments are there?
+166," ('?', 0)"," # Fragments FIX, this can't be done in SMARTS ", How many fragments are there?
