@@ -329,6 +329,12 @@ def _build_registry(data: Path, fp2mol: Path):
             output_dir=data / "mixed_augment/preprocessed",
         ),
         SpectralDataPreprocessor(
+            name="gecko_new_mixed_augment_atmomaccs_test",
+            data_dir=data / "gecko_new_mixed_augment_atmomaccs_test",
+            output_dir=data / "gecko_new_mixed_augment_atmomaccs_test/preprocessed",
+            split_file="split_random.tsv",
+        ),
+        SpectralDataPreprocessor(
             name="mixed_atmomaccs",
             data_dir=data / "mixed_atmomaccs",
             output_dir=data / "mixed_atmomaccs/preprocessed",
