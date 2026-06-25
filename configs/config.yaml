@@ -3,7 +3,7 @@ defaults:
     - general : general_e2e
     - model : model_e2e
     - train : train_e2e
-    - dataset : gecko_new
+    - dataset : gecko_new_mixed_augment_atmomaccs_test
 
 hydra:
   job:

@@ -18,7 +18,7 @@ cd ms/DiffMS || exit 1
 start_time=$(date +%s)
 
 # Run script
-srun python src/checkpoint_to_weights.py data/checkpoints/checkpoints/pretrain/mixed_encoder/epoch=100.ckpt data/checkpoints/checkpoints/pretrain/mixed_encoder/final/
+srun python src/checkpoint_to_weights.py outputs/2026-06-24/04-35-03-dev/checkpoints/dev/last.ckpt data/checkpoints/checkpoints/gecko_mixed/
 
 # Record end time and report runtime
 end_time=$(date +%s)

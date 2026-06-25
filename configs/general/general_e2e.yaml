@@ -8,11 +8,10 @@ wandb_name: 'mass_spec_exp'
 gpus: 1                     # Multi-gpu is not implemented on this branch
 
 
-decoder: '/scratch/work/lindl3/ms/DiffMS/data/checkpoints/checkpoints/pretrain/mixed_encoder/final/decoder.pt' # path to pretrained decoder
-encoder: '/scratch/work/lindl3/ms/DiffMS/data/checkpoints/checkpoints/pretrain/mixed_encoder/final/encoder.pt' # path to pretrained encoder
-
-resume: null # If resume, path to ckpt file from outputs direpctory in main directory
-test_only: null #'/scratch/work/lindl3/ms/DiffMS/data/checkpoints/checkpoints/pretrain/mixed_encoder/epoch=100.ckpt'
+decoder: null # path to pretrained decoder
+encoder: null # path to pretrained encoder
+resume: '/scratch/work/lindl3/ms/DiffMS/data/checkpoints/checkpoints/gecko_mixed' # If resume, path to ckpt file from outputs direpctory in main directory
+test_only: null
 load_weights: null
 
 encoder_finetune_strategy: null # null | freeze | ft-unfold | freeze-unfold | freeze-transformer | ft-transformer | ft-spectra-fragment

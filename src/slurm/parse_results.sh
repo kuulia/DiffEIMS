@@ -14,7 +14,7 @@ source activate diffms
 cd ms/DiffMS || exit 1
 
 # Collect matching .out files (edit glob patterns to adjust the range)
-FILES=$(ls outfiles/179*.out 2>/dev/null)
+FILES=$(ls outfiles/1*.out 2>/dev/null)
 
 if [ -z "$FILES" ]; then
     echo "No matching .out files found."
