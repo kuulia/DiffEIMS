@@ -172,3 +172,15 @@ notebooks/df.csv
 .claude*/
 context*
 outfiles/*
+notebooks/UCB-GLOBES MS Data Visualization and Comparison Tool_v1.ipynb
+notebooks/df_cas.csv
+notebooks/database.csv
+notebooks/hilda_mol_all_matches.csv
+notebooks/hilda_mol_all_non_matches.csv
+notebooks/hilda_mol_examples_bad.csv
+notebooks/hilda_mol_examples_good.csv
+notebooks/hilda_mol_examples.csv
+notebooks/hilda_mol_all_matches.csv
+notebooks/df_cas.csv
+notebooks/UCB-GLOBES MS Data Visualization and Comparison Tool_v1.ipynbZone.Identifier
+notebooks/msg_data_info copy.ipynb
