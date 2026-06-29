@@ -151,7 +151,8 @@ class NodeEdgeBlock(nn.Module):
         # 1. Map X to keys and queries
         Q = self.q(X) * x_mask           # (bs, n, dx)
         K = self.k(X) * x_mask           # (bs, n, dx)
-        diffusion_utils.assert_correctly_masked(Q, x_mask)
+        if not torch.compiler.is_compiling():
+            diffusion_utils.assert_correctly_masked(Q, x_mask)
         # 2. Reshape to (bs, n, n_head, df) with dx = n_head * df
 
         Q = Q.reshape((Q.size(0), Q.size(1), self.n_head, self.df))
@@ -163,7 +164,8 @@ class NodeEdgeBlock(nn.Module):
         # Compute unnormalized attentions. Y is (bs, n, n, n_head, df)
         Y = Q * K
         Y = Y / math.sqrt(Y.size(-1))
-        diffusion_utils.assert_correctly_masked(Y, (e_mask1 * e_mask2).unsqueeze(-1))
+        if not torch.compiler.is_compiling():
+            diffusion_utils.assert_correctly_masked(Y, (e_mask1 * e_mask2).unsqueeze(-1))
 
         E1 = self.e_mul(E) * e_mask1 * e_mask2                        # bs, n, n, dx
         E1 = E1.reshape((E.size(0), E.size(1), E.size(2), self.n_head, self.df))
@@ -182,7 +184,8 @@ class NodeEdgeBlock(nn.Module):
 
         # Output E
         newE = self.e_out(newE) * e_mask1 * e_mask2      # bs, n, n, de
-        diffusion_utils.assert_correctly_masked(newE, e_mask1 * e_mask2)
+        if not torch.compiler.is_compiling():
+            diffusion_utils.assert_correctly_masked(newE, e_mask1 * e_mask2)
 
         # Compute attentions. attn is still (bs, n, n, n_head, df)
         softmax_mask = e_mask2.expand(-1, n, -1, self.n_head)    # bs, 1, n, 1
@@ -206,7 +209,8 @@ class NodeEdgeBlock(nn.Module):
 
         # Output X
         newX = self.x_out(newX) * x_mask
-        diffusion_utils.assert_correctly_masked(newX, x_mask)
+        if not torch.compiler.is_compiling():
+            diffusion_utils.assert_correctly_masked(newX, x_mask)
 
         # Process y based on X axnd E
         y = self.y_y(y)

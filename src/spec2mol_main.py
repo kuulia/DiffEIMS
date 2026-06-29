@@ -42,15 +42,15 @@ def get_resume(cfg, model_kwargs):
     """
     Resume a run from a saved Lightning checkpoint.
 
-    This function restores the model and its saved config (`model.cfg`) 
-    from the checkpoint, while allowing a limited set of parameters 
-    (e.g., evaluation-related) to be overridden for testing or resuming.  
+    This function restores the model and its saved config (`model.cfg`)
+    from the checkpoint, while allowing a limited set of parameters
+    (e.g., evaluation-related) to be overridden for testing or resuming.
 
     Notes:
         - Most training parameters cannot be overridden for .ckpt checkpoints
-        - Only a small set of keys is overridden (e.g., eval batch size, 
+        - Only a small set of keys is overridden (e.g., eval batch size,
           test-only settings, number of samples).
-        - New keys added in the provided `cfg` are merged into the 
+        - New keys added in the provided `cfg` are merged into the
           loaded config, but existing ones are not overwritten.
     """
     saved_cfg = cfg.copy()
@@ -71,8 +71,8 @@ def get_resume(cfg, model_kwargs):
     ###############################################################
     map_loc = torch.device('cpu') if cfg.general.force_cpu else None
 
-    cfg = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, 
-                                                            map_location=map_loc, 
+    cfg = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume,
+                                                            map_location=map_loc,
                                                             **model_kwargs).cfg
     logging.info(f'Loaded cfg from {resume}')
     ################################################################
@@ -90,9 +90,9 @@ def get_resume(cfg, model_kwargs):
         cfg.dataset = dataset_cfg
     cfg = utils.update_config_with_new_keys(cfg, saved_cfg)
     ###############################################################
-    model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, 
+    model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume,
                                                             map_location=map_loc,
-                                                            cfg = cfg, 
+                                                            cfg = cfg,
                                                             **model_kwargs)
     return cfg, model
 
@@ -110,7 +110,7 @@ def get_resume_adaptive(cfg, model_kwargs):
         model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume_path, map_location=torch.device('cpu'), **model_kwargs)
     else:
         model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume_path, **model_kwargs)
-    
+
     new_cfg = model.cfg
 
     for category in cfg:
@@ -123,7 +123,7 @@ def get_resume_adaptive(cfg, model_kwargs):
     new_cfg = utils.update_config_with_new_keys(new_cfg, saved_cfg)
     return new_cfg, model
 
-def apply_encoder_finetuning(model, strategy):    
+def apply_encoder_finetuning(model, strategy):
     if strategy is None:
         pass
     elif strategy == 'freeze':
@@ -156,7 +156,7 @@ def apply_encoder_finetuning(model, strategy):
                 param.requires_grad = False
     else:
         raise NotImplementedError(f'Unknown Finetune Strategy: {strategy}')
-    
+
 def apply_decoder_finetuning(model, strategy):
     if strategy is None:
         pass
@@ -192,27 +192,27 @@ def apply_decoder_finetuning(model, strategy):
 def load_weights(model, path):
     """
     Loads only the weights from a checkpoint file into the model without loading the full Lightning module.
-    
+
     Args:
         model: The model to load weights into
         path: Path to the checkpoint file
-        
+
     Returns:
         The model with loaded weights
     """
     checkpoint = torch.load(path, map_location=torch.device('cpu'))
     state_dict = checkpoint['state_dict'] if 'state_dict' in checkpoint else checkpoint
-    
+
     # Filter out keys that don't match the model (for partial loading)
     model_state_dict = model.state_dict()
     filtered_state_dict = {k: v for k, v in state_dict.items() if k in model_state_dict}
-    
+
     # Load the weights
     missing_keys, unexpected_keys = model.load_state_dict(filtered_state_dict, strict=False)
     logging.info(f"Loaded weights from {path}")
     logging.info(f"Missing keys: {missing_keys}")
     logging.info(f"Unexpected keys: {unexpected_keys}")
-    
+
     return model
 
 @hydra.main(version_base='1.3', config_path='../configs', config_name='config')
@@ -281,7 +281,7 @@ def main(cfg: DictConfig):
         logging.info("Read checkpoint config from get_resume_adaptive()")
     else:
         model = Spec2MolDenoisingDiffusion(cfg=cfg, **model_kwargs)
-    
+
     utils.log_nonstatic_cfg(cfg) # pretty print important params of the configs
 
     callbacks = []
@@ -317,7 +317,7 @@ def main(cfg: DictConfig):
                       log_every_n_steps=50 if name != 'debug' else 1,
                       limit_val_batches=cfg.train.limit_val_batches,
                       logger=loggers)
-    
+
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
         try:
@@ -327,9 +327,14 @@ def main(cfg: DictConfig):
 
     apply_encoder_finetuning(model, cfg.general.encoder_finetune_strategy)
     apply_decoder_finetuning(model, cfg.general.decoder_finetune_strategy)
+
     if cfg.general.load_weights is not None:
         logging.info(f"Loading weights from {cfg.general.load_weights}")
         model = load_weights(model, cfg.general.load_weights)
+
+    if torch.cuda.is_available() and not cfg.general.test_only and getattr(cfg.train, 'compile', False):
+        logging.info("Compiling decoder with torch.compile (dynamic=True)")
+        model.decoder = torch.compile(model.decoder, dynamic=True)
 
     if not cfg.general.test_only:
         trainer.fit(model, datamodule=datamodule, ckpt_path=resume)
@@ -351,6 +356,6 @@ def main(cfg: DictConfig):
                         continue
                     logging.info("Loading checkpoint", ckpt_path)
                     trainer.test(model, datamodule=datamodule, ckpt_path=ckpt_path)
-        
+
 if __name__ == '__main__':
     main()
