@@ -73,5 +73,7 @@ class Etoy(nn.Module):
 
 
 def masked_softmax(x, mask, **kwargs):
+    while mask.dim() < x.dim():
+        mask = mask.unsqueeze(-1)
     x = x.masked_fill(mask == 0, float("-inf"))
     return torch.softmax(x, **kwargs)
