@@ -184,3 +184,15 @@ notebooks/hilda_mol_all_matches.csv
 notebooks/df_cas.csv
 notebooks/UCB-GLOBES MS Data Visualization and Comparison Tool_v1.ipynbZone.Identifier
 notebooks/msg_data_info copy.ipynb
+notebooks/results_Exp1 Only Gecko_cluster_summary.csv
+notebooks/results_Exp1 Only Gecko_feature_difficulty.csv
+notebooks/results_Exp1 Only Gecko_tanimoto_top1_correlation.csv
+notebooks/results_Exp2 Only Augmented_cluster_summary.csv
+notebooks/results_Exp2 Only Augmented_feature_difficulty.csv
+notebooks/results_Exp2 Only Augmented_tanimoto_top1_correlation.csv
+notebooks/results_Exp3 Augmented + Gecko (sequential)_cluster_summary.csv
+notebooks/results_Exp3 Augmented + Gecko (sequential)_feature_difficulty.csv
+notebooks/results_Exp3 Augmented + Gecko (sequential)_tanimoto_top1_correlation.csv
+notebooks/results_Exp4 Augmented + Gecko (parallel)_cluster_summary.csv
+notebooks/results_Exp4 Augmented + Gecko (parallel)_feature_difficulty.csv
+notebooks/results_Exp4 Augmented + Gecko (parallel)_tanimoto_top1_correlation.csv

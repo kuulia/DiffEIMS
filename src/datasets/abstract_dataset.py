@@ -30,6 +30,8 @@ def kwargs_repr(**kwargs) -> str:
     return ", ".join([f"{k}={v}" for k, v in kwargs.items() if v is not None])
 
 
+# NOTE: PartialEpochSampler is not DDP-compatible. PL does not replace custom samplers
+# with DistributedSampler, so all ranks will draw the same indices. Use only on single GPU.
 class PartialEpochSampler(torch.utils.data.Sampler):
     """
     A sampler that randomly selects a subset of the dataset for each training epoch.

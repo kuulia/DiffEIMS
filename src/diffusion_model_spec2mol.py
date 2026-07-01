@@ -445,7 +445,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
 
         self.val_CE(flat_pred_E, flat_true_E)
 
-        if self.val_counter % self.cfg.general.sample_every_val == 0:
+        if self.val_counter % self.cfg.general.sample_every_val == 0 and self.trainer.is_global_zero:
             true_mols = [
                 Chem.inchi.MolFromInchi(data.get_example(idx).inchi)
                 for idx in range(len(data))
@@ -464,7 +464,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         true_smiles = [self.name_to_smiles[name] for name in mols_name]
         true_mols = [Chem.MolFromSmiles(smi) for smi in true_smiles]
         thresholds = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
-        
+
         threshold_scores = {}
         for threshold in thresholds:
             self.val_tanimoto_mean.reset()

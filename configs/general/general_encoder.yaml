@@ -5,7 +5,8 @@ parent_dir: '.'
 
 wandb: 'disabled'             # online | offline | disabled
 wandb_name: 'mass_spec_exp'
-gpus: 1                     # Multi-gpu is not implemented on this branch
+gpus: 1
+num_nodes: 1
 
 
 decoder: '../../../data/checkpoints/checkpoints/pretrain/decoder58.pt' # path to pretrained decoder

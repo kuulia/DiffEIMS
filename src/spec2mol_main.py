@@ -307,6 +307,13 @@ def main(cfg: DictConfig):
         "domain_features": domain_features,
     }
 
+    # Scale LR linearly with total GPU count (linear scaling rule)
+    num_nodes = getattr(cfg.general, 'num_nodes', 1)
+    total_gpus = cfg.general.gpus * num_nodes
+    if total_gpus > 1:
+        cfg.train.lr = cfg.train.lr * total_gpus
+        logging.info(f"Scaling LR by {total_gpus} GPUs -> {cfg.train.lr:.6f}")
+
     if cfg.general.test_only:
         # When testing, previous configuration is fully loaded
         cfg, model = get_resume(cfg, model_kwargs)
@@ -353,6 +360,7 @@ def main(cfg: DictConfig):
         strategy=trainer_strategy,  # ddp needed to load old checkpoints
         accelerator="gpu" if use_gpu else "cpu",
         devices=cfg.general.gpus if use_gpu else 1,
+        num_nodes=getattr(cfg.general, "num_nodes", 1),
         max_epochs=cfg.train.n_epochs,
         check_val_every_n_epoch=cfg.general.check_val_every_n_epochs,
         fast_dev_run=name == "debug",
