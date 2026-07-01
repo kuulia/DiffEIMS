@@ -246,7 +246,7 @@ class CustomLightningDataset(LightningDataset):
         return f"{self.__class__.__name__}({kwargs})"
 
 
-class AbstractDataModule(CustomLightningDataset):
+class AbstractDataModule(CustomLightningDataset, pl.LightningDataModule):
     """
     Extension of `CustomLightningDataset` that provides utility methods for analyzing
     node and edge distributions in graph datasets.
