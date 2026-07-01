@@ -5,9 +5,11 @@
 #SBATCH --account=project_462001155
 #SBATCH --partition=dev-g
 #SBATCH --nodes=2
-#SBATCH --ntasks-per-node=8          # 8 GCDs per node (4 x MI250X, 2 GCDs each)
-#SBATCH --gpus-per-task=1
-#SBATCH --cpus-per-task=7            # 56 CPUs / 8 tasks
+#SBATCH --ntasks-per-node=1          # one torchrun launcher per node
+#SBATCH --gpus-per-node=8            # 8 GCDs per node (4 x MI250X)
+#SBATCH --cpus-per-task=56           # all CPUs per node for torchrun to distribute
+
+module load Local-LAIF lumi-aif-singularity-bindings
 
 SIF=/appl/local/laifs/containers/lumi-multitorch-u24r70f21m50t210-20260513_121430/lumi-multitorch-full-u24r70f21m50t210-20260513_121430.sif
 REAL=$(realpath /scratch/project_462001155/lindl)
@@ -15,25 +17,27 @@ VENV=$REAL/pyg_venv
 
 cd $REAL/DiffEIMS || exit 1
 
-# --- DDP environment (read by PL's env:// init via srun) ---
-# Resolve to IP so hostname lookup works identically inside and outside the container
-export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1 | xargs getent hosts | awk '{print $1}')
+export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_PORT=29500
 
-# --- LUMI / RCCL ---
-export NCCL_SOCKET_IFNAME=hsn0,hsn1,hsn2,hsn3   # all 4 Slingshot-11 NICs
-export RCCL_CROSS_NIC=1              # allow RCCL to use multiple NICs across nodes
-export MIOPEN_DISABLE_CACHE=1        # avoid MIOpen cache corruption across nodes
-export FI_CXI_ATS=0                  # disable Address Translation Services for CXI/Slingshot-11
-export NCCL_DEBUG=INFO               # verbose during bring-up; switch to WARN once stable
+# MIOpen: per-user cache to avoid cross-node conflicts
+export MIOPEN_USER_DB_PATH=/tmp/${USER}-miopen-cache
+export MIOPEN_CUSTOM_CACHE_DIR=$MIOPEN_USER_DB_PATH
+
+export OMP_NUM_THREADS=1
 
 start_time=$(date +%s)
 
-echo "Running spec2mol_main.py (DDP: ${SLURM_NNODES} nodes x ${SLURM_NTASKS_PER_NODE} GCDs)"
-srun singularity exec --bind $REAL:$REAL:rw $SIF bash -c "
+echo "Running spec2mol_main.py (DDP: ${SLURM_NNODES} nodes x 8 GCDs)"
+srun singularity run --bind $REAL:$REAL:rw $SIF bash -c "
 source $VENV/bin/activate
 cd $REAL/DiffEIMS
-python src/spec2mol_main.py \
+python -m torch.distributed.run \
+    --nnodes=${SLURM_NNODES} \
+    --nproc_per_node=8 \
+    --rdzv_backend=c10d \
+    --rdzv_endpoint=${MASTER_ADDR}:${MASTER_PORT} \
+    src/spec2mol_main.py \
     general.gpus=8 \
     general.num_nodes=${SLURM_NNODES}
 "
