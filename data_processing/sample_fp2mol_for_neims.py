@@ -62,24 +62,35 @@ RDLogger.DisableLog("rdApp.*")
 
 # Element allowlist: union of ATMOMACCS benchmark datasets (Table I), excluding
 # metals/salts (e.g. Na) since we require covalent, uncharged molecules.
-ATMO_ATOMS = {'C', 'N', 'S', 'O', 'F', 'Cl', 'H', 'P', 'B', 'Br', 'I', 'Si'}
+ATMO_ATOMS = {"C", "N", "S", "O", "F", "Cl", "H", "P", "B", "Br", "I", "Si"}
 
 # 9 equal-width MW bins covering 100–1000 Da
 MW_BINS = [
-    (100, 199.99), (200, 299.99), (300, 399.99), (400, 499.99),
-    (500, 599.99), (600, 699.99), (700, 799.99), (800, 899.99), (900, 999.99), 
-    (1000, 1099.99), (1100, 1199.99), (1200, 1299.99), 
-    (1300, 1399.99), (1400, 1500),
+    (100, 199.99),
+    (200, 299.99),
+    (300, 399.99),
+    (400, 499.99),
+    (500, 599.99),
+    (600, 699.99),
+    (700, 799.99),
+    (800, 899.99),
+    (900, 999.99),
+    (1000, 1099.99),
+    (1100, 1199.99),
+    (1200, 1299.99),
+    (1300, 1399.99),
+    (1400, 1500),
 ]
 
-TARGET_TOTAL   = 700000
-TARGET_PER_BIN = TARGET_TOTAL // len(MW_BINS)   # 33 333 per bin
-N_CLUSTERS     = 1_000                           # k-means clusters per MW bin
-RANDOM_SEED    = 42
+TARGET_TOTAL = 700000
+TARGET_PER_BIN = TARGET_TOTAL // len(MW_BINS)  # 33 333 per bin
+N_CLUSTERS = 1_000  # k-means clusters per MW bin
+RANDOM_SEED = 42
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 1 – Atmospheric pre-filter
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _filter_mol(mol) -> Optional[tuple[str, float, str]]:
     """
@@ -164,6 +175,7 @@ def _process_smiles(smi: str) -> Optional[tuple]:
 # Step 2 – ATMOMACCS-V5 descriptor
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _compute_atmomaccs(smi: str) -> Optional[np.ndarray]:
     """Worker: SMILES → 205-dim ATMOMACCS-V5 integer vector or None."""
     RDLogger.DisableLog("rdApp.*")
@@ -179,6 +191,7 @@ def _compute_atmomaccs(smi: str) -> Optional[np.ndarray]:
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 3 – Per-bin clustering + sampling
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _sample_bin(
     bin_pairs: list[tuple[str, str]],
@@ -209,7 +222,7 @@ def _sample_bin(
     InChI is carried through from the filter step — no recomputation needed.
     """
     rng = np.random.default_rng(seed)
-    n   = len(bin_pairs)
+    n = len(bin_pairs)
 
     # Short-circuit: if fewer molecules than quota, take all
     if n <= target_n:
@@ -236,8 +249,8 @@ def _sample_bin(
         return []
 
     smiles_valid = [t[0] for t in valid_triples]
-    inchi_valid  = [t[1] for t in valid_triples]
-    fps_valid    = [t[2] for t in valid_triples]
+    inchi_valid = [t[1] for t in valid_triples]
+    fps_valid = [t[2] for t in valid_triples]
     X = np.vstack(fps_valid)  # shape (n_valid, 205)
     n_valid = len(smiles_valid)
 
@@ -275,6 +288,7 @@ def _sample_bin(
 # ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _smiles_to_inchi_set(smiles_iterable) -> set:
     """
@@ -331,12 +345,12 @@ def _build_split_exclusion_set(
     (training molecules may be used for augmentation).
     """
     labels_df = pd.read_csv(labels_path, sep="\t")
-    split_df  = pd.read_csv(split_path,  sep="\t")
+    split_df = pd.read_csv(split_path, sep="\t")
 
-    holdout_specs  = set(split_df.loc[split_df["split"].isin(splits), "name"])
-    holdout_smiles = (
-        labels_df.loc[labels_df["spec"].isin(holdout_specs), "smiles"].dropna()
-    )
+    holdout_specs = set(split_df.loc[split_df["split"].isin(splits), "name"])
+    holdout_smiles = labels_df.loc[
+        labels_df["spec"].isin(holdout_specs), "smiles"
+    ].dropna()
     return _smiles_to_inchi_set(holdout_smiles)
 
 
@@ -370,12 +384,12 @@ def main(args: argparse.Namespace) -> None:
 
     # Support both 'inchi' and 'smiles' columns
     if "inchi" in df.columns:
-        records     = df["inchi"].dropna().tolist()
-        worker_fn   = _process_inchi
+        records = df["inchi"].dropna().tolist()
+        worker_fn = _process_inchi
         input_label = "InChI"
     elif "smiles" in df.columns:
-        records     = df["smiles"].dropna().tolist()
-        worker_fn   = _process_smiles
+        records = df["smiles"].dropna().tolist()
+        worker_fn = _process_smiles
         input_label = "SMILES"
     else:
         raise ValueError("Input CSV must have an 'inchi' or 'smiles' column.")
@@ -385,8 +399,7 @@ def main(args: argparse.Namespace) -> None:
     # ── Atmospheric pre-filter ────────────────────────────────────────────────
     print(f"\n[3/5] Applying atmospheric filter (n_jobs={args.n_jobs}) …")
     filter_results = Parallel(n_jobs=args.n_jobs)(
-        delayed(worker_fn)(rec)
-        for rec in tqdm(records, desc="  Filtering", leave=True)
+        delayed(worker_fn)(rec) for rec in tqdm(records, desc="  Filtering", leave=True)
     )
 
     passed_raw = [r for r in filter_results if r is not None]
@@ -401,12 +414,16 @@ def main(args: argparse.Namespace) -> None:
     # passed carries (smi, mw, inchi) so the InChI is available downstream
     passed = [(smi, mw, inchi) for inchi, (smi, mw) in seen.items()]
 
-    print(f"    Passed filter : {len(passed_raw):,} / {len(records):,} "
-          f"({100 * len(passed_raw) / max(len(records), 1):.1f}%)")
+    print(
+        f"    Passed filter : {len(passed_raw):,} / {len(records):,} "
+        f"({100 * len(passed_raw) / max(len(records), 1):.1f}%)"
+    )
     print(f"    After InChI dedup (stereoisomers): {len(passed):,}")
 
     # ── Exclude ATMOMACCS molecules ───────────────────────────────────────────
-    passed = [(smi, mw, inchi) for smi, mw, inchi in passed if inchi not in exclusion_set]
+    passed = [
+        (smi, mw, inchi) for smi, mw, inchi in passed if inchi not in exclusion_set
+    ]
     print(f"    After ATMOMACCS exclusion: {len(passed):,}")
 
     # ── MW stratification ─────────────────────────────────────────────────────
@@ -430,7 +447,7 @@ def main(args: argparse.Namespace) -> None:
 
     for i, (lo, hi) in enumerate(MW_BINS):
         hi_label = f"{hi - 1}" if hi == 1001 else str(hi)
-        label    = f"[{lo}–{hi_label}]"
+        label = f"[{lo}–{hi_label}]"
         print(f"\n  Bin {label}: {len(bins[i]):,} → target {TARGET_PER_BIN:,}")
 
         sampled = _sample_bin(
@@ -467,12 +484,17 @@ def main(args: argparse.Namespace) -> None:
 
     # ── Summary statistics ────────────────────────────────────────────────────
     if len(out_df) > 0:
-        mws = [Descriptors.MolWt(Chem.MolFromSmiles(s)) for s in out_df["smiles"]
-               if Chem.MolFromSmiles(s) is not None]
+        mws = [
+            Descriptors.MolWt(Chem.MolFromSmiles(s))
+            for s in out_df["smiles"]
+            if Chem.MolFromSmiles(s) is not None
+        ]
         print(f"\nSummary:")
-        print(f"  MW  — mean: {np.mean(mws):.1f}  "
-              f"median: {np.median(mws):.1f}  "
-              f"min: {np.min(mws):.1f}  max: {np.max(mws):.1f}")
+        print(
+            f"  MW  — mean: {np.mean(mws):.1f}  "
+            f"median: {np.median(mws):.1f}  "
+            f"min: {np.min(mws):.1f}  max: {np.max(mws):.1f}"
+        )
         # Per-bin counts in output
         for i, (lo, hi) in enumerate(MW_BINS):
             hi_label = f"{hi - 1}" if hi == 1001 else str(hi)

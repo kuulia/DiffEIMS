@@ -16,7 +16,9 @@ def get_splitter(**kwargs):
     Returns:
         _type_: _description_
     """
-    return {"preset": PresetSpectraSplitter,}[
+    return {
+        "preset": PresetSpectraSplitter,
+    }[
         "preset"
     ](**kwargs)
 

@@ -4,6 +4,7 @@ featurizers.py
 Hold featurizers & collate fns for various spectra and molecules in a single
 file
 """
+
 from pathlib import Path
 import logging
 import pickle
@@ -34,7 +35,10 @@ BONDS = {BT.SINGLE: 0, BT.DOUBLE: 1, BT.TRIPLE: 2, BT.AROMATIC: 3}
 
 
 def get_mol_featurizer(mol_features, **kwargs):
-    return {"none": NoneFeaturizer, "fingerprint": FingerprintFeaturizer,}[
+    return {
+        "none": NoneFeaturizer,
+        "fingerprint": FingerprintFeaturizer,
+    }[
         mol_features
     ](**kwargs)
 
@@ -67,7 +71,7 @@ def get_paired_featurizer(spec_features, mol_features, **kwargs):
 class PairedFeaturizer(object):
     """PairedFeaturizer"""
 
-    def __init__(self, spec_featurizer, mol_featurizer, graph_featurizer = None, **kwarg):
+    def __init__(self, spec_featurizer, mol_featurizer, graph_featurizer=None, **kwarg):
         """__init__."""
         self.spec_featurizer = spec_featurizer
         self.mol_featurizer = mol_featurizer
@@ -78,7 +82,7 @@ class PairedFeaturizer(object):
 
     def featurize_spec(self, mol: data.Mol, **kwargs) -> Dict:
         return self.spec_featurizer.featurize(mol, **kwargs)
-    
+
     def featurize_graph(self, mol: data.Mol, **kwargs) -> Dict:
         if self.graph_featurizer is not None:
             return self.graph_featurizer.featurize(mol, **kwargs)
@@ -90,7 +94,7 @@ class PairedFeaturizer(object):
 
     def get_spec_collate(self) -> Callable:
         return self.spec_featurizer.collate_fn
-    
+
     def get_graph_collate(self) -> Callable:
         if self.graph_featurizer is not None:
             return self.graph_featurizer.collate_fn
@@ -110,9 +114,7 @@ class PairedFeaturizer(object):
 class Featurizer(ABC):
     """Featurizer"""
 
-    def __init__(
-        self, cache_featurizers: bool = False, **kwargs
-    ):
+    def __init__(self, cache_featurizers: bool = False, **kwargs):
         super().__init__()
         self.cache_featurizers = cache_featurizers
         self.cache = {}
@@ -172,7 +174,8 @@ class SpecFeaturizer(Featurizer):
     def _encode(self, spec: data.Spectra) -> str:
         """Encode spectra into name"""
         return spec.get_spec_name()
-    
+
+
 class GraphFeaturizer(Featurizer):
     """GraphFeaturizer"""
 
@@ -185,11 +188,11 @@ class GraphFeaturizer(Featurizer):
     def _encode(self, mol: data.Mol) -> str:
         """Encode graph into name"""
         return mol.inchikey
-    
+
     @staticmethod
     def collate_fn(graphs: List[Data]) -> Batch:
         return Batch.from_data_list(graphs)
-    
+
     def _featurize(self, obj: object) -> Data:
         mol = Chem.MolFromSmiles(obj.get_smiles())
         smi = Chem.MolToSmiles(mol, isomericSmiles=False)
@@ -206,26 +209,36 @@ class GraphFeaturizer(Featurizer):
             start, end = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
             row += [start, end]
             col += [end, start]
-            edge_type += 2 * [BONDS[bond.GetBondType()] + 1] # add one so that 0 is reserved for no edge
-
+            edge_type += 2 * [
+                BONDS[bond.GetBondType()] + 1
+            ]  # add one so that 0 is reserved for no edge
 
         edge_index = torch.tensor([row, col], dtype=torch.long)
         edge_type = torch.tensor(edge_type, dtype=torch.long)
         edge_attr = F.one_hot(edge_type, num_classes=len(BONDS) + 1).to(torch.float)
 
-        permutation = (edge_index[0] * N + edge_index[1]).argsort() # sort by row then by column index
+        permutation = (
+            edge_index[0] * N + edge_index[1]
+        ).argsort()  # sort by row then by column index
         edge_index = edge_index[:, permutation]
         edge_attr = edge_attr[permutation]
 
         x = F.one_hot(torch.tensor(type_idx), num_classes=len(TYPES)).float()
-        y = torch.tensor(np.asarray(GetMorganFingerprintAsBitVect(mol, self.morgan_r, nBits=self.morgan_nbits), dtype=np.int8), dtype=torch.int8).unsqueeze(0)
+        y = torch.tensor(
+            np.asarray(
+                GetMorganFingerprintAsBitVect(
+                    mol, self.morgan_r, nBits=self.morgan_nbits
+                ),
+                dtype=np.int8,
+            ),
+            dtype=torch.int8,
+        ).unsqueeze(0)
 
         inchi = Chem.MolToInchi(mol)
 
         data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, y=y, inchi=inchi)
 
         return data
-
 
 
 class FingerprintFeaturizer(MolFeaturizer):
@@ -712,7 +725,9 @@ class PeakFormula(SpecFeaturizer):
             if self.forward_labels is not None and self.forward_aug_folder is not None:
                 self.forward_aug_folder = Path(self.forward_aug_folder)
                 subform_files = self.forward_aug_folder.glob("*.json")
-                self.spec_name_to_subform_file.update({i.stem: i for i in subform_files})
+                self.spec_name_to_subform_file.update(
+                    {i.stem: i for i in subform_files}
+                )
 
             self.spec_name_to_magma_file = {}
             if self.magma_aux_loss:
@@ -745,7 +760,7 @@ class PeakFormula(SpecFeaturizer):
         else:
             subform_file = Path(self.spec_name_to_subform_file[spec_name])
             if not subform_file.exists():
-                logging.warning(f'{subform_file} does not exist!')
+                logging.warning(f"{subform_file} does not exist!")
                 return {}
             with open(subform_file, "r") as fp:
                 tree = json.load(fp)
@@ -1041,11 +1056,22 @@ class PeakFormula(SpecFeaturizer):
         """
         # Determines the number of channels
         names = [j["name"] for j in input_list]
-        peak_form_tensors = [torch.from_numpy(j["form_vec"].astype(np.float32)) for j in input_list]
-        inten_tensors = [torch.from_numpy(j["frag_intens"].astype(np.float32)) for j in input_list]
-        type_tensors = [torch.from_numpy(j["peak_type"].astype(np.int32)) for j in input_list]
-        instrument_tensors = torch.tensor([j["instrument"].astype(np.float32) for j in input_list], dtype=torch.float32)
-        ion_tensors = [torch.tensor(j["ion_vec"], dtype=torch.float32) for j in input_list]
+        peak_form_tensors = [
+            torch.from_numpy(j["form_vec"].astype(np.float32)) for j in input_list
+        ]
+        inten_tensors = [
+            torch.from_numpy(j["frag_intens"].astype(np.float32)) for j in input_list
+        ]
+        type_tensors = [
+            torch.from_numpy(j["peak_type"].astype(np.int32)) for j in input_list
+        ]
+        instrument_tensors = torch.tensor(
+            [j["instrument"].astype(np.float32) for j in input_list],
+            dtype=torch.float32,
+        )
+        ion_tensors = [
+            torch.tensor(j["ion_vec"], dtype=torch.float32) for j in input_list
+        ]
 
         peak_form_lens = np.array([i.shape[0] for i in peak_form_tensors])
         max_len = np.max(peak_form_lens)

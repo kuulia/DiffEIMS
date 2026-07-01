@@ -1,4 +1,5 @@
-""" modules.py"""
+"""modules.py"""
+
 import copy
 import torch
 import numpy as np
@@ -9,6 +10,7 @@ from . import transformer_layer, form_embedders
 
 EPS = 1e-9
 
+
 def get_num_inten_feats(inten_transform):
     if inten_transform == "float":
         inten_feats = 1
@@ -17,7 +19,7 @@ def get_num_inten_feats(inten_transform):
     elif inten_transform == "log":
         inten_feats = 1
     elif inten_transform == "cat":
-        inten_feats = 10 # different from original implementation, MAY BE WRONG
+        inten_feats = 10  # different from original implementation, MAY BE WRONG
     else:
         raise NotImplementedError()
     return inten_feats
@@ -66,7 +68,7 @@ class FormulaTransformer(nn.Module):
         embed_instrument: bool = False,
         inten_transform: str = "float",
         no_diffs: bool = False,
-        **kwargs
+        **kwargs,
     ):
         """_summary_
         Args:
@@ -107,9 +109,7 @@ class FormulaTransformer(nn.Module):
 
         self.inten_transform = inten_transform
         ########### CHANGED FROM ORIGINAL IMPLEMENTATION ############
-        self.inten_feats = get_num_inten_feats(
-            self.inten_transform
-        )
+        self.inten_feats = get_num_inten_feats(self.inten_transform)
         self.num_types = 4
         self.cls_type = 3
 

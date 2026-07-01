@@ -4,8 +4,8 @@ import torch.nn as nn
 
 class Xtoy(nn.Module):
     def __init__(self, dx, dy, device=None, dtype=None):
-        """ Map node features to global features """
-        kw = {'device': device, 'dtype': dtype}
+        """Map node features to global features"""
+        kw = {"device": device, "dtype": dtype}
         super().__init__()
         self.lin = nn.Linear(4 * dx, dy, **kw)
         self.dtype = dtype
@@ -32,8 +32,8 @@ class Xtoy(nn.Module):
 
 class Etoy(nn.Module):
     def __init__(self, d, dy, device=None, dtype=None):
-        """ Map edge features to global features. """
-        kw = {'device': device, 'dtype': dtype}
+        """Map edge features to global features."""
+        kw = {"device": device, "dtype": dtype}
         super().__init__()
         self.lin = nn.Linear(4 * d, dy, **kw)
         self.dtype = dtype

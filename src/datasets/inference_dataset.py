@@ -6,6 +6,7 @@ Dataset classes for inference-only scenarios where no molecular structure
 
 Designed for the Yee et al. dataset and similar inference use cases.
 """
+
 import os
 import re
 import logging
@@ -24,11 +25,17 @@ from src.mist.data import featurizers, splitter
 from src.mist.data.data import Spectra, Mol
 from src.mist.data.datasets import SpectraMolDataset, get_paired_loader_graph
 from src.mist.data.featurizers import (
-    Featurizer, PairedFeaturizer, PeakFormula, NoneFeaturizer,
+    Featurizer,
+    PairedFeaturizer,
+    PeakFormula,
+    NoneFeaturizer,
 )
 from src.datasets.abstract_dataset import (
-    AbstractDatasetInfos, MolecularDataModule,
-    ATOM_DECODER, ATOM_TO_VALENCY, ATOM_TO_WEIGHT,
+    AbstractDatasetInfos,
+    MolecularDataModule,
+    ATOM_DECODER,
+    ATOM_TO_VALENCY,
+    ATOM_TO_WEIGHT,
 )
 from src.diffusion.distributions import DistributionNodes
 import src.utils as utils
@@ -68,7 +75,7 @@ class InferenceGraphFeaturizer(Featurizer):
         type_idx = []
         for atom in rdkit_mol.GetAtoms():
             symbol = atom.GetSymbol()
-            if self.remove_h and symbol == 'H':
+            if self.remove_h and symbol == "H":
                 continue
             if symbol not in TYPES:
                 continue
@@ -89,12 +96,12 @@ class InferenceGraphFeaturizer(Featurizer):
 
     def _featurize_from_formula(self, formula: str) -> Data:
         """Fallback: parse formula string directly to build atom features."""
-        pattern = r'([A-Z][a-z]*)(\d*)'
+        pattern = r"([A-Z][a-z]*)(\d*)"
         matches = re.findall(pattern, formula)
 
         type_idx = []
         for element, count in matches:
-            if self.remove_h and element == 'H':
+            if self.remove_h and element == "H":
                 continue
             if element not in TYPES:
                 continue
@@ -103,7 +110,7 @@ class InferenceGraphFeaturizer(Featurizer):
 
         if len(type_idx) == 0:
             # Absolute minimum: single carbon atom
-            type_idx = [TYPES['C']]
+            type_idx = [TYPES["C"]]
 
         x = F.one_hot(torch.tensor(type_idx), num_classes=len(TYPES)).float()
         edge_index = torch.empty((2, 0), dtype=torch.long)
@@ -155,10 +162,10 @@ def get_inference_spectra(
     if collated_pkl:
         logging.info("Loading inference spectra from collated pickle file")
         spec_folder_path = Path(spec_folder)
-        df_pkl = pd.read_pickle(f'{spec_folder_path}/{collated_pkl_file}')
+        df_pkl = pd.read_pickle(f"{spec_folder_path}/{collated_pkl_file}")
 
         # Map UIDs to spectrum arrays — handle both UID column and index-based
-        if 'UID' in df_pkl.columns:
+        if "UID" in df_pkl.columns:
             spec_to_array = dict(zip(df_pkl["UID"], df_pkl["spec"]))
         else:
             spec_to_array = dict(zip(compound_id_file["spec"], df_pkl["spec"]))
@@ -224,11 +231,17 @@ def get_inference_spectra(
                 mol_list.append(mol)
                 valid_spectra.append(spec)
             else:
-                logging.warning(f"Skipping {spec_name}: contains unsupported atom types")
+                logging.warning(
+                    f"Skipping {spec_name}: contains unsupported atom types"
+                )
         else:
-            logging.warning(f"Skipping {spec_name}: could not parse formula '{formula}'")
+            logging.warning(
+                f"Skipping {spec_name}: could not parse formula '{formula}'"
+            )
 
-    logging.info(f"Loaded {len(mol_list)} inference spectra (from {len(spec_names)} total)")
+    logging.info(
+        f"Loaded {len(mol_list)} inference spectra (from {len(spec_names)} total)"
+    )
     return (valid_spectra, mol_list)
 
 
@@ -240,10 +253,10 @@ class InferenceDataModule(MolecularDataModule):
     """
 
     def __init__(self, cfg):
-        self.remove_h = getattr(cfg.dataset, 'remove_h', False) or False
+        self.remove_h = getattr(cfg.dataset, "remove_h", False) or False
         self.datadir = cfg.dataset.datadir
         self.train_smiles = []
-        self.dataset_name = getattr(cfg.dataset, 'name', 'inference')
+        self.dataset_name = getattr(cfg.dataset, "name", "inference")
 
         paired_featurizer = PairedFeaturizer(
             spec_featurizer=PeakFormula(**cfg.dataset),
@@ -264,48 +277,51 @@ class InferenceDataModule(MolecularDataModule):
         )
 
         # All data goes to all splits (parent class requires train/val/test)
-        datasets = {'train': dataset, 'val': dataset, 'test': dataset}
+        datasets = {"train": dataset, "val": dataset, "test": dataset}
         super().__init__(cfg, datasets)
 
     def train_dataloader(self) -> DataLoader:
         return get_paired_loader_graph(
-            self.train_dataset, shuffle=False,
-            batch_size=self.batch_size, **self.kwargs
+            self.train_dataset, shuffle=False, batch_size=self.batch_size, **self.kwargs
         )
 
     def val_dataloader(self) -> DataLoader:
         return get_paired_loader_graph(
-            self.val_dataset, shuffle=False,
-            batch_size=self.eval_batch_size, **self.kwargs
+            self.val_dataset,
+            shuffle=False,
+            batch_size=self.eval_batch_size,
+            **self.kwargs,
         )
 
     def test_dataloader(self) -> DataLoader:
         return get_paired_loader_graph(
-            self.test_dataset, shuffle=False,
-            batch_size=self.eval_batch_size, **self.kwargs
+            self.test_dataset,
+            shuffle=False,
+            batch_size=self.eval_batch_size,
+            **self.kwargs,
         )
 
     def node_counts(self, max_nodes_possible=150):
         all_counts = torch.zeros(max_nodes_possible)
         for batch in self.train_dataloader():
-            data = batch['graph']
+            data = batch["graph"]
             unique, counts = torch.unique(data.batch, return_counts=True)
             for count in counts:
                 all_counts[count] += 1
         max_index = max(all_counts.nonzero())
-        all_counts = all_counts[:max_index + 1]
+        all_counts = all_counts[: max_index + 1]
         all_counts = all_counts / all_counts.sum()
         return all_counts
 
     def node_types(self):
         num_classes = None
         for batch in self.train_dataloader():
-            data = batch['graph']
+            data = batch["graph"]
             num_classes = data.x.shape[1]
             break
         counts = torch.zeros(num_classes)
         for batch in self.train_dataloader():
-            data = batch['graph']
+            data = batch["graph"]
             counts += data.x.sum(dim=0)
         counts = counts / counts.sum()
         return counts
@@ -313,12 +329,12 @@ class InferenceDataModule(MolecularDataModule):
     def edge_counts(self):
         num_classes = None
         for batch in self.train_dataloader():
-            data = batch['graph']
+            data = batch["graph"]
             num_classes = data.edge_attr.shape[1]
             break
         d = torch.zeros(num_classes, dtype=torch.float)
         for batch in self.train_dataloader():
-            data = batch['graph']
+            data = batch["graph"]
             unique, counts = torch.unique(data.batch, return_counts=True)
             all_pairs = 0
             for count in counts:
@@ -336,7 +352,7 @@ class InferenceDataModule(MolecularDataModule):
         valencies = torch.zeros(3 * max_n_nodes - 2)
         multiplier = torch.tensor([0, 1, 2, 3, 1.5])
         for batch in self.train_dataloader():
-            data = batch['graph']
+            data = batch["graph"]
             n = data.x.shape[0]
             for atom in range(n):
                 edges = data.edge_attr[data.edge_index[0] == atom]
@@ -358,19 +374,21 @@ class InferenceDatasetInfos(AbstractDatasetInfos):
     """
 
     def __init__(self, datamodule, cfg, recompute_statistics=False, meta=None):
-        self.name = getattr(cfg.dataset, 'name', 'inference')
+        self.name = getattr(cfg.dataset, "name", "inference")
         self.input_dims = None
         self.output_dims = None
-        self.remove_h = getattr(cfg.dataset, 'remove_h', False) or False
+        self.remove_h = getattr(cfg.dataset, "remove_h", False) or False
 
         self.atom_decoder = ATOM_DECODER
         self.atom_encoder = {atom: i for i, atom in enumerate(self.atom_decoder)}
-        self.atom_weights = {i: ATOM_TO_WEIGHT.get(atom, 0) for i, atom in enumerate(self.atom_decoder)}
+        self.atom_weights = {
+            i: ATOM_TO_WEIGHT.get(atom, 0) for i, atom in enumerate(self.atom_decoder)
+        }
         self.valencies = valency
         self.num_atom_types = len(self.atom_decoder)
         self.max_weight = max(self.atom_weights.values())
 
-        stats_dir = getattr(cfg.dataset, 'stats_dir', None)
+        stats_dir = getattr(cfg.dataset, "stats_dir", None)
         if stats_dir is None:
             raise ValueError(
                 "InferenceDatasetInfos requires 'stats_dir' in dataset config, "
@@ -379,10 +397,10 @@ class InferenceDatasetInfos(AbstractDatasetInfos):
             )
 
         meta_files = dict(
-            n_nodes=f'{stats_dir}/n_counts.txt',
-            node_types=f'{stats_dir}/atom_types.txt',
-            edge_types=f'{stats_dir}/edge_types.txt',
-            valency_distribution=f'{stats_dir}/valencies.txt',
+            n_nodes=f"{stats_dir}/n_counts.txt",
+            node_types=f"{stats_dir}/atom_types.txt",
+            edge_types=f"{stats_dir}/edge_types.txt",
+            valency_distribution=f"{stats_dir}/valencies.txt",
         )
 
         self.n_nodes = None
@@ -402,39 +420,53 @@ class InferenceDatasetInfos(AbstractDatasetInfos):
         self.max_n_nodes = len(self.n_nodes) - 1
 
         if recompute_statistics:
-            logging.warning("recompute_statistics=True ignored for InferenceDatasetInfos; using pre-computed stats.")
+            logging.warning(
+                "recompute_statistics=True ignored for InferenceDatasetInfos; using pre-computed stats."
+            )
 
         self.complete_infos(n_nodes=self.n_nodes, node_types=self.node_types)
 
     def compute_input_output_dims(self, datamodule, extra_features, domain_features):
-        example_batch = next(iter(datamodule.train_dataloader()))['graph']
+        example_batch = next(iter(datamodule.train_dataloader()))["graph"]
         ex_dense, node_mask = utils.to_dense(
-            example_batch.x, example_batch.edge_index,
-            example_batch.edge_attr, example_batch.batch
+            example_batch.x,
+            example_batch.edge_index,
+            example_batch.edge_attr,
+            example_batch.batch,
         )
         example_data = {
-            'X_t': ex_dense.X, 'E_t': ex_dense.E,
-            'y_t': example_batch['y'], 'node_mask': node_mask
+            "X_t": ex_dense.X,
+            "E_t": ex_dense.E,
+            "y_t": example_batch["y"],
+            "node_mask": node_mask,
         }
 
         self.input_dims = {
-            'X': example_batch['x'].size(1),
-            'E': example_batch['edge_attr'].size(1) if example_batch['edge_attr'].numel() > 0 else BONDS_COUNT,
-            'y': example_batch['y'].size(1) + 1,  # +1 for time conditioning
+            "X": example_batch["x"].size(1),
+            "E": (
+                example_batch["edge_attr"].size(1)
+                if example_batch["edge_attr"].numel() > 0
+                else BONDS_COUNT
+            ),
+            "y": example_batch["y"].size(1) + 1,  # +1 for time conditioning
         }
 
         ex_extra_feat = extra_features(example_data)
-        self.input_dims['X'] += ex_extra_feat.X.size(-1)
-        self.input_dims['E'] += ex_extra_feat.E.size(-1)
-        self.input_dims['y'] += ex_extra_feat.y.size(-1)
+        self.input_dims["X"] += ex_extra_feat.X.size(-1)
+        self.input_dims["E"] += ex_extra_feat.E.size(-1)
+        self.input_dims["y"] += ex_extra_feat.y.size(-1)
 
         ex_extra_molecular_feat = domain_features(example_data)
-        self.input_dims['X'] += ex_extra_molecular_feat.X.size(-1)
-        self.input_dims['E'] += ex_extra_molecular_feat.E.size(-1)
-        self.input_dims['y'] += ex_extra_molecular_feat.y.size(-1)
+        self.input_dims["X"] += ex_extra_molecular_feat.X.size(-1)
+        self.input_dims["E"] += ex_extra_molecular_feat.E.size(-1)
+        self.input_dims["y"] += ex_extra_molecular_feat.y.size(-1)
 
         self.output_dims = {
-            'X': example_batch['x'].size(1),
-            'E': example_batch['edge_attr'].size(1) if example_batch['edge_attr'].numel() > 0 else BONDS_COUNT,
-            'y': example_batch['y'].size(1),
+            "X": example_batch["x"].size(1),
+            "E": (
+                example_batch["edge_attr"].size(1)
+                if example_batch["edge_attr"].numel() > 0
+                else BONDS_COUNT
+            ),
+            "y": example_batch["y"].size(1),
         }

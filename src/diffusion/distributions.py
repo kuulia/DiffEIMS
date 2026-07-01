@@ -1,5 +1,6 @@
 import torch
 
+
 class DistributionNodes:
     def __init__(self, histogram=None, N_max=100, lam=25.0):
         """
