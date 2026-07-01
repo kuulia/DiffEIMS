@@ -14,34 +14,41 @@ import os
 import re
 import sys
 
-
 # Config fields to extract (section, key) -> csv column name
 CONFIG_FIELDS = [
-    ("general", "name",                       "run_name"),
-    ("general", "encoder",                    "encoder_path"),
-    ("general", "decoder",                    "decoder_path"),
-    ("general", "test_only",                  "test_only_ckpt"),
-    ("general", "num_test_samples",           "num_test_samples"),
-    ("dataset",  "name",                       "dataset"),
-    ("dataset",  "split_file",                "split_file"),
-    ("dataset",  "spec_features",             "spec_features"),
-    ("dataset",  "mol_features",              "mol_features"),
-    ("dataset",  "merge",                     "merge"),
-    ("model",   "model",                      "model_type"),
-    ("model",   "diffusion_steps",            "diffusion_steps"),
-    ("model",   "n_layers",                   "n_layers"),
-    ("train",   "n_epochs",                   "n_epochs"),
-    ("train",   "batch_size",                 "batch_size"),
-    ("train",   "eval_batch_size",            "eval_batch_size"),
-    ("train",   "lr",                         "lr"),
-    ("train",   "seed",                       "seed"),
+    ("general", "name", "run_name"),
+    ("general", "encoder", "encoder_path"),
+    ("general", "decoder", "decoder_path"),
+    ("general", "test_only", "test_only_ckpt"),
+    ("general", "num_test_samples", "num_test_samples"),
+    ("dataset", "name", "dataset"),
+    ("dataset", "split_file", "split_file"),
+    ("dataset", "spec_features", "spec_features"),
+    ("dataset", "mol_features", "mol_features"),
+    ("dataset", "merge", "merge"),
+    ("model", "model", "model_type"),
+    ("model", "diffusion_steps", "diffusion_steps"),
+    ("model", "n_layers", "n_layers"),
+    ("train", "n_epochs", "n_epochs"),
+    ("train", "batch_size", "batch_size"),
+    ("train", "eval_batch_size", "eval_batch_size"),
+    ("train", "lr", "lr"),
+    ("train", "seed", "seed"),
 ]
 
 # Test metrics to collect (as they appear after "test/")
 TEST_METRICS = [
-    "NLL", "X_KL", "E_KL", "E_CE", "validity",
-    "acc_at_1",  "acc_at_5",  "acc_at_10",
-    "tanimoto_at_1", "tanimoto_at_5", "tanimoto_at_10",
+    "NLL",
+    "X_KL",
+    "E_KL",
+    "E_CE",
+    "validity",
+    "acc_at_1",
+    "acc_at_5",
+    "acc_at_10",
+    "tanimoto_at_1",
+    "tanimoto_at_5",
+    "tanimoto_at_10",
 ]
 
 
@@ -105,8 +112,12 @@ def parse_outfile(path):
 def main():
     parser = argparse.ArgumentParser(description="Parse .out files into a CSV.")
     parser.add_argument("files", nargs="+", help=".out files to parse")
-    parser.add_argument("-o", "--output", default="results.csv",
-                        help="Output CSV path (default: results.csv)")
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="results.csv",
+        help="Output CSV path (default: results.csv)",
+    )
     args = parser.parse_args()
 
     rows = []

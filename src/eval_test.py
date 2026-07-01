@@ -1,5 +1,6 @@
-import sys 
-sys.path.append('../src')
+import sys
+
+sys.path.append("../src")
 sys.path
 
 
@@ -11,6 +12,7 @@ from src.diffusion_model_spec2mol import Spec2MolDenoisingDiffusion
 from src.datasets import spec2mol_dataset
 from src import utils
 from omegaconf import OmegaConf
+
 # Setup extra features, domain features, metrics etc. as in your main script
 from src.diffusion.extra_features import DummyExtraFeatures, ExtraFeatures
 from src.diffusion.extra_features_molecular import ExtraMolecularFeatures
@@ -19,10 +21,13 @@ from src.analysis.visualization import MolecularVisualization
 from rdkit import RDLogger
 from datetime import datetime
 from pathlib import Path
-RDLogger.DisableLog('rdApp.*')
+
+RDLogger.DisableLog("rdApp.*")
 
 # Load config from your config file (adjust path accordingly)
-hydra.initialize(version_base='1.3', config_path="../configs")  # relative to your current working directory
+hydra.initialize(
+    version_base="1.3", config_path="../configs"
+)  # relative to your current working directory
 
 # Compose the config by name
 cfg = hydra.compose(config_name="config_eval")
@@ -32,7 +37,7 @@ print(cfg.dataset)
 now = datetime.now()
 date_part = now.strftime("%Y-%m-%d")
 time_part = now.strftime("%H-%M-%S")
-output_path = Path("../outputs") / date_part / time_part 
+output_path = Path("../outputs") / date_part / time_part
 output_path.mkdir(parents=True, exist_ok=True)
 
 # Initialize datamodule and dataset infos to build model correctly
@@ -45,16 +50,22 @@ if cfg.model.extra_features is not None:
 else:
     extra_features = DummyExtraFeatures()
 
-dataset_infos.compute_input_output_dims(datamodule=datamodule, extra_features=extra_features, domain_features=domain_features)
+dataset_infos.compute_input_output_dims(
+    datamodule=datamodule,
+    extra_features=extra_features,
+    domain_features=domain_features,
+)
 train_metrics = TrainMolecularMetricsDiscrete(dataset_infos)
-visualization_tools = MolecularVisualization(cfg.dataset.remove_h, dataset_infos=dataset_infos)
+visualization_tools = MolecularVisualization(
+    cfg.dataset.remove_h, dataset_infos=dataset_infos
+)
 
 model_kwargs = {
-    'dataset_infos': dataset_infos,
-    'train_metrics': train_metrics,
-    'visualization_tools': visualization_tools,
-    'extra_features': extra_features,
-    'domain_features': domain_features
+    "dataset_infos": dataset_infos,
+    "train_metrics": train_metrics,
+    "visualization_tools": visualization_tools,
+    "extra_features": extra_features,
+    "domain_features": domain_features,
 }
 
 # Load the model from checkpoint
@@ -72,10 +83,12 @@ print("Model loaded and in eval mode, ready for inference or evaluation.")
 # Prepare batch (example)
 batch = next(iter(datamodule.test_dataloader()))
 
-data = batch['graph']
+data = batch["graph"]
 
 # 1) Convert to dense
-dense_data, node_mask = utils.to_dense(data.x, data.edge_index, data.edge_attr, data.batch)  # dense_data.X [B, N, Xdim], dense_data.E [B, N, N, Edim]
+dense_data, node_mask = utils.to_dense(
+    data.x, data.edge_index, data.edge_attr, data.batch
+)  # dense_data.X [B, N, Xdim], dense_data.E [B, N, N, Edim]
 
 dense_data = dense_data.mask(node_mask)  # apply mask to dense data (if needed)
 
@@ -84,14 +97,19 @@ y = data.y.float()  # or your target y tensor
 
 # 2) Optionally apply noise (or identity if just inference)
 # If you want to skip noise, just use identity:
-noisy_data = {'X_t': X, 'E_t': E, 'y_t': y, 'node_mask': node_mask}
+noisy_data = {"X_t": X, "E_t": E, "y_t": y, "node_mask": node_mask}
 
 # 3) Compute extra features
 extra_data = extra_features(noisy_data)  # returns utils.PlaceHolder with X, E, y
 
-print('noisy data: X_t, E_t, y_t: ', noisy_data['X_t'].shape, noisy_data['E_t'].shape, noisy_data['y_t'].shape)
-print('extra_data.X: ', extra_data.X.shape)
-print('node_mask: ', node_mask.shape)
+print(
+    "noisy data: X_t, E_t, y_t: ",
+    noisy_data["X_t"].shape,
+    noisy_data["E_t"].shape,
+    noisy_data["y_t"].shape,
+)
+print("extra_data.X: ", extra_data.X.shape)
+print("node_mask: ", node_mask.shape)
 with torch.no_grad():
     device = model.device
     for key in batch:
@@ -104,11 +122,11 @@ with torch.no_grad():
     output, aux = model.encoder(batch)
 
     # Predict fingerprint (depending on `model.merge`)
-    if model.merge == 'mist_fp':
+    if model.merge == "mist_fp":
         y = aux["int_preds"][-1]
-    elif model.merge in ('merge-encoder_output-linear', 'merge-encoder_output-mlp'):
-        y = model.merge_function(aux['h0'])
-    elif model.merge == 'downproject_4096':
+    elif model.merge in ("merge-encoder_output-linear", "merge-encoder_output-mlp"):
+        y = model.merge_function(aux["h0"])
+    elif model.merge == "downproject_4096":
         y = model.merge_function(output)
     y = y.to(device)
     # Graph generation
@@ -122,20 +140,20 @@ with torch.no_grad():
 
 print(output_path)
 
-torch.save(y, f'{output_path}/predicted_fingerprints.pt')
+torch.save(y, f"{output_path}/predicted_fingerprints.pt")
 
 with open(f"{output_path}/generated_mols.pkl", "wb") as f:
     pickle.dump(generated_mols, f)
 
-with open(f'{output_path}/batch_names.txt', 'w+') as file:
-    for name in batch['names']:
-        file.writelines(name + '\n')
+with open(f"{output_path}/batch_names.txt", "w+") as file:
+    for name in batch["names"]:
+        file.writelines(name + "\n")
 
 len(generated_mols)
 
-with open(f'{output_path}/fp.txt', 'w+') as file:
+with open(f"{output_path}/fp.txt", "w+") as file:
     for tens in y:
-        str_out = ''
+        str_out = ""
         for el in (tens.detach().cpu().numpy() >= 0.5).astype(np.uint8):
-            str_out += f'{int(el)} '
-        file.writelines(str_out + '\n')
+            str_out += f"{int(el)} "
+        file.writelines(str_out + "\n")

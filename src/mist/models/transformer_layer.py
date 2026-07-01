@@ -3,6 +3,7 @@
 Hold pairwise attention enabled transformers
 
 """
+
 import math
 from typing import Optional, Union, Callable, Tuple
 
@@ -48,6 +49,7 @@ class TransformerEncoderLayer(Module):
         >>> src = torch.rand(32, 10, 512)
         >>> out = encoder_layer(src)
     """
+
     __constants__ = ["batch_first", "norm_first"]
 
     def __init__(

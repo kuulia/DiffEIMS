@@ -1,4 +1,5 @@
-""" data.py """
+"""data.py"""
+
 import logging
 from typing import Optional
 import re
@@ -41,6 +42,7 @@ class Spectra(object):
         self.spectra = None
         if spectrum_array is not None:
             self._load_from_array(spectrum_array)
+
     def get_instrument(self):
         return self.instrument
 
@@ -65,7 +67,7 @@ class Spectra(object):
         self.spectrum_names, self.spectra = zip(*spectrum_tuples)
         self.num_spectra = len(self.spectra)
         self._is_loaded = True
-    
+
     def _load_from_array(self, spectrum_array: list[list[float]]):
         """Load spectrum from a provided array (used in collated_pkl mode)."""
         self.meta = {}  # Optional: you could infer parent mass or other metadata here
@@ -76,10 +78,11 @@ class Spectra(object):
 
         # Attempt to extract parentmass as the highest m/z value if intensity > 0
         if self.parentmass is None:
-            self.parentmass = max((mz for mz, intensity in spectrum_array if intensity > 0), default=0)
+            self.parentmass = max(
+                (mz for mz, intensity in spectrum_array if intensity > 0), default=0
+            )
         else:
             self.parentmass = 0
-
 
     def get_spec_name(self, **kwargs):
         """get_spec_name."""
@@ -183,34 +186,34 @@ class Mol(object):
         """
         Create a Mol object from a chemical formula.
         This creates a molecule with atoms but no bonds.
-            
+
         Args:
             formula (str): Chemical formula (e.g., "C6H12O6")
             inchikey (str, optional): InChIKey for the molecule. Defaults to None.
-            
+
         Returns:
             Mol: Molecule object with atoms but no bonds
-        """            
+        """
         # Regular expression to extract element symbols and counts from the formula
-        pattern = r'([A-Z][a-z]*)(\d*)'
+        pattern = r"([A-Z][a-z]*)(\d*)"
         matches = re.findall(pattern, formula)
-            
+
         # Create an empty molecule
         mol = Chem.RWMol()
-            
+
         # Add atoms to the molecule
         for element, count in matches:
             # If no count is specified, default to 1
             count = int(count) if count else 1
-                
+
             # Get atomic number for the element
             atomic_num = Chem.GetPeriodicTable().GetAtomicNumber(element)
-                
+
             # Add the atoms to the molecule
             for _ in range(count):
                 atom = Chem.Atom(atomic_num)
                 mol.AddAtom(atom)
-            
+
         return cls(mol=mol, mol_formula=formula, **kwargs)
 
     def get_smiles(self) -> str:

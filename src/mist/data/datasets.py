@@ -1,4 +1,5 @@
-""" datasets.py """
+"""datasets.py"""
+
 from pathlib import Path
 import pickle
 import h5py
@@ -20,9 +21,10 @@ from .data import Spectra, Mol
 import logging
 from ...datasets.abstract_dataset import ATOM_DECODER
 
+
 def get_paired_spectra(
     labels_file: str,
-    spec_folder: str = None, 
+    spec_folder: str = None,
     max_count: Optional[int] = None,
     allow_none_smiles: bool = False,
     prog_bars: bool = True,
@@ -34,13 +36,13 @@ def get_paired_spectra(
     Loads paired spectral and molecular data from given labels and spectrum files.
 
     This function reads metadata from a labels file (typically tab-separated),
-    matches spectra files or pre-collated spectra arrays, and generates lists of 
+    matches spectra files or pre-collated spectra arrays, and generates lists of
     `Spectra` objects and corresponding molecular representations (`Mol` objects).
     Optionally filters molecules based on allowed atom types and presence of SMILES.
 
     Args:
-        labels_file (str): Path to a tab-separated file containing spectra metadata, 
-            including spectrum names ('spec'), formulas, and optionally 'smiles', 
+        labels_file (str): Path to a tab-separated file containing spectra metadata,
+            including spectrum names ('spec'), formulas, and optionally 'smiles',
             'inchikey', and 'instrument' columns.
         spec_folder (str, optional): Directory path containing spectrum files (e.g., `.ms` files).
             If None, spectrum files will not be loaded from disk but inferred from labels.
@@ -99,14 +101,16 @@ def get_paired_spectra(
 
     if collated_pkl:
         logging.info("Loading spectra from collated pickle file")
-        df_pkl = pd.read_pickle(f'{spec_folder}/{kwargs.get("collated_pkl_file")}')  # pass as kwarg
+        df_pkl = pd.read_pickle(
+            f'{spec_folder}/{kwargs.get("collated_pkl_file")}'
+        )  # pass as kwarg
 
         # Create a mapping from spec name (from label file) to spectrum array
-        if 'UID' in df_pkl.columns:
+        if "UID" in df_pkl.columns:
             spec_to_array = dict(zip(df_pkl["UID"], df_pkl["spec"]))
         else:
             spec_to_array = dict(zip(compound_id_file["spec"], df_pkl["spec"]))
-        #print(spec_to_array)
+        # print(spec_to_array)
         # Only keep those spec entries that exist in the collated .pkl file
         spectra_arrays = {name: spec_to_array[name] for name in spec_names}
     else:
@@ -133,7 +137,6 @@ def get_paired_spectra(
     # Just added!
     spectra_files = [i for i in spectra_files if i.stem in name_to_formula]
 
-
     spectra_names = [get_name(spectra_file) for spectra_file in spectra_files]
     spectra_formulas = [name_to_formula[spectra_name] for spectra_name in spectra_names]
     spectra_instruments = [
@@ -155,14 +158,20 @@ def get_paired_spectra(
             )
             for spec_name in tq(spec_names)
         ]
-        if 'smiles' in compound_id_file.columns:
-            spectra_smiles = compound_id_file['smiles'].values
-            spectra_smiles = [s if s not in ('na', 'nan', 'None', '') else None for s in spectra_smiles]
+        if "smiles" in compound_id_file.columns:
+            spectra_smiles = compound_id_file["smiles"].values
+            spectra_smiles = [
+                s if s not in ("na", "nan", "None", "") else None
+                for s in spectra_smiles
+            ]
         else:
             spectra_smiles = [None] * len(compound_id_file)
-        if 'inchikey' in compound_id_file.columns:
-            spectra_inchikey = compound_id_file['inchikey'].values
-            spectra_inchikey = [s if s not in ('na', 'nan', 'None', '') else None for s in spectra_inchikey]
+        if "inchikey" in compound_id_file.columns:
+            spectra_inchikey = compound_id_file["inchikey"].values
+            spectra_inchikey = [
+                s if s not in ("na", "nan", "None", "") else None
+                for s in spectra_inchikey
+            ]
         else:
             spectra_inchikey = [None] * len(compound_id_file)
     else:
@@ -196,12 +205,18 @@ def get_paired_spectra(
         ]
     else:
         mol_list = []
-        for smiles, inchikey, spec in zip(spectra_smiles, spectra_inchikey, spectra_list):
+        for smiles, inchikey, spec in zip(
+            spectra_smiles, spectra_inchikey, spectra_list
+        ):
             if smiles is not None:
                 mol_list.append(Mol.MolFromSmiles(smiles, inchikey=inchikey))
             else:
                 # No SMILES available — create Mol from formula if possible
-                formula = spec.get_spectra_formula() if hasattr(spec, 'get_spectra_formula') else ""
+                formula = (
+                    spec.get_spectra_formula()
+                    if hasattr(spec, "get_spectra_formula")
+                    else ""
+                )
                 if formula:
                     mol_list.append(Mol.MolFromFormula(formula))
                 else:
@@ -426,7 +441,9 @@ class SpectraMolDataset(Dataset):
 
         mol_features = self.featurizer.featurize_mol(mol, train_mode=self.train_mode)
         spec_features = self.featurizer.featurize_spec(spec, train_mode=self.train_mode)
-        graph_features = self.featurizer.featurize_graph(mol, train_mode=self.train_mode)
+        graph_features = self.featurizer.featurize_graph(
+            mol, train_mode=self.train_mode
+        )
 
         return {
             "spec": [spec_features],
@@ -435,8 +452,8 @@ class SpectraMolDataset(Dataset):
             "spec_indices": [0],
             "mol_indices": [0],
             "matched": [True],
-            "true_mol": mol,                    # RDKit Mol object
-            "true_smiles": self.smi_list[idx] # SMILES string
+            "true_mol": mol,  # RDKit Mol object
+            "true_smiles": self.smi_list[idx],  # SMILES string
         }
 
 
@@ -454,7 +471,6 @@ class SpectraMolMismatchHDFDataset(SpectraMolDataset):
         featurizer: featurizers.PairedFeaturizer,
         **kwargs,
     ):
-
         """__init__.
 
         Args:
@@ -736,8 +752,12 @@ def _collate_pairs(
 
     return base_dict
 
+
 def _collate_pairs_graph(
-    input_batch: List[dict], mol_collate_fn: Callable, spec_collate_fn: Callable, graph_collate_fn: Callable
+    input_batch: List[dict],
+    mol_collate_fn: Callable,
+    spec_collate_fn: Callable,
+    graph_collate_fn: Callable,
 ) -> dict:
     """_collate_pairs
 
@@ -805,6 +825,7 @@ def _collate_pairs_graph(
     base_dict["graph"] = graph_batch
 
     return base_dict
+
 
 def get_paired_loader_graph(
     dataset: SpectraMolDataset,
@@ -986,7 +1007,7 @@ class SpecDataModule(pl.LightningDataModule):
 
         if self.train is None:
             return None
-        
+
         return SpecDataModule.get_paired_loader(
             self.train,
             shuffle=True,

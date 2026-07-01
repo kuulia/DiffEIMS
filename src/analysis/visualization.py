@@ -7,38 +7,42 @@ import rdkit.Chem
 import wandb
 import matplotlib.pyplot as plt
 
+
 def fix_four_bonded_nitrogen_charges(mol: Chem.Mol) -> Chem.Mol:
-    mol = Chem.RWMol(mol) # Change immutable mol object to mutable mol object
-    to_fix = [] # stores atom indices of nitrogen and oxygen to fix
+    mol = Chem.RWMol(mol)  # Change immutable mol object to mutable mol object
+    to_fix = []  # stores atom indices of nitrogen and oxygen to fix
 
     # Iterate over all atoms of the molecule
     for atom in mol.GetAtoms():
         if atom.GetAtomicNum() != 7:
-            continue # Skip if atom is not nitrogen
+            continue  # Skip if atom is not nitrogen
 
-        o_double = None # Stores double bonded O in N=O if found
-        o_single = None # Stores isolated single bonded O in N-O if found
+        o_double = None  # Stores double bonded O in N=O if found
+        o_single = None  # Stores isolated single bonded O in N-O if found
 
         # Iterate over neighbors of nitrogen atoms
         for neighbor in atom.GetNeighbors():
             if neighbor.GetAtomicNum() != 8:
-                continue # Skip if neighbor is not oxygen
+                continue  # Skip if neighbor is not oxygen
 
             bond = mol.GetBondBetweenAtoms(atom.GetIdx(), neighbor.GetIdx())
 
             if bond.GetBondType() == Chem.rdchem.BondType.DOUBLE:
-                o_double = neighbor # N=O, nitrogen double bonded to oxygen 
+                o_double = neighbor  # N=O, nitrogen double bonded to oxygen
             elif bond.GetBondType() == Chem.rdchem.BondType.SINGLE:
-                # Get neighbors of oxygen in N-O structure 
-                o_neighbors = [nbr for nbr in neighbor.GetNeighbors()\
-                                if nbr.GetIdx() != atom.GetIdx()]
+                # Get neighbors of oxygen in N-O structure
+                o_neighbors = [
+                    nbr
+                    for nbr in neighbor.GetNeighbors()
+                    if nbr.GetIdx() != atom.GetIdx()
+                ]
                 # Check if single-bonded oxygen in N-O structure has
                 # no other neighbors (isolated O)
                 o_has_no_other_neighbors = len(o_neighbors) == 0
 
                 if o_has_no_other_neighbors:
-                    o_single = neighbor # Found the O in N-O structure
-        
+                    o_single = neighbor  # Found the O in N-O structure
+
         # If nitrogen has both N=O and N-O (N(=O)O type structure), mark for fixing
         if o_double != None and o_single != None:
             to_fix.append((atom.GetIdx(), o_single.GetIdx()))
@@ -50,6 +54,7 @@ def fix_four_bonded_nitrogen_charges(mol: Chem.Mol) -> Chem.Mol:
 
     # Return the corrected immutable molecule
     return mol.GetMol()
+
 
 class MolecularVisualization:
     def __init__(self, remove_h, dataset_infos):
@@ -103,10 +108,12 @@ class MolecularVisualization:
         except rdkit.Chem.KekulizeException:
             print("Can't kekulize molecule")
             mol = None
-        
+
         return mol
 
-    def visualize(self, path: str, molecules: list, num_molecules_to_visualize: int, log='graph'):
+    def visualize(
+        self, path: str, molecules: list, num_molecules_to_visualize: int, log="graph"
+    ):
         # define path to save figures
         if not os.path.exists(path):
             os.makedirs(path)
@@ -116,9 +123,9 @@ class MolecularVisualization:
         if num_molecules_to_visualize > len(molecules):
             print(f"Shortening to {len(molecules)}")
             num_molecules_to_visualize = len(molecules)
-        
+
         for i in range(num_molecules_to_visualize):
-            file_path = os.path.join(path, 'molecule_{}.png'.format(i))
+            file_path = os.path.join(path, "molecule_{}.png".format(i))
             mol = self.mol_from_graphs(molecules[i][0].numpy(), molecules[i][1].numpy())
             try:
                 Draw.MolToFile(mol, file_path)

@@ -15,8 +15,10 @@ Usage:
     Override config values via command line or by editing configs/config_inference.yaml
     and configs/dataset/yee.yaml.
 """
+
 import sys
-sys.path.append('../src')
+
+sys.path.append("../src")
 
 import numpy as np
 import pickle
@@ -38,7 +40,7 @@ from src.diffusion.extra_features_molecular import ExtraMolecularFeatures
 from src.metrics.molecular_metrics_discrete import TrainMolecularMetricsDiscrete
 from src.analysis.visualization import MolecularVisualization
 
-RDLogger.DisableLog('rdApp.*')
+RDLogger.DisableLog("rdApp.*")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -59,11 +61,11 @@ def predict_fingerprint(model, batch):
     """Run the encoder on a batch and predict fingerprints."""
     output, aux = model.encoder(batch)
 
-    if model.merge == 'mist_fp':
+    if model.merge == "mist_fp":
         y = aux["int_preds"][-1]
-    elif model.merge in ('merge-encoder_output-linear', 'merge-encoder_output-mlp'):
-        y = model.merge_function(aux['h0'])
-    elif model.merge == 'downproject_4096':
+    elif model.merge in ("merge-encoder_output-linear", "merge-encoder_output-mlp"):
+        y = model.merge_function(aux["h0"])
+    elif model.merge == "downproject_4096":
         y = model.merge_function(output)
     else:
         raise ValueError(f"Unknown merge strategy: {model.merge}")
@@ -92,7 +94,7 @@ def generate_molecules(model, data, num_samples):
 
 def main():
     # Load config
-    hydra.initialize(version_base='1.3', config_path="../configs")
+    hydra.initialize(version_base="1.3", config_path="../configs")
     cfg = hydra.compose(config_name="config_inference")
 
     logger.info(f"Dataset config: {cfg.dataset}")
@@ -113,7 +115,9 @@ def main():
     # Build model infrastructure
     domain_features = ExtraMolecularFeatures(dataset_infos=dataset_infos)
     if cfg.model.extra_features is not None:
-        extra_features = ExtraFeatures(cfg.model.extra_features, dataset_info=dataset_infos)
+        extra_features = ExtraFeatures(
+            cfg.model.extra_features, dataset_info=dataset_infos
+        )
     else:
         extra_features = DummyExtraFeatures()
 
@@ -124,21 +128,24 @@ def main():
     )
 
     train_metrics = TrainMolecularMetricsDiscrete(dataset_infos)
-    visualization_tools = MolecularVisualization(cfg.dataset.remove_h, dataset_infos=dataset_infos)
+    visualization_tools = MolecularVisualization(
+        cfg.dataset.remove_h, dataset_infos=dataset_infos
+    )
 
     model_kwargs = {
-        'dataset_infos': dataset_infos,
-        'train_metrics': train_metrics,
-        'visualization_tools': visualization_tools,
-        'extra_features': extra_features,
-        'domain_features': domain_features,
+        "dataset_infos": dataset_infos,
+        "train_metrics": train_metrics,
+        "visualization_tools": visualization_tools,
+        "extra_features": extra_features,
+        "domain_features": domain_features,
     }
 
     # Load model from checkpoint
     checkpoint_path = cfg.dataset.eval_model_path
     logger.info(f"Loading model from checkpoint: {checkpoint_path}")
-    model = Spec2MolDenoisingDiffusion.load_from_checkpoint(checkpoint_path, 
-                                                            map_location=torch.device('cpu'), **model_kwargs)
+    model = Spec2MolDenoisingDiffusion.load_from_checkpoint(
+        checkpoint_path, map_location=torch.device("cpu"), **model_kwargs
+    )
     model.eval()
 
     device = model.device
@@ -152,7 +159,9 @@ def main():
     all_generated_mols = []
     all_names = []
 
-    logger.info(f"Starting point-wise inference on {len(datamodule.test_dataset)} spectra...")
+    logger.info(
+        f"Starting point-wise inference on {len(datamodule.test_dataset)} spectra..."
+    )
 
     with torch.no_grad():
         for batch_idx, batch in enumerate(tqdm(test_loader, desc="Inference")):
@@ -171,10 +180,16 @@ def main():
             generated_mols = generate_molecules(model, data, num_samples)
 
             # 4. Collect results
-            names = batch.get('names', [f"sample_{batch_idx}_{i}" for i in range(len(data))])
+            names = batch.get(
+                "names", [f"sample_{batch_idx}_{i}" for i in range(len(data))]
+            )
             for i in range(len(data)):
                 uid = names[i] if i < len(names) else f"sample_{batch_idx}_{i}"
-                formula = data.get_example(i).inchi.replace("InChI=1S/", "") if hasattr(data.get_example(i), 'inchi') else "unknown"
+                formula = (
+                    data.get_example(i).inchi.replace("InChI=1S/", "")
+                    if hasattr(data.get_example(i), "inchi")
+                    else "unknown"
+                )
 
                 valid_count = sum(1 for mol in generated_mols[i] if mol is not None)
                 smiles_list = []
@@ -188,13 +203,15 @@ def main():
                     else:
                         smiles_list.append(None)
 
-                all_results.append({
-                    'uid': uid,
-                    'formula': formula,
-                    'num_valid': valid_count,
-                    'num_samples': num_samples,
-                    'smiles': smiles_list,
-                })
+                all_results.append(
+                    {
+                        "uid": uid,
+                        "formula": formula,
+                        "num_valid": valid_count,
+                        "num_samples": num_samples,
+                        "smiles": smiles_list,
+                    }
+                )
                 all_names.append(uid)
 
             all_fingerprints.append(y.detach().cpu())
@@ -213,47 +230,58 @@ def main():
 
     # Save predicted fingerprints
     all_fingerprints_tensor = torch.cat(all_fingerprints, dim=0)
-    torch.save(all_fingerprints_tensor, f'{output_path}/predicted_fingerprints.pt')
+    torch.save(all_fingerprints_tensor, f"{output_path}/predicted_fingerprints.pt")
 
     # Save names
-    with open(f'{output_path}/batch_names.txt', 'w') as file:
+    with open(f"{output_path}/batch_names.txt", "w") as file:
         for name in all_names:
-            file.write(name + '\n')
+            file.write(name + "\n")
 
     # Save fingerprints as text (thresholded at 0.5)
-    with open(f'{output_path}/fp.txt', 'w') as file:
+    with open(f"{output_path}/fp.txt", "w") as file:
         for tens in all_fingerprints_tensor:
-            str_out = ' '.join(str(int(el)) for el in (tens.numpy() >= 0.5).astype(np.uint8))
-            file.write(str_out + '\n')
+            str_out = " ".join(
+                str(int(el)) for el in (tens.numpy() >= 0.5).astype(np.uint8)
+            )
+            file.write(str_out + "\n")
 
     # Save results summary as CSV
     import pandas as pd
+
     summary_rows = []
     for result in all_results:
-        valid_smiles = [s for s in result['smiles'] if s is not None]
-        summary_rows.append({
-            'uid': result['uid'],
-            'formula': result['formula'],
-            'num_valid': result['num_valid'],
-            'num_samples': result['num_samples'],
-            'validity_rate': result['num_valid'] / result['num_samples'] if result['num_samples'] > 0 else 0,
-            'unique_smiles': len(set(valid_smiles)),
-            'top_smiles': valid_smiles[0] if valid_smiles else None,
-        })
+        valid_smiles = [s for s in result["smiles"] if s is not None]
+        summary_rows.append(
+            {
+                "uid": result["uid"],
+                "formula": result["formula"],
+                "num_valid": result["num_valid"],
+                "num_samples": result["num_samples"],
+                "validity_rate": (
+                    result["num_valid"] / result["num_samples"]
+                    if result["num_samples"] > 0
+                    else 0
+                ),
+                "unique_smiles": len(set(valid_smiles)),
+                "top_smiles": valid_smiles[0] if valid_smiles else None,
+            }
+        )
     df_summary = pd.DataFrame(summary_rows)
-    df_summary.to_csv(f'{output_path}/results_summary.csv', index=False)
+    df_summary.to_csv(f"{output_path}/results_summary.csv", index=False)
 
     # Save full SMILES results
     with open(f"{output_path}/all_smiles.pkl", "wb") as f:
-        pickle.dump({r['uid']: r['smiles'] for r in all_results}, f)
+        pickle.dump({r["uid"]: r["smiles"] for r in all_results}, f)
 
     logger.info(f"Inference complete. {len(all_results)} spectra processed.")
     logger.info(f"Results saved to: {output_path}")
 
     # Print summary statistics
-    total_valid = sum(r['num_valid'] for r in all_results)
-    total_samples = sum(r['num_samples'] for r in all_results)
-    logger.info(f"Overall validity: {total_valid}/{total_samples} ({100*total_valid/total_samples:.1f}%)")
+    total_valid = sum(r["num_valid"] for r in all_results)
+    total_samples = sum(r["num_samples"] for r in all_results)
+    logger.info(
+        f"Overall validity: {total_valid}/{total_samples} ({100*total_valid/total_samples:.1f}%)"
+    )
 
 
 if __name__ == "__main__":

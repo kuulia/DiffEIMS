@@ -4,15 +4,17 @@ from torch import Tensor
 import wandb
 import torch.nn as nn
 
+
 class CEPerClass(Metric):
     full_state_update = False
+
     def __init__(self, class_id):
         super().__init__()
         self.class_id = class_id
-        self.add_state('total_ce', default=torch.tensor(0.), dist_reduce_fx="sum")
-        self.add_state('total_samples', default=torch.tensor(0.), dist_reduce_fx="sum")
+        self.add_state("total_ce", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total_samples", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.softmax = torch.nn.Softmax(dim=-1)
-        self.binary_cross_entropy = torch.nn.BCELoss(reduction='sum')
+        self.binary_cross_entropy = torch.nn.BCELoss(reduction="sum")
 
     def update(self, preds: Tensor, target: Tensor) -> None:
         """Update state with predictions and targets.
@@ -21,7 +23,7 @@ class CEPerClass(Metric):
             target: Ground truth values     (bs, n, d) or (bs, n, n, d)
         """
         target = target.reshape(-1, target.shape[-1])
-        mask = (target != 0.).any(dim=-1)
+        mask = (target != 0.0).any(dim=-1)
 
         prob = self.softmax(preds)[..., self.class_id]
         prob = prob.flatten()[mask]
@@ -35,8 +37,9 @@ class CEPerClass(Metric):
 
     def compute(self):
         if self.total_samples == 0:
-            return torch.tensor(0., device=self.total_ce.device)
+            return torch.tensor(0.0, device=self.total_ce.device)
         return self.total_ce / self.total_samples
+
 
 class HydrogenCE(CEPerClass):
     def __init__(self, i):
@@ -132,9 +135,21 @@ class AtomMetricsCE(MetricCollection):
     def __init__(self, dataset_infos):
         atom_decoder = dataset_infos.atom_decoder
 
-        class_dict = {'H': HydrogenCE, 'C': CarbonCE, 'N': NitroCE, 'O': OxyCE, 'F': FluorCE, 'B': BoronCE,
-                      'Br': BrCE, 'Cl': ClCE, 'I': IodineCE, 'P': PhosphorusCE, 'S': SulfurCE, 'Se': SeCE,
-                      'Si': SiCE}
+        class_dict = {
+            "H": HydrogenCE,
+            "C": CarbonCE,
+            "N": NitroCE,
+            "O": OxyCE,
+            "F": FluorCE,
+            "B": BoronCE,
+            "Br": BrCE,
+            "Cl": ClCE,
+            "I": IodineCE,
+            "P": PhosphorusCE,
+            "S": SulfurCE,
+            "Se": SeCE,
+            "Si": SiCE,
+        }
 
         metrics_list = []
         for i, atom_type in enumerate(atom_decoder):
@@ -164,13 +179,13 @@ class TrainMolecularMetricsDiscrete(nn.Module):
     def forward(self, masked_pred_X, masked_pred_E, true_X, true_E, log: bool):
         self.train_atom_metrics(masked_pred_X, true_X)
         self.train_bond_metrics(masked_pred_E, true_E)
-        
+
         if log:
             to_log = {}
             for key, val in self.train_atom_metrics.compute().items():
-                to_log['train/' + key] = val.item()
+                to_log["train/" + key] = val.item()
             for key, val in self.train_bond_metrics.compute().items():
-                to_log['train/' + key] = val.item()
+                to_log["train/" + key] = val.item()
             if wandb.run:
                 wandb.log(to_log, commit=False)
 
@@ -186,9 +201,9 @@ class TrainMolecularMetricsDiscrete(nn.Module):
 
         to_log = {}
         for key, val in epoch_atom_metrics.items():
-            to_log['train_epoch/' + key] = val.item()
+            to_log["train_epoch/" + key] = val.item()
         for key, val in epoch_bond_metrics.items():
-            to_log['train_epoch/' + key] = val.item()
+            to_log["train_epoch/" + key] = val.item()
         if wandb.run:
             wandb.log(to_log, commit=False)
 
@@ -198,4 +213,3 @@ class TrainMolecularMetricsDiscrete(nn.Module):
             epoch_bond_metrics[key] = val.item()
 
         return epoch_atom_metrics, epoch_bond_metrics
-
