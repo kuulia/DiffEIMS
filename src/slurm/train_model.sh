@@ -1,11 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=tr_diffms_e2e
-#SBATCH --output=outfiles/e2e_ft_%A.out
-#SBATCH --time=18:00:00
+#SBATCH --output=outfiles/e2e_ft_%j.out
+#SBATCH --time=00:29:00
 #SBATCH --mem=128G
 #SBATCH --cpus-per-task=8
-#SBATCH --gres=gpu:h200:1
-#SBATCH --array=0
+#SBATCH --partition=dev-g
 
 # Load environment
 cd $WRKDIR || exit 1
