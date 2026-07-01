@@ -21,9 +21,10 @@ export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1 |
 export MASTER_PORT=29500
 
 # --- LUMI / RCCL ---
-export NCCL_SOCKET_IFNAME=hsn0       # Slingshot-11: actual interface is hsn0/hsn1, not hsn
+export NCCL_SOCKET_IFNAME=hsn0,hsn1,hsn2,hsn3   # all 4 Slingshot-11 NICs
 export RCCL_CROSS_NIC=1              # allow RCCL to use multiple NICs across nodes
 export MIOPEN_DISABLE_CACHE=1        # avoid MIOpen cache corruption across nodes
+export FI_CXI_ATS=0                  # disable Address Translation Services for CXI/Slingshot-11
 export NCCL_DEBUG=INFO               # verbose during bring-up; switch to WARN once stable
 
 start_time=$(date +%s)
