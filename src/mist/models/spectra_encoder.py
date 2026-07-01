@@ -5,8 +5,10 @@ from torch import nn
 
 from . import modules
 
+
 class SpectraEncoder(nn.Module):
     """SpectraEncoder."""
+
     def __init__(
         self,
         form_embedder: str = "float",
@@ -46,8 +48,9 @@ class SpectraEncoder(nn.Module):
         top_layer_parts.append(nn.Sigmoid())
         spectra_predictor = nn.Sequential(*top_layer_parts)
 
-        self.spectra_encoder = nn.ModuleList([spectra_encoder_main, fragment_predictor, spectra_predictor])
-
+        self.spectra_encoder = nn.ModuleList(
+            [spectra_encoder_main, fragment_predictor, spectra_predictor]
+        )
 
     def forward(self, batch: dict) -> Tuple[torch.Tensor, dict]:
         """Forward pass."""
@@ -60,10 +63,11 @@ class SpectraEncoder(nn.Module):
         aux_outputs["h0"] = encoder_output
 
         return output, aux_outputs
-    
-    
+
+
 class SpectraEncoderGrowing(nn.Module):
     """SpectraEncoder."""
+
     def __init__(
         self,
         form_embedder: str = "float",
@@ -95,13 +99,15 @@ class SpectraEncoderGrowing(nn.Module):
         fragment_predictor = nn.Sequential(*fragment_pred_parts)
 
         spectra_predictor = modules.FPGrowingModule(
-                hidden_input_dim=hidden_size,
-                final_target_dim=output_size,
-                num_splits=refine_layers,
-                reduce_factor=2,
-            )
+            hidden_input_dim=hidden_size,
+            final_target_dim=output_size,
+            num_splits=refine_layers,
+            reduce_factor=2,
+        )
 
-        self.spectra_encoder = nn.ModuleList([spectra_encoder_main, fragment_predictor, spectra_predictor])
+        self.spectra_encoder = nn.ModuleList(
+            [spectra_encoder_main, fragment_predictor, spectra_predictor]
+        )
 
     def forward(self, batch: dict) -> Tuple[torch.Tensor, dict]:
         """Forward pass."""
@@ -115,8 +121,5 @@ class SpectraEncoderGrowing(nn.Module):
         aux_outputs["int_preds"] = intermediates
         output = final_output
         aux_outputs["h0"] = encoder_output
-        
-        return output, aux_outputs # aux_outputs["int_preds"][-1]
 
-    
-
+        return output, aux_outputs  # aux_outputs["int_preds"][-1]

@@ -244,7 +244,7 @@ class Mol(object):
 
 def get_paired_spectra(
     labels_file: str,
-    spec_folder: str = None, 
+    spec_folder: str = None,
     max_count: Optional[int] = None,
     allow_none_smiles: bool = False,
     prog_bars: bool = True,
@@ -300,7 +300,6 @@ def get_paired_spectra(
     # Just added!
     spectra_files = [i for i in spectra_files if i.stem in name_to_formula]
 
-
     spectra_names = [get_name(spectra_file) for spectra_file in spectra_files]
     spectra_formulas = [name_to_formula[spectra_name] for spectra_name in spectra_names]
     spectra_instruments = [
@@ -340,9 +339,11 @@ def get_paired_spectra(
         ]
     else:
         mol_list = [
-            Mol.MolFromSmiles(smiles, inchikey=inchikey)
-            if smiles is not None
-            else Mol.MolFromSmiles("")
+            (
+                Mol.MolFromSmiles(smiles, inchikey=inchikey)
+                if smiles is not None
+                else Mol.MolFromSmiles("")
+            )
             for smiles, inchikey in tq(zip(spectra_smiles, spectra_inchikey))
         ]
         spectra_list = [spec for spec, smi in tq(zip(spectra_list, spectra_smiles))]
@@ -410,6 +411,7 @@ def parse_spectra(spectra_file: str) -> Tuple[dict, List[Tuple[str, np.ndarray]]
     metadata["_FILE_PATH"] = spectra_file
     metadata["_FILE"] = Path(spectra_file).stem
     return metadata, spectras
+
 
 def uncharged_formula(mol, mol_type="mol") -> str:
     """Compute uncharged formula"""

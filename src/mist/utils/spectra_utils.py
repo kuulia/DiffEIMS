@@ -1,4 +1,5 @@
-""" spectra_utils.py"""
+"""spectra_utils.py"""
+
 import logging
 import numpy as np
 from typing import List

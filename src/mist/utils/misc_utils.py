@@ -1,4 +1,5 @@
 """misc_utils.py"""
+
 from typing import List, Iterable, Iterator
 from itertools import islice
 

@@ -21,10 +21,10 @@ from src.diffusion.extra_features_molecular import ExtraMolecularFeatures
 from src.analysis.visualization import MolecularVisualization
 from src.datasets import spec2mol_dataset
 
-
 warnings.filterwarnings("ignore", category=PossibleUserWarning)
-RDLogger.DisableLog('rdApp.*')
+RDLogger.DisableLog("rdApp.*")
 print(sys.path)
+
 
 def safe_setattr(cfg_section, key, value):
     """
@@ -38,26 +38,27 @@ def safe_setattr(cfg_section, key, value):
         if hasattr(cfg_section, key):
             setattr(cfg_section, key, value)
 
+
 def get_resume(cfg, model_kwargs):
     """
     Resume a run from a saved Lightning checkpoint.
 
-    This function restores the model and its saved config (`model.cfg`) 
-    from the checkpoint, while allowing a limited set of parameters 
-    (e.g., evaluation-related) to be overridden for testing or resuming.  
+    This function restores the model and its saved config (`model.cfg`)
+    from the checkpoint, while allowing a limited set of parameters
+    (e.g., evaluation-related) to be overridden for testing or resuming.
 
     Notes:
         - Most training parameters cannot be overridden for .ckpt checkpoints
-        - Only a small set of keys is overridden (e.g., eval batch size, 
+        - Only a small set of keys is overridden (e.g., eval batch size,
           test-only settings, number of samples).
-        - New keys added in the provided `cfg` are merged into the 
+        - New keys added in the provided `cfg` are merged into the
           loaded config, but existing ones are not overwritten.
     """
     saved_cfg = cfg.copy()
 
     ###############################################################
     # Save new cfg params
-    name = cfg.general.name + '_resume'
+    name = cfg.general.name + "_resume"
     resume = cfg.general.test_only
     val_samples_to_generate = cfg.general.val_samples_to_generate
     test_samples_to_generate = cfg.general.test_samples_to_generate
@@ -66,15 +67,15 @@ def get_resume(cfg, model_kwargs):
     decoder = getattr(cfg.general, "decoder", None)
     encoder = getattr(cfg.general, "encoder", None)
     inference_only = getattr(cfg.dataset, "inference_only", None)
-    override_prev_dataset_cfg = getattr(cfg.dataset, 'override_prev_dataset_cfg', False)
+    override_prev_dataset_cfg = getattr(cfg.dataset, "override_prev_dataset_cfg", False)
     dataset_cfg = cfg.dataset
     ###############################################################
-    map_loc = torch.device('cpu') if cfg.general.force_cpu else None
+    map_loc = torch.device("cpu") if cfg.general.force_cpu else None
 
-    cfg = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, 
-                                                            map_location=map_loc, 
-                                                            **model_kwargs).cfg
-    logging.info(f'Loaded cfg from {resume}')
+    cfg = Spec2MolDenoisingDiffusion.load_from_checkpoint(
+        resume, map_location=map_loc, **model_kwargs
+    ).cfg
+    logging.info(f"Loaded cfg from {resume}")
     ################################################################
     # Override old cfg params
     cfg.general.name = name
@@ -90,109 +91,114 @@ def get_resume(cfg, model_kwargs):
         cfg.dataset = dataset_cfg
     cfg = utils.update_config_with_new_keys(cfg, saved_cfg)
     ###############################################################
-    model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, 
-                                                            map_location=map_loc,
-                                                            cfg = cfg, 
-                                                            **model_kwargs)
+    model = Spec2MolDenoisingDiffusion.load_from_checkpoint(
+        resume, map_location=map_loc, cfg=cfg, **model_kwargs
+    )
     return cfg, model
 
-def apply_encoder_finetuning(model, strategy):    
+
+def apply_encoder_finetuning(model, strategy):
     if strategy is None:
         pass
-    elif strategy == 'freeze':
+    elif strategy == "freeze":
         for param in model.encoder.parameters():
             param.requires_grad = False
-    elif strategy == 'ft-unfold':
+    elif strategy == "ft-unfold":
         for param in model.encoder.named_parameters():
-            layer = param[0].split('.')[1]
-            if layer != '2':
+            layer = param[0].split(".")[1]
+            if layer != "2":
                 param[1].requires_grad = False
-    elif strategy == 'freeze-unfold':
+    elif strategy == "freeze-unfold":
         for param in model.encoder.named_parameters():
-            layer = param[0].split('.')[1]
-            if layer == '2':
+            layer = param[0].split(".")[1]
+            if layer == "2":
                 param[1].requires_grad = False
-    elif strategy == 'ft-transformer':
+    elif strategy == "ft-transformer":
         for param in model.encoder.named_parameters():
-            layer = param[0].split('.')[1]
-            if layer != '0':
+            layer = param[0].split(".")[1]
+            if layer != "0":
                 param[1].requires_grad = False
-    elif strategy == 'freeze-transformer':
+    elif strategy == "freeze-transformer":
         for param in model.encoder.named_parameters():
-            layer = param[0].split('.')[1]
-            if layer == '0':
+            layer = param[0].split(".")[1]
+            if layer == "0":
                 param[1].requires_grad = False
-    elif strategy == 'ft-spectra-fragment':
+    elif strategy == "ft-spectra-fragment":
         for name, param in model.encoder.named_parameters():
-            layer = name.split('.')[1]
-            if layer not in ['0', '1']:  # Layer 0 = transformer, 1 = fragment predictor
+            layer = name.split(".")[1]
+            if layer not in ["0", "1"]:  # Layer 0 = transformer, 1 = fragment predictor
                 param.requires_grad = False
     else:
-        raise NotImplementedError(f'Unknown Finetune Strategy: {strategy}')
-    
+        raise NotImplementedError(f"Unknown Finetune Strategy: {strategy}")
+
+
 def apply_decoder_finetuning(model, strategy):
     if strategy is None:
         pass
-    elif strategy == 'freeze':
+    elif strategy == "freeze":
         for param in model.decoder.parameters():
             param.requires_grad = False
-    elif strategy == 'ft-input':
+    elif strategy == "ft-input":
         for p in model.decoder.named_parameters():
-            layer_name = p[0].split('.')[0]
-            if layer_name not in ['mlp_in_X', 'mlp_in_E', 'mlp_in_y']:
+            layer_name = p[0].split(".")[0]
+            if layer_name not in ["mlp_in_X", "mlp_in_E", "mlp_in_y"]:
                 p[1].requires_grad = False
-    elif strategy == 'freeze-input':
+    elif strategy == "freeze-input":
         for p in model.decoder.named_parameters():
-            layer_name = p[0].split('.')[0]
-            if layer_name in ['mlp_in_X', 'mlp_in_E', 'mlp_in_y']:
+            layer_name = p[0].split(".")[0]
+            if layer_name in ["mlp_in_X", "mlp_in_E", "mlp_in_y"]:
                 p[1].requires_grad = False
-    elif strategy == 'ft-transformer':
+    elif strategy == "ft-transformer":
         for param in model.decoder.parameters():
             param.requires_grad = False
         for param in model.decoder.tf_layers.parameters():
             param.requires_grad = True
-    elif strategy == 'freeze-transformer':
+    elif strategy == "freeze-transformer":
         for param in model.decoder.tf_layers.parameters():
             param.requires_grad = False
-    elif strategy == 'ft-output':
+    elif strategy == "ft-output":
         for p in model.decoder.named_parameters():
-            layer_name = p[0].split('.')[0]
-            if layer_name not in ['mlp_out_X', 'mlp_out_E', 'mlp_out_y']:
+            layer_name = p[0].split(".")[0]
+            if layer_name not in ["mlp_out_X", "mlp_out_E", "mlp_out_y"]:
                 p[1].requires_grad = False
     else:
-        raise NotImplementedError(f'Unknown Finetune Strategy: {strategy}')
+        raise NotImplementedError(f"Unknown Finetune Strategy: {strategy}")
+
 
 def load_weights(model, path):
     """
     Loads only the weights from a checkpoint file into the model without loading the full Lightning module.
-    
+
     Args:
         model: The model to load weights into
         path: Path to the checkpoint file
-        
+
     Returns:
         The model with loaded weights
     """
-    checkpoint = torch.load(path, map_location=torch.device('cpu'))
-    state_dict = checkpoint['state_dict'] if 'state_dict' in checkpoint else checkpoint
-    
+    checkpoint = torch.load(path, map_location=torch.device("cpu"))
+    state_dict = checkpoint["state_dict"] if "state_dict" in checkpoint else checkpoint
+
     # Filter out keys that don't match the model (for partial loading)
     model_state_dict = model.state_dict()
     filtered_state_dict = {k: v for k, v in state_dict.items() if k in model_state_dict}
-    
+
     # Load the weights
-    missing_keys, unexpected_keys = model.load_state_dict(filtered_state_dict, strict=False)
+    missing_keys, unexpected_keys = model.load_state_dict(
+        filtered_state_dict, strict=False
+    )
     logging.info(f"Loaded weights from {path}")
     logging.info(f"Missing keys: {missing_keys}")
     logging.info(f"Unexpected keys: {unexpected_keys}")
-    
+
     return model
 
-@hydra.main(version_base='1.3', config_path='../configs', config_name='config_encoder')
+
+@hydra.main(version_base="1.3", config_path="../configs", config_name="config_encoder")
 def main(cfg: DictConfig):
     name: str = cfg.general.name
-    resume: str | None = cfg.general.resume # Resume path or None
-    utils.make_result_dirs(['preds/', 'logs/', 'models/', f'logs/{name}'])
+    resume: str | None = cfg.general.resume  # Resume path or None
+    utils.make_result_dirs(["preds/", "logs/", "models/", f"logs/{name}"])
     logger = logging.getLogger("msms_main")
     logger.setLevel(logging.INFO)
 
@@ -211,35 +217,55 @@ def main(cfg: DictConfig):
 
     logger.addHandler(fh)
 
-    logging.info('Read config')
+    logging.info("Read config")
     logging.info(f"Output directory: {os.getcwd()}")
     logging.info(cfg)
 
     dataset_config = cfg["dataset"]
 
-    if dataset_config["name"] not in ("canopus", "msg", "neims", "neims_tms", 
-                                      "msg_neims", "mixed_augment_test", "mixed_augment"):
+    if dataset_config["name"] not in (
+        "canopus",
+        "msg",
+        "neims",
+        "neims_tms",
+        "msg_neims",
+        "mixed_augment_test",
+        "mixed_augment",
+    ):
         raise NotImplementedError("Unknown dataset {}".format(cfg["dataset"]))
 
-    datamodule = spec2mol_dataset.Spec2MolDataModule(cfg) # TODO: Add hyper for n_bits
+    datamodule = spec2mol_dataset.Spec2MolDataModule(cfg)  # TODO: Add hyper for n_bits
     dataset_infos = spec2mol_dataset.Spec2MolDatasetInfos(datamodule, cfg)
 
     domain_features = ExtraMolecularFeatures(dataset_infos=dataset_infos)
     if cfg.model.extra_features is not None:
-        extra_features = ExtraFeatures(cfg.model.extra_features, dataset_info=dataset_infos)
+        extra_features = ExtraFeatures(
+            cfg.model.extra_features, dataset_info=dataset_infos
+        )
     else:
         extra_features = DummyExtraFeatures()
 
-    dataset_infos.compute_input_output_dims(datamodule=datamodule, extra_features=extra_features, domain_features=domain_features)
+    dataset_infos.compute_input_output_dims(
+        datamodule=datamodule,
+        extra_features=extra_features,
+        domain_features=domain_features,
+    )
 
     logging.info("Dataset infos:", dataset_infos.output_dims)
     train_metrics = TrainMolecularMetricsDiscrete(dataset_infos)
 
     # We do not evaluate novelty during training
-    visualization_tools = MolecularVisualization(cfg.dataset.remove_h, dataset_infos=dataset_infos)
+    visualization_tools = MolecularVisualization(
+        cfg.dataset.remove_h, dataset_infos=dataset_infos
+    )
 
-    model_kwargs = {'dataset_infos': dataset_infos, 'train_metrics': train_metrics, 'visualization_tools': visualization_tools,
-                    'extra_features': extra_features, 'domain_features': domain_features}
+    model_kwargs = {
+        "dataset_infos": dataset_infos,
+        "train_metrics": train_metrics,
+        "visualization_tools": visualization_tools,
+        "extra_features": extra_features,
+        "domain_features": domain_features,
+    }
 
     if cfg.general.test_only:
         # When testing, previous configuration is fully loaded
@@ -251,47 +277,55 @@ def main(cfg: DictConfig):
         logging.info("Read checkpoint config from get_resume_adaptive()")
     else:
         model = Spec2MolDenoisingDiffusion(cfg=cfg, **model_kwargs)
-    
-    utils.log_nonstatic_cfg(cfg) # pretty print important params of the configs
+
+    utils.log_nonstatic_cfg(cfg)  # pretty print important params of the configs
 
     callbacks = []
-    callbacks.append(LearningRateMonitor(logging_interval='step'))
-    if cfg.train.save_model: # TODO: More advanced checkpointing
-        checkpoint_callback = ModelCheckpoint(dirpath=f"checkpoints/{name}", # best (top-5) checkpoints
-                                              filename='{epoch}',
-                                              monitor='val/NLL',
-                                              save_top_k=1,
-                                              mode='min',
-                                              every_n_epochs=1)
-        last_ckpt_save = ModelCheckpoint(dirpath=f"checkpoints/{name}", filename='last', every_n_epochs=1) # most recent checkpoint
+    callbacks.append(LearningRateMonitor(logging_interval="step"))
+    if cfg.train.save_model:  # TODO: More advanced checkpointing
+        checkpoint_callback = ModelCheckpoint(
+            dirpath=f"checkpoints/{name}",  # best (top-5) checkpoints
+            filename="{epoch}",
+            monitor="val/NLL",
+            save_top_k=1,
+            mode="min",
+            every_n_epochs=1,
+        )
+        last_ckpt_save = ModelCheckpoint(
+            dirpath=f"checkpoints/{name}", filename="last", every_n_epochs=1
+        )  # most recent checkpoint
         callbacks.append(last_ckpt_save)
         callbacks.append(checkpoint_callback)
 
-    if name == 'debug':
+    if name == "debug":
         logging.warning("Run is called 'debug' -- it will run with fast_dev_run. ")
 
     loggers = [
         CSVLogger(save_dir=f"logs/{name}", name=name),
     ]
 
-    trainer_strategy = getattr(cfg.train, 'trainer_strategy', 'ddp_find_unused_parameters_true')
+    trainer_strategy = getattr(
+        cfg.train, "trainer_strategy", "ddp_find_unused_parameters_true"
+    )
     use_gpu = cfg.general.gpus > 0
-    trainer = Trainer(gradient_clip_val=cfg.train.clip_grad,
-                      strategy=trainer_strategy,  # ddp needed to load old checkpoints
-                      accelerator='gpu' if use_gpu else 'cpu',
-                      devices=cfg.general.gpus if use_gpu else 1,
-                      max_epochs=cfg.train.n_epochs,
-                      check_val_every_n_epoch=cfg.general.check_val_every_n_epochs,
-                      fast_dev_run=name == 'debug',
-                      callbacks=callbacks,
-                      log_every_n_steps=50 if name != 'debug' else 1,
-                      limit_val_batches=cfg.train.limit_val_batches,
-                      logger=loggers)
-    
+    trainer = Trainer(
+        gradient_clip_val=cfg.train.clip_grad,
+        strategy=trainer_strategy,  # ddp needed to load old checkpoints
+        accelerator="gpu" if use_gpu else "cpu",
+        devices=cfg.general.gpus if use_gpu else 1,
+        max_epochs=cfg.train.n_epochs,
+        check_val_every_n_epoch=cfg.general.check_val_every_n_epochs,
+        fast_dev_run=name == "debug",
+        callbacks=callbacks,
+        log_every_n_steps=50 if name != "debug" else 1,
+        limit_val_batches=cfg.train.limit_val_batches,
+        logger=loggers,
+    )
+
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
         try:
-            torch.set_float32_matmul_precision('medium')
+            torch.set_float32_matmul_precision("medium")
         except:
             logging.info("Could not enable float32 matmul precision - medium")
 
@@ -303,10 +337,14 @@ def main(cfg: DictConfig):
 
     if not cfg.general.test_only:
         trainer.fit(model, datamodule=datamodule, ckpt_path=resume)
-        if name not in ['debug', 'test'] and not getattr(cfg.general, "skip_test", False):
-            trainer.test(model, datamodule=datamodule, ckpt_path=cfg.general.checkpoint_strategy)
+        if name not in ["debug", "test"] and not getattr(
+            cfg.general, "skip_test", False
+        ):
+            trainer.test(
+                model, datamodule=datamodule, ckpt_path=cfg.general.checkpoint_strategy
+            )
         else:
-            logging.info('Skipped test epoch')
+            logging.info("Skipped test epoch")
     else:
         # Start by evaluating test_only_path
         trainer.test(model, datamodule=datamodule)
@@ -315,12 +353,13 @@ def main(cfg: DictConfig):
             logging.info("Directory:", directory)
             files_list = os.listdir(directory)
             for file in files_list:
-                if '.ckpt' in file:
+                if ".ckpt" in file:
                     ckpt_path = os.path.join(directory, file)
                     if ckpt_path == cfg.general.test_only:
                         continue
                     logging.info("Loading checkpoint", ckpt_path)
                     trainer.test(model, datamodule=datamodule, ckpt_path=ckpt_path)
-        
-if __name__ == '__main__':
+
+
+if __name__ == "__main__":
     main()

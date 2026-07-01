@@ -1,6 +1,6 @@
 """
-This script extracts the encoder and/or decoder weights from a PyTorch Lightning checkpoint (.ckpt) 
-and saves them as standalone .pt files. This is useful when you want to re-use, fine-tune, or 
+This script extracts the encoder and/or decoder weights from a PyTorch Lightning checkpoint (.ckpt)
+and saves them as standalone .pt files. This is useful when you want to re-use, fine-tune, or
 analyze specific parts of a trained model independently.
 
 Supported prefixes:
@@ -12,11 +12,17 @@ import torch
 import argparse
 import os
 
-def extract_weights(ckpt_path: str, output_dir: str, extract_encoder: bool = True, extract_decoder: bool = True):
+
+def extract_weights(
+    ckpt_path: str,
+    output_dir: str,
+    extract_encoder: bool = True,
+    extract_decoder: bool = True,
+):
     """
     Extract encoder and/or decoder weights from a PyTorch Lightning checkpoint and save them as standalone .pt files.
 
-    This function decouples specific components of a Lightning-trained model, making it easier to 
+    This function decouples specific components of a Lightning-trained model, making it easier to
     re-use parts of the model architecture such as the encoder or decoder independently of the rest.
 
     Args:
@@ -36,8 +42,8 @@ def extract_weights(ckpt_path: str, output_dir: str, extract_encoder: bool = Tru
         Saved encoder weights to weights/encoder.pt
         Saved decoder weights to weights/decoder.pt
     """
-    ckpt = torch.load(ckpt_path, map_location='cpu')
-    state_dict = ckpt['state_dict'] if 'state_dict' in ckpt else ckpt
+    ckpt = torch.load(ckpt_path, map_location="cpu")
+    state_dict = ckpt["state_dict"] if "state_dict" in ckpt else ckpt
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -53,7 +59,7 @@ def extract_weights(ckpt_path: str, output_dir: str, extract_encoder: bool = Tru
             torch.save(encoder_weights, encoder_path)
             print(f"Saved encoder weights to {encoder_path}")
         except:
-            print(f'Failed to extract encoder weights')
+            print(f"Failed to extract encoder weights")
 
     if extract_decoder:
         try:
@@ -69,14 +75,23 @@ def extract_weights(ckpt_path: str, output_dir: str, extract_encoder: bool = Tru
             torch.save(decoder_weights, decoder_path)
             print(f"Saved decoder weights to {decoder_path}")
         except:
-            print(f'Failed to extract decoder weights')
+            print(f"Failed to extract decoder weights")
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Extract encoder and/or decoder weights from a Lightning checkpoint.")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Extract encoder and/or decoder weights from a Lightning checkpoint."
+    )
     parser.add_argument("ckpt_path", type=str, help="Path to the .ckpt file")
-    parser.add_argument("output_dir", type=str, help="Directory to save the extracted .pt files")
-    parser.add_argument("--encoder", action="store_true", help="Extract encoder weights")
-    parser.add_argument("--decoder", action="store_true", help="Extract decoder weights")
+    parser.add_argument(
+        "output_dir", type=str, help="Directory to save the extracted .pt files"
+    )
+    parser.add_argument(
+        "--encoder", action="store_true", help="Extract encoder weights"
+    )
+    parser.add_argument(
+        "--decoder", action="store_true", help="Extract decoder weights"
+    )
 
     args = parser.parse_args()
 

@@ -13,12 +13,13 @@ random.seed(42)
 
 RDLogger.logger().setLevel(RDLogger.CRITICAL)
 
-FILTER_ATOMS = {'C', 'N', 'S', 'O', 'F', 'Cl', 'H', 'P', 'B', 'Br', 'I', 'Si'}
+FILTER_ATOMS = {"C", "N", "S", "O", "F", "Cl", "H", "P", "B", "Br", "I", "Si"}
 
 
 # ---------------------------------------------------------------------------
 # Shared mol utilities
 # ---------------------------------------------------------------------------
+
 
 def _canonicalize(smi: str):
     """Return (canonical_mol, canonical_smi) with stereo stripped, or (None, None)."""
@@ -30,8 +31,9 @@ def _canonicalize(smi: str):
         return None, None
 
 
-def _passes_filter(mol, filter_atoms: bool = True,
-                   max_heavy_atoms: Optional[int] = None) -> bool:
+def _passes_filter(
+    mol, filter_atoms: bool = True, max_heavy_atoms: Optional[int] = None
+) -> bool:
     if mol is None:
         return False
     try:
@@ -61,6 +63,7 @@ def _to_inchi(mol) -> Optional[str]:
 # Base class
 # ---------------------------------------------------------------------------
 
+
 class DataPreprocessor(ABC):
     """Base class for fp2mol dataset preprocessing."""
 
@@ -86,14 +89,20 @@ class DataPreprocessor(ABC):
 # Spectral datasets  (labels.tsv + split.tsv, pre-defined train/test/val)
 # ---------------------------------------------------------------------------
 
+
 class SpectralDataPreprocessor(DataPreprocessor):
     """
     Handles datasets that ship with labels.tsv and split.tsv.
     Train split is filtered and deduplicated; test/val are kept as-is.
     """
 
-    def __init__(self, name: str, data_dir: Union[str, Path], output_dir: Union[str, Path],
-                 split_file: str = "split.tsv"):
+    def __init__(
+        self,
+        name: str,
+        data_dir: Union[str, Path],
+        output_dir: Union[str, Path],
+        split_file: str = "split.tsv",
+    ):
         self.name = name
         self.data_dir = Path(data_dir)
         self.output_dir = Path(output_dir)
@@ -110,8 +119,9 @@ class SpectralDataPreprocessor(DataPreprocessor):
         df = self._load()
         train, test, val = [], [], []
 
-        for _, row in tqdm(df.iterrows(), total=len(df),
-                           desc=f"Processing {self.name}", leave=False):
+        for _, row in tqdm(
+            df.iterrows(), total=len(df), desc=f"Processing {self.name}", leave=False
+        ):
             inchi = self._smiles_to_inchi(row["smiles"], filter_atoms=True)
             if inchi is None:
                 continue
@@ -123,8 +133,8 @@ class SpectralDataPreprocessor(DataPreprocessor):
                 val.append(inchi)
 
         self._save_split(set(train), self.output_dir / f"{self.name}_train.csv")
-        self._save_split(test,       self.output_dir / f"{self.name}_test.csv")
-        self._save_split(val,        self.output_dir / f"{self.name}_val.csv")
+        self._save_split(test, self.output_dir / f"{self.name}_test.csv")
+        self._save_split(val, self.output_dir / f"{self.name}_val.csv")
 
         return set(test) | set(val)
 
@@ -132,8 +142,12 @@ class SpectralDataPreprocessor(DataPreprocessor):
         """Return test+val InChIs without writing any output."""
         df = self._load()
         exclusions: Set[str] = set()
-        for _, row in tqdm(df.iterrows(), total=len(df),
-                           desc=f"Collecting exclusions from {self.name}", leave=False):
+        for _, row in tqdm(
+            df.iterrows(),
+            total=len(df),
+            desc=f"Collecting exclusions from {self.name}",
+            leave=False,
+        ):
             if row["split"] in ("test", "val"):
                 inchi = self._smiles_to_inchi(row["smiles"], filter_atoms=True)
                 if inchi:
@@ -144,6 +158,7 @@ class SpectralDataPreprocessor(DataPreprocessor):
 # ---------------------------------------------------------------------------
 # Structure-only datasets  (raw SMILES, auto 95/5 split)
 # ---------------------------------------------------------------------------
+
 
 class StructureDataPreprocessor(DataPreprocessor):
     """
@@ -174,10 +189,10 @@ class StructureDataPreprocessor(DataPreprocessor):
         random.shuffle(inchis)
         split_idx = int((1 - self.val_frac) * len(inchis))
         train = [i for i in inchis[:split_idx] if i not in excluded_inchis]
-        val   = inchis[split_idx:]
+        val = inchis[split_idx:]
 
         self._save_split(train, self.output_dir / f"{self.name}_train.csv")
-        self._save_split(val,   self.output_dir / f"{self.name}_val.csv")
+        self._save_split(val, self.output_dir / f"{self.name}_val.csv")
 
         return set()  # structure-only datasets don't contribute to exclusions
 
@@ -185,6 +200,7 @@ class StructureDataPreprocessor(DataPreprocessor):
 # ---------------------------------------------------------------------------
 # Concrete structure dataset loaders
 # ---------------------------------------------------------------------------
+
 
 class HMDBPreprocessor(StructureDataPreprocessor):
     def __init__(self, sdf_path: Union[str, Path], output_dir: Union[str, Path]):
@@ -204,7 +220,9 @@ class HMDBPreprocessor(StructureDataPreprocessor):
 
 
 class DSSToxPreprocessor(StructureDataPreprocessor):
-    def __init__(self, raw_dir: Union[str, Path], output_dir: Union[str, Path], n_files: int = 13):
+    def __init__(
+        self, raw_dir: Union[str, Path], output_dir: Union[str, Path], n_files: int = 13
+    ):
         super().__init__("dss", output_dir)
         self.raw_dir = Path(raw_dir)
         self.n_files = n_files
@@ -220,8 +238,13 @@ class DSSToxPreprocessor(StructureDataPreprocessor):
 class CSVSmilesPreprocessor(StructureDataPreprocessor):
     """Generic loader for a single CSV with a named SMILES column."""
 
-    def __init__(self, name: str, csv_path: Union[str, Path], smiles_col: str,
-                 output_dir: Union[str, Path]):
+    def __init__(
+        self,
+        name: str,
+        csv_path: Union[str, Path],
+        smiles_col: str,
+        output_dir: Union[str, Path],
+    ):
         super().__init__(name, output_dir)
         self.csv_path = Path(csv_path)
         self.smiles_col = smiles_col
@@ -232,8 +255,12 @@ class CSVSmilesPreprocessor(StructureDataPreprocessor):
 
 
 class ATMOMACSPreprocessor(StructureDataPreprocessor):
-    def __init__(self, data_dir: Union[str, Path], output_dir: Union[str, Path],
-                 datasets: Tuple[str, ...] = ("wang", "li", "ferraz-caetano", "kruger-broad")):
+    def __init__(
+        self,
+        data_dir: Union[str, Path],
+        output_dir: Union[str, Path],
+        datasets: Tuple[str, ...] = ("wang", "li", "ferraz-caetano", "kruger-broad"),
+    ):
         super().__init__("atmomaccs", output_dir)
         self.data_dir = Path(data_dir)
         self.datasets = datasets
@@ -241,8 +268,9 @@ class ATMOMACSPreprocessor(StructureDataPreprocessor):
     def load_raw_smiles(self) -> Set[str]:
         smiles = set()
         for ds in self.datasets:
-            arr = np.loadtxt(self.data_dir / f"{ds}-smiles.txt",
-                             dtype=np.str_, comments=None)
+            arr = np.loadtxt(
+                self.data_dir / f"{ds}-smiles.txt", dtype=np.str_, comments=None
+            )
             smiles.update(arr.tolist())
         return smiles
 
@@ -251,11 +279,16 @@ class ATMOMACSPreprocessor(StructureDataPreprocessor):
 # Combined dataset — merges all structure sources
 # ---------------------------------------------------------------------------
 
+
 class CombinedPreprocessor(DataPreprocessor):
     """Merges InChI pools from multiple StructureDataPreprocessors into one dataset."""
 
-    def __init__(self, sources: List[StructureDataPreprocessor], output_dir: Union[str, Path],
-                 val_frac: float = 0.05):
+    def __init__(
+        self,
+        sources: List[StructureDataPreprocessor],
+        output_dir: Union[str, Path],
+        val_frac: float = 0.05,
+    ):
         self.sources = sources
         self.output_dir = Path(output_dir)
         self.val_frac = val_frac
@@ -264,7 +297,9 @@ class CombinedPreprocessor(DataPreprocessor):
         all_inchis: Set[str] = set()
         for src in self.sources:
             raw = src.load_raw_smiles()
-            for smi in tqdm(raw, desc=f"Filtering {src.name} for combined", leave=False):
+            for smi in tqdm(
+                raw, desc=f"Filtering {src.name} for combined", leave=False
+            ):
                 inchi = src._smiles_to_inchi(smi, filter_atoms=True)
                 if inchi:
                     all_inchis.add(inchi)
@@ -273,10 +308,10 @@ class CombinedPreprocessor(DataPreprocessor):
         random.shuffle(inchis)
         split_idx = int((1 - self.val_frac) * len(inchis))
         train = [i for i in inchis[:split_idx] if i not in excluded_inchis]
-        val   = inchis[split_idx:]
+        val = inchis[split_idx:]
 
         self._save_split(train, self.output_dir / "combined_train.csv")
-        self._save_split(val,   self.output_dir / "combined_val.csv")
+        self._save_split(val, self.output_dir / "combined_val.csv")
 
         return set()
 
@@ -284,6 +319,7 @@ class CombinedPreprocessor(DataPreprocessor):
 # ---------------------------------------------------------------------------
 # Dataset registry
 # ---------------------------------------------------------------------------
+
 
 def _build_registry(data: Path, fp2mol: Path):
     spectral: List[SpectralDataPreprocessor] = [
@@ -403,17 +439,19 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Preprocess fp2mol datasets.")
     parser.add_argument(
-        "--dataset", "-d",
+        "--dataset",
+        "-d",
         metavar="NAME",
         help="Run only this dataset. Omit to run all.",
     )
     parser.add_argument(
-        "--exclude-from", "-e",
+        "--exclude-from",
+        "-e",
         nargs="+",
         metavar="NAME",
         dest="exclude_from",
         help="Spectral dataset names whose test/val InChIs are excluded from training "
-             "(default when running a single dataset: none).",
+        "(default when running a single dataset: none).",
     )
     parser.add_argument(
         "--data-dir",
@@ -428,11 +466,11 @@ if __name__ == "__main__":
         metavar="N",
         dest="max_heavy_atoms",
         help="Drop molecules with more than N heavy (non-hydrogen) atoms. "
-             "Omit to keep all sizes (default: no cap).",
+        "Omit to keep all sizes (default: no cap).",
     )
     args = parser.parse_args()
 
-    DATA   = Path(args.data_dir)
+    DATA = Path(args.data_dir)
     FP2MOL = DATA / "fp2mol"
 
     spectral_datasets, structure_datasets, combined = _build_registry(DATA, FP2MOL)
@@ -453,9 +491,11 @@ if __name__ == "__main__":
         # Full run: collect exclusions from every spectral dataset
         exclude_sources = list(spectral_by_name.keys())
 
-    for name in (exclude_sources or []):
+    for name in exclude_sources or []:
         if name not in spectral_by_name:
-            print(f"[WARN] --exclude-from '{name}' is not a known spectral dataset, skipping.")
+            print(
+                f"[WARN] --exclude-from '{name}' is not a known spectral dataset, skipping."
+            )
             continue
         try:
             excluded_inchis |= spectral_by_name[name].get_exclusions()

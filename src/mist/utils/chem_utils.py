@@ -122,18 +122,20 @@ ion_to_add_vec = {
     "[M-H4O2+H]+": -element_to_position["O"] * 2 - element_to_position["H"] * 3,
 }
 
-instrument_to_type = defaultdict(lambda : "unknown")
-instrument_to_type.update({
-    "Thermo Finnigan Velos Orbitrap": "orbitrap",
-    "Thermo Finnigan Elite Orbitrap": "orbitrap",
-    "Orbitrap Fusion Lumos": "orbitrap",
-    "Q-ToF (LCMS)": "qtof",
-    "Unknown (LCMS)": "unknown",
-    "ion trap": "iontrap",
-    "FTICR (LCMS)": "fticr",
-    "Bruker Q-ToF (LCMS)": "qtof",
-    "Orbitrap (LCMS)": "orbitrap",
-})
+instrument_to_type = defaultdict(lambda: "unknown")
+instrument_to_type.update(
+    {
+        "Thermo Finnigan Velos Orbitrap": "orbitrap",
+        "Thermo Finnigan Elite Orbitrap": "orbitrap",
+        "Orbitrap Fusion Lumos": "orbitrap",
+        "Q-ToF (LCMS)": "qtof",
+        "Unknown (LCMS)": "unknown",
+        "ion trap": "iontrap",
+        "FTICR (LCMS)": "fticr",
+        "Bruker Q-ToF (LCMS)": "qtof",
+        "Orbitrap (LCMS)": "orbitrap",
+    }
+)
 
 instruments = sorted(list(set(instrument_to_type.values())))
 max_instr_idx = len(instruments) + 1
@@ -161,7 +163,7 @@ def get_instr_idx(instrument: str) -> int:
 
 def has_valid_els(chem_formula: str) -> bool:
     """has_valid_els"""
-    for (chem_symbol, num) in re.findall(CHEM_FORMULA_SIZE, chem_formula):
+    for chem_symbol, num in re.findall(CHEM_FORMULA_SIZE, chem_formula):
         if chem_symbol not in VALID_ELEMENTS:
             return False
     return True
@@ -177,7 +179,7 @@ def formula_to_dense(chem_formula: str) -> np.ndarray:
 
     """
     total_onehot = []
-    for (chem_symbol, num) in re.findall(CHEM_FORMULA_SIZE, chem_formula):
+    for chem_symbol, num in re.findall(CHEM_FORMULA_SIZE, chem_formula):
         # Convert num to int
         num = 1 if num == "" else int(num)
         one_hot = element_to_position[chem_symbol].reshape(1, -1)
@@ -253,7 +255,7 @@ def formula_to_dense(chem_formula: str) -> np.ndarray:
 
     """
     total_onehot = []
-    for (chem_symbol, num) in re.findall(CHEM_FORMULA_SIZE, chem_formula):
+    for chem_symbol, num in re.findall(CHEM_FORMULA_SIZE, chem_formula):
         # Convert num to int
         num = 1 if num == "" else int(num)
         one_hot = element_to_position[chem_symbol].reshape(1, -1)
@@ -281,7 +283,7 @@ def formula_to_dense_mass(chem_formula: str) -> np.ndarray:
 
     """
     total_onehot = []
-    for (chem_symbol, num) in re.findall(CHEM_FORMULA_SIZE, chem_formula):
+    for chem_symbol, num in re.findall(CHEM_FORMULA_SIZE, chem_formula):
         # Convert num to int
         num = 1 if num == "" else int(num)
         one_hot = element_to_position_mass[chem_symbol].reshape(1, -1)
@@ -317,7 +319,7 @@ def formula_to_dense_mass_norm(chem_formula: str) -> np.ndarray:
 def formula_mass(chem_formula: str) -> float:
     """get formula mass"""
     mass = 0
-    for (chem_symbol, num) in re.findall(CHEM_FORMULA_SIZE, chem_formula):
+    for chem_symbol, num in re.findall(CHEM_FORMULA_SIZE, chem_formula):
         # Convert num to int
         num = 1 if num == "" else int(num)
         mass += ELEMENT_TO_MASS[chem_symbol] * num
@@ -524,7 +526,7 @@ def atoms_from_smi(smi: str) -> int:
 
 def has_valid_els(chem_formula: str) -> bool:
     """has_valid_els"""
-    for (chem_symbol, num) in re.findall(CHEM_FORMULA_SIZE, chem_formula):
+    for chem_symbol, num in re.findall(CHEM_FORMULA_SIZE, chem_formula):
         if chem_symbol not in VALID_ELEMENTS:
             return False
     return True
