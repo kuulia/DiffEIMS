@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=tr_diffms_ddp
 #SBATCH --output=outfiles/ddp_%j.out
-#SBATCH --time=01:00:00
+#SBATCH --time=08:00:00
 #SBATCH --account=project_462001155
-#SBATCH --partition=dev-g
+#SBATCH --partition=standard-g
 #SBATCH --nodes=2
 #SBATCH --ntasks-per-node=8        # one task per GCD; torchrun is NOT used
 #SBATCH --gpus-per-node=8          # 8 GCDs per node (4 x MI250X)
@@ -34,7 +34,7 @@ export MASTER_PORT=29500
 # ---------------------------------------------------------------------------
 export NCCL_SOCKET_IFNAME=hsn0,hsn1
 export NCCL_NET_GDR_LEVEL=3          # enable GPU Direct RDMA over RoCE
-export NCCL_DEBUG=INFO               # verbose RCCL init — revert to WARN once stable
+export NCCL_DEBUG=WARN               # raise to INFO only for debugging hangs
 export NCCL_TIMEOUT=3600             # collective timeout (seconds)
 
 # ---------------------------------------------------------------------------
