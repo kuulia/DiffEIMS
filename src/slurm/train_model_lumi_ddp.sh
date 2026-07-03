@@ -78,10 +78,12 @@ export WORLD_SIZE=$((SLURM_NNODES * SLURM_NTASKS_PER_NODE))
 # Variables that differ per task (SLURM_PROCID, SLURM_LOCALID) are escaped
 # with \$ so they are evaluated at runtime inside each srun task.
 # ---------------------------------------------------------------------------
-# Pre-create per-rank cache dirs on both nodes so srun tasks don't race on mkdir.
-# srun with --ntasks-per-node=8 runs this loop on every node in the allocation.
+# Pre-create cache dirs before srun so tasks don't race on mkdir.
+# Persistent ROCm/RCCL cache on scratch (survives across jobs — saves 10-20 min
+# first-time RCCL kernel compilation on every subsequent run).
+for i in $(seq 0 7); do mkdir -p $REAL/.rocm_cache/$i; done
+# MIOpen per-rank dirs on node-local /tmp (re-created each job, that's fine).
 srun --ntasks-per-node=8 bash -c "
-    mkdir -p /tmp/${USER}-cache-${SLURM_JOB_ID}-\$SLURM_LOCALID
     mkdir -p /tmp/${USER}-miopen-${SLURM_JOB_ID}-\$SLURM_LOCALID
 "
 
@@ -99,10 +101,13 @@ srun --cpu-bind=cores \
         export RANK=\$SLURM_PROCID
         export LOCAL_RANK=\$SLURM_LOCALID
 
-        # Per-task cache dirs: all on node-local /tmp so no Lustre quota is touched.
-        # XDG_CACHE_HOME redirects ~/.cache which ROCm/HIP uses for JIT bitcode;
-        # without this 16 ranks hammer the home-directory quota during dist init.
-        export XDG_CACHE_HOME=/tmp/${USER}-cache-${SLURM_JOB_ID}-\$SLURM_LOCALID
+        # ROCm / RCCL kernel cache — must be on persistent scratch so compiled
+        # kernels survive across jobs (first-time RCCL compilation takes 10-20 min;
+        # /tmp is wiped per job so without this every job pays the full compile cost).
+        # Per-rank subdirs avoid quota contention on simultaneous writes.
+        export XDG_CACHE_HOME=$REAL/.rocm_cache/\$SLURM_LOCALID
+        # MIOpen user DB — per-rank on /tmp (node-local, fast; MIOpen re-compiles
+        # per run anyway and the files are small enough not to matter).
         export MIOPEN_USER_DB_PATH=/tmp/${USER}-miopen-${SLURM_JOB_ID}-\$SLURM_LOCALID
         export MIOPEN_CUSTOM_CACHE_DIR=\$MIOPEN_USER_DB_PATH
 

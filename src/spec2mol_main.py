@@ -468,7 +468,25 @@ def main(cfg: DictConfig):
             logging.info("Could not set float32 matmul precision")
 
     # ------------------------------------------------------------------
-    # 14. Trainer
+    # 14. Profiler (rank 0 only — avoids 16x trace files in DDP)
+    # ------------------------------------------------------------------
+    profiler = None
+    profiler_type = getattr(cfg.train, "profiler", None)
+    if profiler_type and global_rank == 0:
+        if profiler_type == "simple":
+            from pytorch_lightning.profilers import SimpleProfiler
+            profiler = SimpleProfiler(dirpath=f"logs/{name}", filename="profiler")
+        elif profiler_type == "pytorch":
+            from pytorch_lightning.profilers import PyTorchProfiler
+            profiler = PyTorchProfiler(
+                dirpath=f"logs/{name}/profiler",
+                filename="trace",
+                emit_nvtx=False,
+                export_to_chrome=True,
+            )
+
+    # ------------------------------------------------------------------
+    # 15. Trainer
     # ------------------------------------------------------------------
     if name == "debug":
         logging.warning("Run is named 'debug' — fast_dev_run will be used.")
@@ -488,8 +506,8 @@ def main(cfg: DictConfig):
         log_every_n_steps=50 if name != "debug" else 1,
         limit_val_batches=limit_val_batches,
         logger=loggers,
-        # Ensure Lightning uses the existing process group initialized by torchrun
-        # without spawning its own processes.
+        enable_progress_bar=getattr(cfg.train, "progress_bar", False),
+        profiler=profiler,
     )
 
     # ------------------------------------------------------------------
