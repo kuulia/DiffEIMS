@@ -271,9 +271,18 @@ def main(cfg: DictConfig):
     local_rank, global_rank, world_size = _ddp_env()
     is_ddp = world_size > 1
 
+    def _ckpt(label: str):
+        """Print a timestamped checkpoint visible from all ranks."""
+        import datetime
+        ts = datetime.datetime.now().strftime("%H:%M:%S")
+        print(f"[{ts}][rank{global_rank:02d}] {label}", flush=True)
+
+    _ckpt("started main()")
+
     # Point each DDP rank to its GPU before any CUDA call
     if is_ddp and torch.cuda.is_available():
         torch.cuda.set_device(local_rank)
+    _ckpt("cuda device set")
 
     # ------------------------------------------------------------------
     # 1. Logging (only rank 0 prints to avoid interleaved output)
@@ -331,18 +340,22 @@ def main(cfg: DictConfig):
     # ------------------------------------------------------------------
     # 3. Ensure stat files exist (sentinel-file coordination, no dist init)
     # ------------------------------------------------------------------
+    _ckpt("before _ensure_stats_ready")
     _ensure_stats_ready(cfg, global_rank, is_ddp)
+    _ckpt("after _ensure_stats_ready")
 
     # ------------------------------------------------------------------
     # 4. Build DataModule (lightweight — no I/O in __init__)
     # ------------------------------------------------------------------
     datamodule = Spec2MolDataModule(cfg)
+    _ckpt("DataModule created")
 
     # ------------------------------------------------------------------
     # 5. Build DatasetInfos from pre-existing stat files
     #    (pure file reads + static dim computation, no DataLoader iteration)
     # ------------------------------------------------------------------
     dataset_infos = Spec2MolDatasetInfos(cfg)
+    _ckpt("DatasetInfos created")
 
     # ------------------------------------------------------------------
     # 6. Extra features (require dataset_infos.max_n_nodes from stat files)
@@ -382,6 +395,7 @@ def main(cfg: DictConfig):
     # ------------------------------------------------------------------
     resume: str | None = cfg.general.resume
 
+    _ckpt("before model construction")
     if cfg.general.test_only:
         cfg, model = get_resume(cfg, model_kwargs)
         logging.info("Loaded model for test_only via get_resume()")
@@ -390,6 +404,7 @@ def main(cfg: DictConfig):
         logging.info("Loaded model for adaptive resume via get_resume_adaptive()")
     else:
         model = Spec2MolDenoisingDiffusion(cfg=cfg, **model_kwargs)
+    _ckpt("model constructed")
 
     utils.log_nonstatic_cfg(cfg)
 
@@ -518,6 +533,7 @@ def main(cfg: DictConfig):
     #   - datamodule.setup('fit')    [all ranks — staggered I/O]
     #   - training loop
     # ------------------------------------------------------------------
+    _ckpt("calling trainer.fit()")
     if not cfg.general.test_only:
         trainer.fit(model, datamodule=datamodule, ckpt_path=resume)
 

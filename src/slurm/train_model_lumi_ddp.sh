@@ -34,7 +34,7 @@ export MASTER_PORT=29500
 # ---------------------------------------------------------------------------
 export NCCL_SOCKET_IFNAME=hsn0,hsn1
 export NCCL_NET_GDR_LEVEL=3          # enable GPU Direct RDMA over RoCE
-export NCCL_DEBUG=WARN               # raise to INFO for debugging hangs
+export NCCL_DEBUG=INFO               # verbose RCCL init — revert to WARN once stable
 export NCCL_TIMEOUT=3600             # collective timeout (seconds)
 
 # ---------------------------------------------------------------------------
@@ -78,13 +78,11 @@ export WORLD_SIZE=$((SLURM_NNODES * SLURM_NTASKS_PER_NODE))
 # Variables that differ per task (SLURM_PROCID, SLURM_LOCALID) are escaped
 # with \$ so they are evaluated at runtime inside each srun task.
 # ---------------------------------------------------------------------------
-# Pre-create cache dirs before srun so tasks don't race on mkdir.
-# Persistent ROCm/RCCL cache on scratch (survives across jobs — saves 10-20 min
-# first-time RCCL kernel compilation on every subsequent run).
-for i in $(seq 0 7); do mkdir -p $REAL/.rocm_cache/$i; done
-# MIOpen per-rank dirs on node-local /tmp (re-created each job, that's fine).
-srun --ntasks-per-node=8 bash -c "
-    mkdir -p /tmp/${USER}-miopen-${SLURM_JOB_ID}-\$SLURM_LOCALID
+# Pre-create per-node per-rank cache dirs so ROCm doesn't race on mkdir.
+# One task per node creates that node's subtree using its SLURM_NODEID (0, 1, ...).
+srun --ntasks-per-node=1 bash -c "
+    for i in \$(seq 0 7); do mkdir -p $REAL/.rocm_cache/\$SLURM_NODEID/\$i; done
+    for i in \$(seq 0 7); do mkdir -p /tmp/${USER}-miopen-${SLURM_JOB_ID}-\$i; done
 "
 
 start_time=$(date +%s)
