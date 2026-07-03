@@ -308,6 +308,9 @@ def main(cfg: DictConfig):
         cfg.train, "trainer_strategy", "ddp_find_unused_parameters_true"
     )
     use_gpu = cfg.general.gpus > 0
+    limit_val_batches = getattr(
+        cfg.train, "limit_val_batches", None
+    )
     trainer = Trainer(
         gradient_clip_val=cfg.train.clip_grad,
         strategy=trainer_strategy,  # ddp needed to load old checkpoints
@@ -318,7 +321,7 @@ def main(cfg: DictConfig):
         fast_dev_run=name == "debug",
         callbacks=callbacks,
         log_every_n_steps=50 if name != "debug" else 1,
-        limit_val_batches=cfg.train.limit_val_batches,
+        limit_val_batches=limit_val_batches,
         logger=loggers,
     )
 

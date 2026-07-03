@@ -468,7 +468,9 @@ def main(cfg: DictConfig):
     # ------------------------------------------------------------------
     if name == "debug":
         logging.warning("Run is named 'debug' — fast_dev_run will be used.")
-
+    limit_val_batches = getattr(
+        cfg.train, "limit_val_batches", None
+    )
     trainer = Trainer(
         gradient_clip_val=cfg.train.clip_grad,
         strategy=trainer_strategy,
@@ -480,7 +482,7 @@ def main(cfg: DictConfig):
         fast_dev_run=(name == "debug"),
         callbacks=callbacks,
         log_every_n_steps=50 if name != "debug" else 1,
-        limit_val_batches=cfg.train.limit_val_batches,
+        limit_val_batches=limit_val_batches,
         logger=loggers,
         # Ensure Lightning uses the existing process group initialized by torchrun
         # without spawning its own processes.
