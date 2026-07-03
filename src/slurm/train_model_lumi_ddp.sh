@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=tr_diffms_ddp
 #SBATCH --output=outfiles/ddp_%j.out
-#SBATCH --time=00:29:00
+#SBATCH --time=01:00:00
 #SBATCH --account=project_462001155
 #SBATCH --partition=dev-g
 #SBATCH --nodes=2
@@ -101,11 +101,12 @@ srun --cpu-bind=cores \
         export RANK=\$SLURM_PROCID
         export LOCAL_RANK=\$SLURM_LOCALID
 
-        # ROCm / RCCL kernel cache — must be on persistent scratch so compiled
-        # kernels survive across jobs (first-time RCCL compilation takes 10-20 min;
-        # /tmp is wiped per job so without this every job pays the full compile cost).
-        # Per-rank subdirs avoid quota contention on simultaneous writes.
-        export XDG_CACHE_HOME=$REAL/.rocm_cache/\$SLURM_LOCALID
+        # ROCm / RCCL kernel cache — persistent on scratch so compiled kernels
+        # survive across jobs (first-time RCCL compilation takes 10-20 min).
+        # MUST include SLURM_NODEID: LOCAL_RANK is 0-7 on BOTH nodes, so without
+        # it node 0 and node 1 write to the same Lustre path simultaneously,
+        # causing ROCm file-lock deadlock and hanging all of node 1's ranks.
+        export XDG_CACHE_HOME=$REAL/.rocm_cache/\$SLURM_NODEID/\$SLURM_LOCALID
         # MIOpen user DB — per-rank on /tmp (node-local, fast; MIOpen re-compiles
         # per run anyway and the files are small enough not to matter).
         export MIOPEN_USER_DB_PATH=/tmp/${USER}-miopen-${SLURM_JOB_ID}-\$SLURM_LOCALID
