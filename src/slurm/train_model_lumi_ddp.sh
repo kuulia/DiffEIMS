@@ -78,6 +78,13 @@ export WORLD_SIZE=$((SLURM_NNODES * SLURM_NTASKS_PER_NODE))
 # Variables that differ per task (SLURM_PROCID, SLURM_LOCALID) are escaped
 # with \$ so they are evaluated at runtime inside each srun task.
 # ---------------------------------------------------------------------------
+# Pre-create per-rank cache dirs on both nodes so srun tasks don't race on mkdir.
+# srun with --ntasks-per-node=8 runs this loop on every node in the allocation.
+srun --ntasks-per-node=8 bash -c "
+    mkdir -p /tmp/${USER}-cache-${SLURM_JOB_ID}-\$SLURM_LOCALID
+    mkdir -p /tmp/${USER}-miopen-${SLURM_JOB_ID}-\$SLURM_LOCALID
+"
+
 start_time=$(date +%s)
 echo "Starting DDP training: ${WORLD_SIZE} ranks (${SLURM_NNODES} nodes x ${SLURM_NTASKS_PER_NODE} GCDs)"
 echo "MASTER: ${MASTER_ADDR}:${MASTER_PORT}  |  WORLD_SIZE: ${WORLD_SIZE}"
@@ -92,8 +99,10 @@ srun --cpu-bind=cores \
         export RANK=\$SLURM_PROCID
         export LOCAL_RANK=\$SLURM_LOCALID
 
-        # Per-task MIOpen cache: include local rank so 8 ranks on same node
-        # don't share one cache directory (causes file-lock contention)
+        # Per-task cache dirs: all on node-local /tmp so no Lustre quota is touched.
+        # XDG_CACHE_HOME redirects ~/.cache which ROCm/HIP uses for JIT bitcode;
+        # without this 16 ranks hammer the home-directory quota during dist init.
+        export XDG_CACHE_HOME=/tmp/${USER}-cache-${SLURM_JOB_ID}-\$SLURM_LOCALID
         export MIOPEN_USER_DB_PATH=/tmp/${USER}-miopen-${SLURM_JOB_ID}-\$SLURM_LOCALID
         export MIOPEN_CUSTOM_CACHE_DIR=\$MIOPEN_USER_DB_PATH
 
