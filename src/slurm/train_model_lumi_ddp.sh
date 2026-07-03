@@ -1,14 +1,14 @@
 #!/bin/bash
 #SBATCH --job-name=tr_diffms_ddp
 #SBATCH --output=outfiles/ddp_%j.out
-#SBATCH --time=08:00:00
+#SBATCH --time=00:29:00
 #SBATCH --account=project_462001155
-#SBATCH --partition=standard-g
+#SBATCH --partition=dev-g
 #SBATCH --nodes=2
 #SBATCH --ntasks-per-node=8        # one task per GCD; torchrun is NOT used
 #SBATCH --gpus-per-node=8          # 8 GCDs per node (4 x MI250X)
-#SBATCH --cpus-per-task=7          # 56 CPUs / 8 GCDs = 7 per GCD
-#SBATCH --mem-per-cpu=1750M        # ~14 GB RAM per GCD
+#SBATCH --cpus-per-task=7          # 56 usable CPUs / 8 GCDs = 7 per GCD (8 cores reserved by ROCm driver)
+#SBATCH --mem=0                    # all available node memory (~512 GB / node)
 
 # ---------------------------------------------------------------------------
 # LUMI: load modules
@@ -46,8 +46,8 @@ export MIOPEN_USER_DB_PATH=/tmp/${USER}-miopen-${SLURM_JOB_ID}-${SLURM_LOCALID}
 export MIOPEN_CUSTOM_CACHE_DIR=$MIOPEN_USER_DB_PATH
 
 # ---------------------------------------------------------------------------
-# Threading — each task already owns 7 CPUs; let OpenMP / MKL use them.
-# Set to 1 to avoid over-subscription with DataLoader workers.
+# Threading — each task owns 7 CPUs; set to 1 to avoid over-subscription
+# with DataLoader workers (cfg.train.num_workers=8 already saturates the cores).
 # ---------------------------------------------------------------------------
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
