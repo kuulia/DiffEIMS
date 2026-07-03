@@ -833,6 +833,7 @@ def get_paired_loader_graph(
     batch_size: int = 32,
     num_workers: int = 0,
     persistent_workers: bool = False,
+    pin_memory: bool = False,
     **kwargs,
 ) -> DataLoader:
     mol_collate_fn = dataset.get_featurizer().get_mol_collate()
@@ -845,10 +846,9 @@ def get_paired_loader_graph(
         graph_collate_fn=graph_collate_fn,
     )
 
-    _persistent_workers = False
-    if num_workers > 0 and persistent_workers:
-        _persistent_workers = True
+    _persistent_workers = num_workers > 0 and persistent_workers
 
+    # sampler=None lets Lightning's DDPStrategy inject DistributedSampler
     return DataLoader(
         dataset,
         batch_size=batch_size,
@@ -858,6 +858,7 @@ def get_paired_loader_graph(
         num_workers=num_workers,
         collate_fn=collate_pairs,
         persistent_workers=_persistent_workers,
+        pin_memory=pin_memory,
     )
 
 

@@ -1,14 +1,18 @@
 #!/bin/bash
 #SBATCH --job-name=tr_diffms_ddp
 #SBATCH --output=outfiles/ddp_%j.out
-#SBATCH --time=00:29:00
+#SBATCH --time=08:00:00
 #SBATCH --account=project_462001155
-#SBATCH --partition=dev-g
+#SBATCH --partition=standard-g
 #SBATCH --nodes=2
-#SBATCH --ntasks-per-node=1          # one torchrun launcher per node
-#SBATCH --gpus-per-node=8            # 8 GCDs per node (4 x MI250X)
-#SBATCH --cpus-per-task=56           # all CPUs per node for torchrun to distribute
+#SBATCH --ntasks-per-node=8        # one task per GCD; torchrun is NOT used
+#SBATCH --gpus-per-node=8          # 8 GCDs per node (4 x MI250X)
+#SBATCH --cpus-per-task=7          # 56 CPUs / 8 GCDs = 7 per GCD
+#SBATCH --mem-per-cpu=1750M        # ~14 GB RAM per GCD
 
+# ---------------------------------------------------------------------------
+# LUMI: load modules
+# ---------------------------------------------------------------------------
 module load Local-LAIF lumi-aif-singularity-bindings
 
 SIF=/appl/local/laifs/containers/lumi-multitorch-u24r70f21m50t210-20260513_121430/lumi-multitorch-full-u24r70f21m50t210-20260513_121430.sif
@@ -17,30 +21,99 @@ VENV=$REAL/pyg_venv
 
 cd $REAL/DiffEIMS || exit 1
 
+# ---------------------------------------------------------------------------
+# Rendezvous — use the first hostname in the job's node list
+# ---------------------------------------------------------------------------
 export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_PORT=29500
 
-# MIOpen: per-user cache to avoid cross-node conflicts
-export MIOPEN_USER_DB_PATH=/tmp/${USER}-miopen-cache
+# ---------------------------------------------------------------------------
+# NCCL — tell it to use LUMI's Slingshot high-speed network (hsn*)
+# Without this NCCL falls back to the slow management network and hangs on
+# collective operations.
+# ---------------------------------------------------------------------------
+export NCCL_SOCKET_IFNAME=hsn0,hsn1
+export NCCL_NET_GDR_LEVEL=3          # enable GPU Direct RDMA over RoCE
+export NCCL_DEBUG=WARN               # raise to INFO for debugging hangs
+export NCCL_TIMEOUT=3600             # collective timeout (seconds)
+
+# ---------------------------------------------------------------------------
+# ROCm / MIOpen — keep per-rank kernel caches in /tmp (node-local, fast).
+# Include SLURM_LOCALID so 8 ranks on the same node don't share one cache dir
+# (MIOpen file-locks the directory; sharing causes contention).
+# ---------------------------------------------------------------------------
+export MIOPEN_USER_DB_PATH=/tmp/${USER}-miopen-${SLURM_JOB_ID}-${SLURM_LOCALID}
 export MIOPEN_CUSTOM_CACHE_DIR=$MIOPEN_USER_DB_PATH
 
+# ---------------------------------------------------------------------------
+# Threading — each task already owns 7 CPUs; let OpenMP / MKL use them.
+# Set to 1 to avoid over-subscription with DataLoader workers.
+# ---------------------------------------------------------------------------
 export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
 
+# ---------------------------------------------------------------------------
+# Torch distributed — WORLD_SIZE is the same for every task; compute it now.
+# RANK and LOCAL_RANK are per-task and must be derived inside srun (where
+# SLURM_PROCID / SLURM_LOCALID are set correctly for each task).
+# IMPORTANT: do NOT pre-set RANK or LOCAL_RANK here — every task would see
+# rank 0 because SLURM_PROCID is 0 in the batch-script environment.
+# ---------------------------------------------------------------------------
+export WORLD_SIZE=$((SLURM_NNODES * SLURM_NTASKS_PER_NODE))
+
+# ---------------------------------------------------------------------------
+# Run
+#
+# We use --ntasks-per-node=8 (one srun task per GCD) rather than
+# --ntasks-per-node=1 + torchrun because:
+#   - srun gives each task its own CPU affinity mask (7 CPUs per GCD)
+#   - SLURM sets SLURM_PROCID / SLURM_LOCALID per task; we map them to
+#     RANK / LOCAL_RANK inside the bash -c (note the \$ to defer evaluation)
+#   - Lightning picks up RANK / LOCAL_RANK / WORLD_SIZE and uses DDPStrategy
+#     without spawning additional processes
+#   - No rendezvous port conflicts between torchrun instances
+#
+# Variables that are the same for all tasks (MASTER_ADDR, NCCL_*, WORLD_SIZE,
+# VENV, REAL, ...) are expanded early by the outer shell (no backslash).
+# Variables that differ per task (SLURM_PROCID, SLURM_LOCALID) are escaped
+# with \$ so they are evaluated at runtime inside each srun task.
+# ---------------------------------------------------------------------------
 start_time=$(date +%s)
+echo "Starting DDP training: ${WORLD_SIZE} ranks (${SLURM_NNODES} nodes x ${SLURM_NTASKS_PER_NODE} GCDs)"
+echo "MASTER: ${MASTER_ADDR}:${MASTER_PORT}  |  WORLD_SIZE: ${WORLD_SIZE}"
 
-echo "Running spec2mol_main.py (DDP: ${SLURM_NNODES} nodes x 8 GCDs)"
-srun singularity run --bind $REAL:$REAL:rw $SIF bash -c "
-source $VENV/bin/activate
-cd $REAL/DiffEIMS
-python -m torch.distributed.run \
-    --nnodes=${SLURM_NNODES} \
-    --nproc_per_node=8 \
-    --rdzv_backend=c10d \
-    --rdzv_endpoint=${MASTER_ADDR}:${MASTER_PORT} \
-    src/spec2mol_main.py \
-    general.gpus=8 \
-    general.num_nodes=${SLURM_NNODES}
-"
+srun --cpu-bind=cores \
+    singularity exec --bind $REAL:$REAL:rw $SIF \
+    bash -c "
+        source $VENV/bin/activate
+        cd $REAL/DiffEIMS
+
+        # Per-task rank vars: evaluated at runtime in each srun task
+        export RANK=\$SLURM_PROCID
+        export LOCAL_RANK=\$SLURM_LOCALID
+
+        # Per-task MIOpen cache: include local rank so 8 ranks on same node
+        # don't share one cache directory (causes file-lock contention)
+        export MIOPEN_USER_DB_PATH=/tmp/${USER}-miopen-${SLURM_JOB_ID}-\$SLURM_LOCALID
+        export MIOPEN_CUSTOM_CACHE_DIR=\$MIOPEN_USER_DB_PATH
+
+        # Same for all tasks — expanded by outer shell
+        export WORLD_SIZE=$WORLD_SIZE
+        export MASTER_ADDR=$MASTER_ADDR
+        export MASTER_PORT=$MASTER_PORT
+        export NCCL_SOCKET_IFNAME=$NCCL_SOCKET_IFNAME
+        export NCCL_NET_GDR_LEVEL=$NCCL_NET_GDR_LEVEL
+        export NCCL_DEBUG=$NCCL_DEBUG
+        export NCCL_TIMEOUT=$NCCL_TIMEOUT
+        export OMP_NUM_THREADS=$OMP_NUM_THREADS
+        export MKL_NUM_THREADS=$MKL_NUM_THREADS
+
+        echo \"Task RANK=\$RANK LOCAL_RANK=\$LOCAL_RANK MIOPEN=\$MIOPEN_USER_DB_PATH\"
+
+        python src/spec2mol_main.py \
+            general.gpus=8 \
+            general.num_nodes=$SLURM_NNODES
+    "
 
 end_time=$(date +%s)
 echo "Total runtime: $((end_time - start_time)) seconds"

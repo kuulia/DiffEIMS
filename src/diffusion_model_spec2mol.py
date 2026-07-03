@@ -445,7 +445,10 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
 
         self.val_CE(flat_pred_E, flat_true_E)
 
-        if self.val_counter % self.cfg.general.sample_every_val == 0 and self.trainer.is_global_zero:
+        if (
+            self.val_counter % self.cfg.general.sample_every_val == 0
+            and self.trainer.is_global_zero
+        ):
             true_mols = [
                 Chem.inchi.MolFromInchi(data.get_example(idx).inchi)
                 for idx in range(len(data))
