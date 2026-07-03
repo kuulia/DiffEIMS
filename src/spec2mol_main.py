@@ -281,6 +281,10 @@ def main(cfg: DictConfig):
     name: str = cfg.general.name
     utils.make_result_dirs(["preds/", "logs/", "models/", f"logs/{name}"])
 
+    # Set root logger level so ALL modules (spec2mol_dataset, Lightning, etc.)
+    # are silenced on non-zero ranks — not just the named logger below.
+    logging.getLogger().setLevel(logging.INFO if global_rank == 0 else logging.WARNING)
+
     logger = logging.getLogger("msms_main")
     logger.setLevel(logging.INFO if global_rank == 0 else logging.WARNING)
     fmt = logging.Formatter(
