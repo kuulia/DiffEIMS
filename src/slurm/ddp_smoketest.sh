@@ -26,10 +26,21 @@ cd $REAL/DiffEIMS || exit 1
 export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_PORT=29500
 
-export NCCL_SOCKET_IFNAME=hsn0,hsn1
+export NCCL_SOCKET_IFNAME=hsn0,hsn1,hsn2,hsn3
 export NCCL_NET_GDR_LEVEL=3
 export NCCL_DEBUG=INFO             # <-- the point of this run
 export NCCL_DEBUG_SUBSYS=INIT,NET
+
+# --- CXI provider limits ---------------------------------------------------
+# With 16 ranks x 16 channels the default CXI completion-queue and hardware
+# match-list sizes are exhausted during tree setup, which hangs silently
+# (rings connect, trees never do, no WARN emitted). These are the documented
+# LUMI values for aws-ofi-nccl over CXI.
+export FI_CXI_DEFAULT_CQ_SIZE=131072
+export FI_CXI_DEFAULT_TX_SIZE=32768
+export FI_CXI_RX_MATCH_MODE=hybrid   # fall back to software matching on overflow
+export FI_MR_CACHE_MONITOR=userfaultfd
+export FI_CXI_DISABLE_HOST_REGISTER=1
 
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
@@ -72,6 +83,11 @@ srun --cpu-bind=cores \
         export NCCL_NET_GDR_LEVEL=$NCCL_NET_GDR_LEVEL
         export NCCL_DEBUG=$NCCL_DEBUG
         export NCCL_DEBUG_SUBSYS=$NCCL_DEBUG_SUBSYS
+        export FI_CXI_DEFAULT_CQ_SIZE=$FI_CXI_DEFAULT_CQ_SIZE
+        export FI_CXI_DEFAULT_TX_SIZE=$FI_CXI_DEFAULT_TX_SIZE
+        export FI_CXI_RX_MATCH_MODE=$FI_CXI_RX_MATCH_MODE
+        export FI_MR_CACHE_MONITOR=$FI_MR_CACHE_MONITOR
+        export FI_CXI_DISABLE_HOST_REGISTER=$FI_CXI_DISABLE_HOST_REGISTER
         export OMP_NUM_THREADS=$OMP_NUM_THREADS
         export MKL_NUM_THREADS=$MKL_NUM_THREADS
 
