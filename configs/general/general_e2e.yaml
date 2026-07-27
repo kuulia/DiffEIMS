@@ -5,13 +5,13 @@ parent_dir: '.'
 
 wandb: 'disabled'             # online | offline | disabled
 wandb_name: 'mass_spec_exp'
-gpus: 1
-num_nodes: 1
+gpus: 8
+num_nodes: 2
 
 
 decoder: null # path to pretrained decoder
 encoder: null # path to pretrained encoder
-resume: '/scratch/work/lindl3/ms/DiffMS/data/checkpoints/checkpoints/gecko_mixed' # If resume, path to ckpt file from outputs direpctory in main directory
+resume: null # If resume, path to ckpt file from outputs direpctory in main directory
 test_only: null
 load_weights: null
 
