@@ -11,7 +11,6 @@ from torchmetrics import Metric
 
 from src.utils import is_valid, canonical_mol_from_inchi
 
-
 # All metrics below subclass torchmetrics.Metric so their state is registered via
 # add_state(..., dist_reduce_fx="sum"). Under DDP that makes compute() all-reduce
 # the counters across ranks, giving a true global value rather than a per-rank one.
@@ -57,9 +56,7 @@ class K_ACC_Collection(nn.Module):
     def __init__(self, k_list: List[int]):
         super().__init__()
         self.k_list = k_list
-        self.metrics = nn.ModuleDict(
-            {f"acc_at_{k}": K_ACC(k) for k in self.k_list}
-        )
+        self.metrics = nn.ModuleDict({f"acc_at_{k}": K_ACC(k) for k in self.k_list})
 
     def reset(self):
         for metric in self.metrics.values():

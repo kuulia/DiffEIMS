@@ -78,7 +78,9 @@ class PartialEpochSampler(torch.utils.data.Sampler):
         >>>     train(batch)
     """
 
-    def __init__(self, dataset_size, fraction=0.1, seed=None, num_replicas=None, rank=None):
+    def __init__(
+        self, dataset_size, fraction=0.1, seed=None, num_replicas=None, rank=None
+    ):
         if not 0.0 < fraction <= 1.0:
             raise ValueError("fraction must be between 0.0 and 1.0")
 

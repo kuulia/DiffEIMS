@@ -248,7 +248,9 @@ def apply_decoder_finetuning(model, strategy):
 
 
 def load_weights(model, path):
-    checkpoint = torch.load(path, map_location=torch.device("cpu"))
+    # weights_only=False: these checkpoints embed the omegaconf config, which the
+    # PyTorch 2.6+ weights_only=True default rejects. Trusted, self-produced files.
+    checkpoint = torch.load(path, map_location=torch.device("cpu"), weights_only=False)
     state_dict = checkpoint.get("state_dict", checkpoint)
     model_state_dict = model.state_dict()
     filtered = {k: v for k, v in state_dict.items() if k in model_state_dict}
@@ -275,6 +277,7 @@ def main(cfg: DictConfig):
     def _ckpt(label: str):
         """Print a timestamped checkpoint visible from all ranks."""
         import datetime
+
         ts = datetime.datetime.now().strftime("%H:%M:%S")
         print(f"[{ts}][rank{global_rank:02d}] {label}", flush=True)
 
@@ -500,9 +503,11 @@ def main(cfg: DictConfig):
     if profiler_type and global_rank == 0:
         if profiler_type == "simple":
             from pytorch_lightning.profilers import SimpleProfiler
+
             profiler = SimpleProfiler(dirpath=f"logs/{name}", filename="profiler")
         elif profiler_type == "pytorch":
             from pytorch_lightning.profilers import PyTorchProfiler
+
             profiler = PyTorchProfiler(
                 dirpath=f"logs/{name}/profiler",
                 filename="trace",
@@ -515,9 +520,7 @@ def main(cfg: DictConfig):
     # ------------------------------------------------------------------
     if name == "debug":
         logging.warning("Run is named 'debug' — fast_dev_run will be used.")
-    limit_val_batches = getattr(
-        cfg.train, "limit_val_batches", None
-    )
+    limit_val_batches = getattr(cfg.train, "limit_val_batches", None)
     trainer = Trainer(
         gradient_clip_val=cfg.train.clip_grad,
         strategy=trainer_strategy,
@@ -550,15 +553,21 @@ def main(cfg: DictConfig):
         if name not in ["debug", "test"] and not getattr(
             cfg.general, "skip_test", False
         ):
+            # weights_only=False: PyTorch 2.6 flipped torch.load's weights_only
+            # default to True, but our checkpoints embed the Hydra config (an
+            # omegaconf DictConfig, via save_hyperparameters) which is not an
+            # allowed global under that mode. These checkpoints are written by
+            # this same job, so there is no untrusted-pickle exposure here.
             trainer.test(
                 model,
                 datamodule=datamodule,
                 ckpt_path=cfg.general.checkpoint_strategy,
+                weights_only=False,
             )
         else:
             logging.info("Skipped test epoch.")
     else:
-        trainer.test(model, datamodule=datamodule)
+        trainer.test(model, datamodule=datamodule, weights_only=False)
 
         if cfg.general.evaluate_all_checkpoints:
             directory = pathlib.Path(cfg.general.test_only).parents[0]
@@ -569,7 +578,12 @@ def main(cfg: DictConfig):
                     if ckpt_path == cfg.general.test_only:
                         continue
                     logging.info(f"Loading checkpoint: {ckpt_path}")
-                    trainer.test(model, datamodule=datamodule, ckpt_path=ckpt_path)
+                    trainer.test(
+                        model,
+                        datamodule=datamodule,
+                        ckpt_path=ckpt_path,
+                        weights_only=False,
+                    )
 
 
 if __name__ == "__main__":
