@@ -61,7 +61,7 @@ export MIOPEN_CUSTOM_CACHE_DIR=$MIOPEN_USER_DB_PATH
 
 # ---------------------------------------------------------------------------
 # Threading — each task owns 7 CPUs; set to 1 to avoid over-subscription
-# with DataLoader workers (cfg.train.num_workers=8 already saturates the cores).
+# with DataLoader workers (cfg.train.num_workers=6, plus the main process).
 # ---------------------------------------------------------------------------
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1

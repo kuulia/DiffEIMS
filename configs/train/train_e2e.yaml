@@ -2,8 +2,15 @@
 n_epochs: 100
 batch_size: 128 # 128
 eval_batch_size: 256 # 1024
-lr: 0.0002 # 0.0015 for training, 0.0002 for fine-tuning
-clip_grad: null          # float, null to disable
+lr: 0.0001 # 0.0015 for training, 0.0002 for fine-tuning.
+           # Halved from 0.0002: sqrt scaling at 4 nodes turned 0.0002 into
+           # 0.001131, which diverged at epoch 24 (~80% up the one-cycle ramp).
+           # 0.0001 -> 0.000566 at 4 nodes. Note this is a *base* value; the
+           # effective LR is base * sqrt(gpus * num_nodes), see spec2mol_main.py.
+clip_grad: 1.0           # float, null to disable. Was null; a single large update
+                         # near the one-cycle LR peak (~epoch 30 at pct_start=0.3)
+                         # saturated the encoder's output sigmoid and froze training
+                         # at epoch 24 (metrics static to 4 dp thereafter).
 save_model: True
 num_workers: 6 # 8
 pin_memory: True
