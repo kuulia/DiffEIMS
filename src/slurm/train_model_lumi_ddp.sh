@@ -32,10 +32,24 @@ export MASTER_PORT=29500
 # Without this NCCL falls back to the slow management network and hangs on
 # collective operations.
 # ---------------------------------------------------------------------------
-export NCCL_SOCKET_IFNAME=hsn0,hsn1
+export NCCL_SOCKET_IFNAME=hsn0,hsn1,hsn2,hsn3
 export NCCL_NET_GDR_LEVEL=3          # enable GPU Direct RDMA over RoCE
 export NCCL_DEBUG=WARN               # raise to INFO only for debugging hangs
-export NCCL_TIMEOUT=3600             # collective timeout (seconds)
+
+# ---------------------------------------------------------------------------
+# CXI provider limits — REQUIRED for multi-node.
+# With 16 ranks x 16 channels the default CXI completion-queue and hardware
+# match-list sizes are exhausted during RCCL *tree* setup. The symptom is a
+# silent hang inside ncclCommInitRank: "Connected all rings" appears for every
+# rank, "Connected all trees" never does, and no NCCL WARN is emitted. Verified
+# by src/slurm/ddp_smoketest.sh — without these, 0/16 ranks reach Init COMPLETE;
+# with them, 16/16 do (init ~19 s).
+# ---------------------------------------------------------------------------
+export FI_CXI_DEFAULT_CQ_SIZE=131072
+export FI_CXI_DEFAULT_TX_SIZE=32768
+export FI_CXI_RX_MATCH_MODE=hybrid   # fall back to software matching on overflow
+export FI_MR_CACHE_MONITOR=userfaultfd
+export FI_CXI_DISABLE_HOST_REGISTER=1
 
 # ---------------------------------------------------------------------------
 # ROCm / MIOpen — keep per-rank kernel caches in /tmp (node-local, fast).
@@ -128,7 +142,11 @@ srun --cpu-bind=cores \
         export NCCL_SOCKET_IFNAME=$NCCL_SOCKET_IFNAME
         export NCCL_NET_GDR_LEVEL=$NCCL_NET_GDR_LEVEL
         export NCCL_DEBUG=$NCCL_DEBUG
-        export NCCL_TIMEOUT=$NCCL_TIMEOUT
+        export FI_CXI_DEFAULT_CQ_SIZE=$FI_CXI_DEFAULT_CQ_SIZE
+        export FI_CXI_DEFAULT_TX_SIZE=$FI_CXI_DEFAULT_TX_SIZE
+        export FI_CXI_RX_MATCH_MODE=$FI_CXI_RX_MATCH_MODE
+        export FI_MR_CACHE_MONITOR=$FI_MR_CACHE_MONITOR
+        export FI_CXI_DISABLE_HOST_REGISTER=$FI_CXI_DISABLE_HOST_REGISTER
         export OMP_NUM_THREADS=$OMP_NUM_THREADS
         export MKL_NUM_THREADS=$MKL_NUM_THREADS
 
