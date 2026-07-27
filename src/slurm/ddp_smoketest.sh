@@ -36,13 +36,24 @@ export MKL_NUM_THREADS=1
 
 export WORLD_SIZE=$((SLURM_NNODES * SLURM_NTASKS_PER_NODE))
 
+# The lumi-aif-singularity-bindings module exports SINGULARITY_BIND with the host
+# libfabric / libcxi / /dev/cxi* paths the aws-ofi-nccl plugin needs. Passing
+# --bind on the command line OVERRIDES that variable instead of merging, which
+# silently drops the CXI stack and makes RCCL fall back to NET/Socket. Append
+# our bind to the variable and drop the flag.
+export SINGULARITY_BIND="${SINGULARITY_BIND:+$SINGULARITY_BIND,}$REAL:$REAL:rw"
+
 echo "SMOKETEST: ${WORLD_SIZE} ranks (${SLURM_NNODES} nodes x ${SLURM_NTASKS_PER_NODE} GCDs)"
 echo "MASTER: ${MASTER_ADDR}:${MASTER_PORT}"
 echo "--- interfaces on the batch node ---"
 ip -o link show | awk -F': ' '{print $2}' | tr '\n' ' '; echo
+echo "--- SINGULARITY_BIND ---"
+echo "$SINGULARITY_BIND"
+echo "--- /dev/cxi devices ---"
+ls -1 /dev/cxi* 2>/dev/null || echo "(none on batch node)"
 
 srun --cpu-bind=cores \
-    singularity exec --bind $REAL:$REAL:rw $SIF \
+    singularity exec $SIF \
     bash -c "
         source $VENV/bin/activate
         cd $REAL/DiffEIMS

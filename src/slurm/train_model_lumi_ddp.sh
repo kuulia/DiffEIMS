@@ -62,6 +62,17 @@ export MKL_NUM_THREADS=1
 export WORLD_SIZE=$((SLURM_NNODES * SLURM_NTASKS_PER_NODE))
 
 # ---------------------------------------------------------------------------
+# Singularity binds — MUST merge, not override.
+# lumi-aif-singularity-bindings exports SINGULARITY_BIND containing the host
+# libfabric / libcxi / /dev/cxi* paths that the aws-ofi-nccl plugin needs to
+# open a CXI fabric domain. Passing --bind on the command line REPLACES that
+# variable, so the CXI stack goes missing, fi_domain() fails with ENOSYS, and
+# RCCL silently falls back to NET/Socket. That is invisible on one node (all
+# GCDs talk via P2P/IPC) and hangs forever on two.
+# ---------------------------------------------------------------------------
+export SINGULARITY_BIND="${SINGULARITY_BIND:+$SINGULARITY_BIND,}$REAL:$REAL:rw"
+
+# ---------------------------------------------------------------------------
 # Run
 #
 # We use --ntasks-per-node=8 (one srun task per GCD) rather than
@@ -90,7 +101,7 @@ echo "Starting DDP training: ${WORLD_SIZE} ranks (${SLURM_NNODES} nodes x ${SLUR
 echo "MASTER: ${MASTER_ADDR}:${MASTER_PORT}  |  WORLD_SIZE: ${WORLD_SIZE}"
 
 srun --cpu-bind=cores \
-    singularity exec --bind $REAL:$REAL:rw $SIF \
+    singularity exec $SIF \
     bash -c "
         source $VENV/bin/activate
         cd $REAL/DiffEIMS
