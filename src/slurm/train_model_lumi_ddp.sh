@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=tr_diffms_ddp
 #SBATCH --output=outfiles/ddp_%j.out
-#SBATCH --time=08:00:00
+#SBATCH --time=24:00:00
 #SBATCH --account=project_462001155
 #SBATCH --partition=standard-g
-#SBATCH --nodes=2
+#SBATCH --nodes=4
 #SBATCH --ntasks-per-node=8        # one task per GCD; torchrun is NOT used
 #SBATCH --gpus-per-node=8          # 8 GCDs per node (4 x MI250X)
 #SBATCH --cpus-per-task=7          # 56 usable CPUs / 8 GCDs = 7 per GCD (8 cores reserved by ROCm driver)
