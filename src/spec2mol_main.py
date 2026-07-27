@@ -61,6 +61,26 @@ from src.datasets.spec2mol_dataset import (
 warnings.filterwarnings("ignore", category=PossibleUserWarning)
 RDLogger.DisableLog("rdApp.*")
 
+# Lightning's _pytree.py still calls torch's deprecated `LeafSpec` API. It is emitted
+# once per rank at dataloader setup (16+ identical lines) and there is nothing to fix
+# on our side -- it is internal to Lightning, and the container pins both versions.
+# Matched on the exact message rather than blanket-ignoring DeprecationWarning, so a
+# future PyTorch actually removing LeafSpec would still surface as a real failure
+# instead of being silently swallowed.
+warnings.filterwarnings(
+    "ignore",
+    message=r"`isinstance\(treespec, LeafSpec\)` is deprecated",
+)
+
+# Silence the AccumulateGrad stream-mismatch UserWarning. DDP deliberately stashes a
+# reference to the autograd node across iterations, which trips this check on every
+# backward pass -- once per rank per step, so it floods the log at 16+ ranks. It
+# reports a possible redundant synchronization, not a correctness problem, and the
+# CUDA-graph-capture concern it also mentions does not apply here (we don't capture).
+# hasattr guard: the toggle only exists on newer PyTorch.
+if hasattr(torch.autograd.graph, "set_warn_on_accumulate_grad_stream_mismatch"):
+    torch.autograd.graph.set_warn_on_accumulate_grad_stream_mismatch(False)
+
 
 # ---------------------------------------------------------------------------
 # DDP helpers
