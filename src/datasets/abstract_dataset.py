@@ -13,8 +13,10 @@ Key Components:
 """
 
 import copy
+import math
 import numpy as np
 import torch
+import torch.distributed as dist
 import pytorch_lightning as pl
 from torch_geometric.data import Dataset
 from torch_geometric.loader import DataLoader
@@ -30,8 +32,6 @@ def kwargs_repr(**kwargs) -> str:
     return ", ".join([f"{k}={v}" for k, v in kwargs.items() if v is not None])
 
 
-# NOTE: PartialEpochSampler is not DDP-compatible. PL does not replace custom samplers
-# with DistributedSampler, so all ranks will draw the same indices. Use only on single GPU.
 class PartialEpochSampler(torch.utils.data.Sampler):
     """
     A sampler that randomly selects a subset of the dataset for each training epoch.
@@ -49,13 +49,27 @@ class PartialEpochSampler(torch.utils.data.Sampler):
         fraction (float, optional): Fraction of the dataset to use per epoch.
                                     Must be between 0.0 and 1.0. Default is 0.1.
         seed (int, optional): Random seed for reproducible sampling. Default is None.
+        num_replicas (int, optional): DDP world size. Inferred from torch.distributed
+                                      when not given.
+        rank (int, optional): DDP global rank. Inferred from torch.distributed when
+                              not given.
 
     Behavior:
         - Each epoch, a new random subset of size `int(dataset_size * fraction)`
-          is sampled without replacement.
-        - The sampler returns the indices of the selected subset, which can be
-          passed to a PyTorch DataLoader.
-        - Setting `seed` ensures reproducibility of the subset selection.
+          is drawn without replacement. The draw is seeded with `seed + epoch`, so
+          every rank picks the *same* global subset, and the subset changes across
+          epochs (Lightning calls `set_epoch` on samplers that define it).
+        - That subset is then sharded across ranks, so the ranks together cover it
+          exactly once with no overlap -- the same contract as DistributedSampler.
+        - The subset is padded up to a multiple of `num_replicas` so every rank
+          yields the same number of indices, which DDP requires to avoid a hang on
+          the final step.
+
+    NOTE: Lightning only auto-injects a DistributedSampler when the dataloader uses a
+    default sampler. A custom sampler like this one may be left alone *or* replaced
+    depending on `Trainer(use_distributed_sampler=...)`; verify before relying on it
+    under DDP. The simpler DDP-native way to get partial epochs is
+    `Trainer(limit_train_batches=fraction)`, which needs no custom sampler at all.
 
     Example:
         >>> sampler = PartialEpochSampler(dataset_size=10000, fraction=0.2, seed=42)
@@ -64,22 +78,58 @@ class PartialEpochSampler(torch.utils.data.Sampler):
         >>>     train(batch)
     """
 
-    def __init__(self, dataset_size, fraction=0.1, seed=None):
+    def __init__(self, dataset_size, fraction=0.1, seed=None, num_replicas=None, rank=None):
         if not 0.0 < fraction <= 1.0:
             raise ValueError("fraction must be between 0.0 and 1.0")
+
+        if num_replicas is None:
+            num_replicas = (
+                dist.get_world_size()
+                if dist.is_available() and dist.is_initialized()
+                else 1
+            )
+        if rank is None:
+            rank = (
+                dist.get_rank() if dist.is_available() and dist.is_initialized() else 0
+            )
+
         self.dataset_size = dataset_size
         self.fraction = fraction
-        self.num_samples = int(dataset_size * fraction)
         self.seed = seed
+        self.num_replicas = num_replicas
+        self.rank = rank
+        self.epoch = 0
+
+        # Total drawn across all ranks, then padded so it divides evenly.
+        self.total_subset_size = int(dataset_size * fraction)
+        self.num_samples = math.ceil(self.total_subset_size / num_replicas)
+        self.total_size = self.num_samples * num_replicas
+
+    def set_epoch(self, epoch: int) -> None:
+        """Lightning calls this each epoch so the subset differs between epochs."""
+        self.epoch = epoch
 
     def __iter__(self):
-        # Create a new random subset of indices each epoch
-        rng = np.random.default_rng(self.seed)
-        indices = rng.choice(self.dataset_size, size=self.num_samples, replace=False)
+        # Same seed on every rank => every rank draws the identical global subset.
+        base_seed = 0 if self.seed is None else self.seed
+        rng = np.random.default_rng(base_seed + self.epoch)
+        indices = rng.choice(
+            self.dataset_size, size=self.total_subset_size, replace=False
+        )
+
+        # Pad to a multiple of num_replicas so all ranks get equal-length shards.
+        if self.total_size > len(indices):
+            padding = self.total_size - len(indices)
+            indices = np.concatenate([indices, indices[:padding]])
+
+        # Disjoint shard for this rank.
+        indices = indices[self.rank : self.total_size : self.num_replicas]
+        assert len(indices) == self.num_samples
+
         return iter(indices.tolist())
 
     def __len__(self):
-        # Number of samples returned by the sampler in one epoch
+        # Per-rank sample count -- the DataLoader uses this for its batch count.
         return self.num_samples
 
 

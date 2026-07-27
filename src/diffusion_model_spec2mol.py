@@ -445,10 +445,10 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
 
         self.val_CE(flat_pred_E, flat_true_E)
 
-        if (
-            self.val_counter % self.cfg.general.sample_every_val == 0
-            and self.trainer.is_global_zero
-        ):
+        # No rank guard here: the val dataloader is sharded, so each rank samples its
+        # own slice and the metrics (torchmetrics) all-reduce inside compute().
+        # Restricting this to rank 0 would discard world_size-1 of the eval data.
+        if self.val_counter % self.cfg.general.sample_every_val == 0:
             true_mols = [
                 Chem.inchi.MolFromInchi(data.get_example(idx).inchi)
                 for idx in range(len(data))
@@ -616,9 +616,18 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
 
         self.test_CE(flat_pred_E, flat_true_E)
 
-        if i <= math.ceil(
-            self.cfg.general.num_test_samples / self.cfg.train.eval_batch_size
-        ):
+        # Batches THIS rank should sample. Under DDP the test dataloader is sharded
+        # and `i` restarts at 0 on every rank, so the cap must be divided by
+        # world_size for cfg.general.num_test_samples to keep its documented meaning
+        # (total molecules evaluated across all ranks, not per rank).
+        # Note `i <` rather than `i <=`: batch indices are 0-based, so `<=` sampled
+        # one batch more than requested.
+        batches_to_sample = math.ceil(
+            self.cfg.general.num_test_samples
+            / (self.cfg.train.eval_batch_size * self.trainer.world_size)
+        )
+
+        if i < batches_to_sample:
             true_mols = [
                 Chem.inchi.MolFromInchi(data.get_example(idx).inchi)
                 for idx in range(len(data))
@@ -629,9 +638,12 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                 for idx, mol in enumerate(self.sample_batch(data)):
                     predicted_mols[idx].append(mol)
 
-            with open(f"preds/{self.name}_pred_{i}.pkl", "wb") as f:
+            # Rank must be in the filename: every rank holds different molecules but
+            # the same per-rank batch index, so without it ranks overwrite each other
+            # and only ~1/world_size of the predictions survive.
+            with open(f"preds/{self.name}_pred_r{self.global_rank}_{i}.pkl", "wb") as f:
                 pickle.dump(predicted_mols, f)
-            with open(f"preds/{self.name}_true_{i}.pkl", "wb") as f:
+            with open(f"preds/{self.name}_true_r{self.global_rank}_{i}.pkl", "wb") as f:
                 pickle.dump(true_mols, f)
 
             for idx in range(len(data)):
@@ -639,16 +651,15 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                 self.test_sim_metrics.update(predicted_mols[idx], true_mols[idx])
                 self.test_validity.update(predicted_mols[idx])
 
-        # Compute progress
-        total_batches = math.ceil(
-            self.cfg.general.num_test_samples / self.cfg.train.eval_batch_size
-        )
+        # Compute progress (rank 0 only: `i` is per-rank, so logging from every rank
+        # produces world_size interleaved progress streams)
         elapsed = time.time() - self._test_start_time
         avg_time_per_batch = elapsed / (i + 1)
 
-        logging.info(
-            f"Test progress: Batch {i+1}/{total_batches} -- {avg_time_per_batch:.1f}s per batch"
-        )
+        if self.trainer.is_global_zero:
+            logging.info(
+                f"Test progress: Batch {i+1}/{batches_to_sample} -- {avg_time_per_batch:.1f}s per batch"
+            )
 
         return {"loss": nll}
 

@@ -561,7 +561,7 @@ class MultiheadAttention(Module):
         if attn_mask is not None:
             new_attn_mask = torch.zeros_like(attn_mask, dtype=q.dtype)
             new_attn_mask.masked_fill_(attn_mask, float("-inf"))
-            attn += attn_mask
+            attn += new_attn_mask
         attn = F.softmax(attn, dim=-1)
         output = torch.bmm(attn, v)
         return output, attn
@@ -632,7 +632,7 @@ class MultiheadAttention(Module):
         if attn_mask is not None:
             new_attn_mask = torch.zeros_like(attn_mask, dtype=q.dtype)
             new_attn_mask.masked_fill_(attn_mask, float("-inf"))
-            attn += attn_mask
+            attn += new_attn_mask
 
         attn = F.softmax(attn, dim=-1)
         if dropout_p > 0.0:

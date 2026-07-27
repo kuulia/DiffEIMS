@@ -7,11 +7,20 @@ import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import DataStructs
+from torchmetrics import Metric
 
 from src.utils import is_valid, canonical_mol_from_inchi
 
 
-class K_ACC:
+# All metrics below subclass torchmetrics.Metric so their state is registered via
+# add_state(..., dist_reduce_fx="sum"). Under DDP that makes compute() all-reduce
+# the counters across ranks, giving a true global value rather than a per-rank one.
+# The collections subclass nn.Module and hold their children in an nn.ModuleDict so
+# the metric states are registered as submodules and follow the LightningModule onto
+# the GPU.
+
+
+class K_ACC(Metric):
     """
     Top-K Accuracy metric for molecule generation tasks.
 
@@ -21,15 +30,17 @@ class K_ACC:
 
     Attributes:
         k (int): The number of top predictions to consider.
-        correct (int): Number of correct predictions so far.
-        total (int): Total number of evaluated examples.
+        correct (Tensor): Number of correct predictions so far (DDP-reduced).
+        total (Tensor): Total number of evaluated examples (DDP-reduced).
     """
 
-    def __init__(self, k: int):
-        self.correct = 0
-        self.total = 0
+    full_state_update = False
 
+    def __init__(self, k: int):
+        super().__init__()
         self.k = k
+        self.add_state("correct", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
 
     def update(self, generated_inchis: list[str], true_inchi: str):
         if true_inchi in generated_inchis[: self.k]:
@@ -38,21 +49,17 @@ class K_ACC:
 
     def compute(self):
         if self.total == 0:
-            return 0
+            return torch.zeros_like(self.correct)
         return self.correct / self.total
 
-    def reset(self):
-        self.correct = 0
-        self.total = 0
 
-
-class K_ACC_Collection:
+class K_ACC_Collection(nn.Module):
     def __init__(self, k_list: List[int]):
+        super().__init__()
         self.k_list = k_list
-
-        self.metrics = {}
-        for k in self.k_list:
-            self.metrics[f"acc_at_{k}"] = K_ACC(k)
+        self.metrics = nn.ModuleDict(
+            {f"acc_at_{k}": K_ACC(k) for k in self.k_list}
+        )
 
     def reset(self):
         for metric in self.metrics.values():
@@ -65,8 +72,9 @@ class K_ACC_Collection:
         inchi_counter = Counter(inchis)
         inchis = [item for item, count in inchi_counter.most_common()]
 
+        true_inchi = Chem.MolToInchi(true_mol)
         for metric in self.metrics.values():
-            metric.update(inchis, Chem.MolToInchi(true_mol))
+            metric.update(inchis, true_inchi)
 
     def compute(self):
         res = {}
@@ -75,12 +83,14 @@ class K_ACC_Collection:
         return res
 
 
-class K_TanimotoSimilarity:
-    def __init__(self, k: int):
-        self.similarity = 0
-        self.total = 0
+class K_TanimotoSimilarity(Metric):
+    full_state_update = False
 
+    def __init__(self, k: int):
+        super().__init__()
         self.k = k
+        self.add_state("similarity", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
 
     def update(self, generated_mols, true_mol):
         true_fp = AllChem.GetMorganFingerprintAsBitVect(true_mol, 2, nBits=2048)
@@ -97,19 +107,19 @@ class K_TanimotoSimilarity:
         self.total += 1
 
     def compute(self):
+        if self.total == 0:
+            return torch.zeros_like(self.similarity)
         return self.similarity / self.total
 
-    def reset(self):
-        self.similarity = 0
-        self.total = 0
 
+class K_CosineSimilarity(Metric):
+    full_state_update = False
 
-class K_CosineSimilarity:
     def __init__(self, k: int):
-        self.similarity = 0
-        self.total = 0
-
+        super().__init__()
         self.k = k
+        self.add_state("similarity", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
 
     def update(self, generated_mols, true_mol):
         true_fp = AllChem.GetMorganFingerprintAsBitVect(true_mol, 2, nBits=2048)
@@ -126,21 +136,20 @@ class K_CosineSimilarity:
         self.total += 1
 
     def compute(self):
+        if self.total == 0:
+            return torch.zeros_like(self.similarity)
         return self.similarity / self.total
 
-    def reset(self):
-        self.similarity = 0
-        self.total = 0
 
-
-class K_SimilarityCollection:
+class K_SimilarityCollection(nn.Module):
     def __init__(self, k_list: List[int]):
-
+        super().__init__()
         self.k_list = k_list
-        self.metrics = {}
+        metrics = {}
         for k in self.k_list:
-            self.metrics[f"tanimoto_at_{k}"] = K_TanimotoSimilarity(k)
-            self.metrics[f"cosine_at_{k}"] = K_CosineSimilarity(k)
+            metrics[f"tanimoto_at_{k}"] = K_TanimotoSimilarity(k)
+            metrics[f"cosine_at_{k}"] = K_CosineSimilarity(k)
+        self.metrics = nn.ModuleDict(metrics)
 
     def reset(self):
         for metric in self.metrics.values():
@@ -165,10 +174,13 @@ class K_SimilarityCollection:
         return res
 
 
-class Validity:
+class Validity(Metric):
+    full_state_update = False
+
     def __init__(self):
-        self.valid = 0
-        self.total = 0
+        super().__init__()
+        self.add_state("valid", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
 
     def update(self, generated_mols):
         for mol in generated_mols:
@@ -177,17 +189,20 @@ class Validity:
             self.total += 1
 
     def compute(self):
+        if self.total == 0:
+            return torch.zeros_like(self.valid)
         return self.valid / self.total
 
-    def reset(self):
-        self.valid = 0
-        self.total = 0
 
+class MeanTanimotoSimilarity(Metric):
+    full_state_update = False
 
-class MeanTanimotoSimilarity:
     def __init__(self):
-        self.similarities = []
-        self.total = 0
+        super().__init__()
+        # Running sum rather than a Python list: a list cannot be DDP-reduced,
+        # and sum/count is equivalent for a mean.
+        self.add_state("similarity", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
 
     def update(self, pred_fp, true_fp):
         """
@@ -198,18 +213,13 @@ class MeanTanimotoSimilarity:
         """
         try:
             sim = DataStructs.TanimotoSimilarity(pred_fp, true_fp)
-            self.similarities.append(sim)
+            self.similarity += sim
             self.total += 1
         except Exception as e:
             # Could log the error if needed
             pass
 
     def compute(self):
-        if not self.similarities:
-            return 0.0
-
-        return sum(self.similarities) / len(self.similarities)
-
-    def reset(self):
-        self.similarities = []
-        self.total = 0
+        if self.total == 0:
+            return torch.zeros_like(self.similarity)
+        return self.similarity / self.total
