@@ -27,6 +27,7 @@ that no torch.distributed call is needed before trainer.fit():
 
 import os
 import sys
+import math
 import time
 import pathlib
 import warnings
@@ -382,13 +383,22 @@ def main(cfg: DictConfig):
     }
 
     # ------------------------------------------------------------------
-    # 7. LR scaling: linear scaling rule (1 baseline GPU → N total GPUs)
+    # 7. LR scaling: sqrt scaling rule (1 baseline GPU → N total GPUs)
+    #
+    # The linear rule (lr * N) comes from Goyal et al. for SGD+momentum. For
+    # adaptive optimizers (this repo uses adamw/radam) sqrt scaling is the usual
+    # choice -- linear overshoots badly at large N. At 16 GPUs linear gave
+    # 0.0002 * 16 = 0.0032, over 2x the documented from-scratch LR of 0.0015;
+    # sqrt gives 0.0002 * 4 = 0.0008.
     # ------------------------------------------------------------------
     num_nodes = getattr(cfg.general, "num_nodes", 1)
     total_gpus = cfg.general.gpus * num_nodes
     if total_gpus > 1:
-        cfg.train.lr = cfg.train.lr * total_gpus
-        logging.info(f"Scaled LR by {total_gpus} total GPUs → {cfg.train.lr:.6f}")
+        lr_scale = math.sqrt(total_gpus)
+        cfg.train.lr = cfg.train.lr * lr_scale
+        logging.info(
+            f"Scaled LR by sqrt({total_gpus}) = {lr_scale:.2f} → {cfg.train.lr:.6f}"
+        )
 
     # ------------------------------------------------------------------
     # 8. Model construction
