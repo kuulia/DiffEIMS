@@ -164,8 +164,12 @@ def get_resume(cfg, model_kwargs):
     dataset_cfg = cfg.dataset
 
     map_loc = torch.device("cpu") if cfg.general.force_cpu else None
+    # weights_only=False: save_hyperparameters() embeds the Hydra config, so the
+    # checkpoint pickle contains omegaconf.DictConfig, which PyTorch 2.6's
+    # weights_only=True default rejects. Same reason as the torch.load call in
+    # get_encoder_state_dict and the trainer.test() calls in main().
     cfg = Spec2MolDenoisingDiffusion.load_from_checkpoint(
-        resume, map_location=map_loc, **model_kwargs
+        resume, map_location=map_loc, weights_only=False, **model_kwargs
     ).cfg
     logging.info(f"Loaded cfg from {resume}")
 
@@ -183,7 +187,7 @@ def get_resume(cfg, model_kwargs):
     cfg = utils.update_config_with_new_keys(cfg, saved_cfg)
 
     model = Spec2MolDenoisingDiffusion.load_from_checkpoint(
-        resume, map_location=map_loc, cfg=cfg, **model_kwargs
+        resume, map_location=map_loc, cfg=cfg, weights_only=False, **model_kwargs
     )
     return cfg, model
 
@@ -196,8 +200,9 @@ def get_resume_adaptive(cfg, model_kwargs):
     resume_path = os.path.join(root_dir, cfg.general.resume)
 
     map_loc = torch.device("cpu") if cfg.general.force_cpu else None
+    # weights_only=False: see get_resume().
     model = Spec2MolDenoisingDiffusion.load_from_checkpoint(
-        resume_path, map_location=map_loc, **model_kwargs
+        resume_path, map_location=map_loc, weights_only=False, **model_kwargs
     )
     new_cfg = model.cfg
     for category in cfg:
