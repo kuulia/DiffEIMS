@@ -196,3 +196,4 @@ notebooks/results_Exp3 Augmented + Gecko (sequential)_tanimoto_top1_correlati
 notebooks/results_Exp4 Augmented + Gecko (parallel)_cluster_summary.csv
 notebooks/results_Exp4 Augmented + Gecko (parallel)_feature_difficulty.csv
 notebooks/results_Exp4 Augmented + Gecko (parallel)_tanimoto_top1_correlation.csv
+notebooks/results*.csv

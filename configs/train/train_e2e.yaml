@@ -22,8 +22,14 @@ scheduler: 'one_cycle' # 'const' | 'one_cycle'
 pct_start: 0.3
 seed: 42
 trainer_strategy: 'auto' # 'ddp_find_unused_parameters_true' for .ckpt checkpoint compatibility
-ddp_timeout_hours: 8     # NCCL watchdog deadline for every collective (PyTorch default
-                         # is 0.5h). Must exceed the worst rank-to-rank skew, which is
-                         # set by the test epoch: only ~2 sampling batches per rank at
-                         # eval_batch_size=256, and a batch's cost scales with the
-                         # largest molecule in it, so there is no averaging-out.
+ddp_timeout_hours: 20    # NCCL watchdog deadline for every collective (PyTorch default
+                         # is 0.5h). Must exceed the worst rank-to-rank SKEW, not the
+                         # epoch length. The test epoch sets it: ~2 sampling batches
+                         # per rank at eval_batch_size=256, cost driven by the largest
+                         # molecule in each batch, and measured rates on 2026-07-27
+                         # spanned 1.58-4.85 it/s — a 3x spread with no averaging-out,
+                         # so the first rank to finish can wait most of the run.
+                         # Set close to the SLURM walltime deliberately: a genuine
+                         # hang is now caught by the per-candidate heartbeat and the
+                         # SIGUSR1 stack dump, so the watchdog no longer needs to be
+                         # the detector and a short deadline only kills healthy runs.

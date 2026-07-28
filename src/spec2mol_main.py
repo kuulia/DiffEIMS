@@ -626,7 +626,7 @@ def main(cfg: DictConfig):
     #   - datamodule.setup('fit')    [all ranks — staggered I/O]
     #   - training loop
     # ------------------------------------------------------------------
-    _ckpt("calling trainer.fit()")
+    _ckpt("calling trainer.test()" if cfg.general.test_only else "calling trainer.fit()")
     if not cfg.general.test_only:
         trainer.fit(model, datamodule=datamodule, ckpt_path=resume)
 

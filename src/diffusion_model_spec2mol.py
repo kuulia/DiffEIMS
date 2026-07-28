@@ -682,11 +682,19 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                 for idx, mol in enumerate(self.sample_batch(data)):
                     predicted_mols[idx].append(mol)
 
-                if self.trainer.is_global_zero:
-                    logging.info(
-                        f"  batch {i}: candidate {s+1}/{self.test_num_samples} "
-                        f"({time.time() - self._test_start_time:.0f}s elapsed)"
-                    )
+                # Every rank, and print() rather than logging so it survives the
+                # non-zero-rank INFO filter set in spec2mol_main.py. Sampling rate
+                # varies ~3x across ranks (1.58-4.85 it/s observed on 2026-07-27),
+                # so a rank-0-only heartbeat goes quiet precisely when the fast
+                # rank finishes and the run enters the long tail we most need to
+                # watch. test_num_samples x world_size lines over a multi-hour
+                # epoch is a few thousand lines total — cheap for the visibility.
+                print(
+                    f"[rank{self.global_rank:02d}] test batch {i}: "
+                    f"candidate {s+1}/{self.test_num_samples} "
+                    f"({time.time() - self._test_start_time:.0f}s elapsed)",
+                    flush=True,
+                )
 
             # Rank must be in the filename: every rank holds different molecules but
             # the same per-rank batch index, so without it ranks overwrite each other
