@@ -15,3 +15,5 @@ scheduler: 'one_cycle' # 'const' | 'one_cycle'
 pct_start: 0.3
 seed: 42
 limit_val_batches: 1.0 # 'float', 1.0 default (full val batch)
+ddp_timeout_hours: 8 # NCCL collective deadline; must exceed the worst rank-to-rank
+                     # skew in the test epoch (generation time varies by molecule size)

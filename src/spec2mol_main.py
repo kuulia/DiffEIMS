@@ -348,6 +348,16 @@ def main(cfg: DictConfig):
     # are silenced on non-zero ranks — not just the named logger below.
     logging.getLogger().setLevel(logging.INFO if global_rank == 0 else logging.WARNING)
 
+    # The root level above is NOT sufficient on its own. A logger's own level
+    # decides whether a record is created; the root level only filters records
+    # logged directly on root. Libraries that set their own level bypass it —
+    # pytorch_lightning/__init__.py does exactly that (setLevel(INFO)), which is
+    # why "LOCAL_RANK: N - CUDA_VISIBLE_DEVICES" printed 32 times. logging.disable
+    # is a global floor applied before any per-logger check, so it catches those
+    # too. WARNING and above still get through, so real problems are never hidden.
+    if global_rank != 0:
+        logging.disable(logging.INFO)
+
     logger = logging.getLogger("msms_main")
     logger.setLevel(logging.INFO if global_rank == 0 else logging.WARNING)
     fmt = logging.Formatter(

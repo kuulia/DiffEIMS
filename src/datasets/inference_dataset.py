@@ -157,7 +157,9 @@ def get_inference_spectra(
 
     spec_names = list(name_to_formula.keys())
 
-    tq = tqdm if prog_bars else lambda x: x
+    # disable=None keeps the bar for interactive runs and drops it when stderr
+    # is a redirected file (every srun rank), where it would just spam the log.
+    tq = (lambda it: tqdm(it, disable=None)) if prog_bars else (lambda x: x)
 
     if collated_pkl:
         logging.info("Loading inference spectra from collated pickle file")

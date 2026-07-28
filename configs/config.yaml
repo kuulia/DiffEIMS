@@ -9,4 +9,11 @@ hydra:
   job:
     chdir: True
   run:
-    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}-${general.name}
+    # Under DDP every rank is its own python process, so ${now:%H-%M-%S} is
+    # resolved independently per rank. Ranks that start on opposite sides of a
+    # second boundary get DIFFERENT run dirs, and since chdir is True they then
+    # write preds/, logs/ and models/ to different places — the test epoch's
+    # prediction pickles end up silently split across two output folders.
+    # SLURM_JOB_ID is identical for every rank, so use it when present and fall
+    # back to the timestamp for local (single-process) runs.
+    dir: outputs/${now:%Y-%m-%d}/${oc.env:SLURM_JOB_ID,${now:%H-%M-%S}}-${general.name}

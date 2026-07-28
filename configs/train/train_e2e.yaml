@@ -22,3 +22,8 @@ scheduler: 'one_cycle' # 'const' | 'one_cycle'
 pct_start: 0.3
 seed: 42
 trainer_strategy: 'auto' # 'ddp_find_unused_parameters_true' for .ckpt checkpoint compatibility
+ddp_timeout_hours: 8     # NCCL watchdog deadline for every collective (PyTorch default
+                         # is 0.5h). Must exceed the worst rank-to-rank skew, which is
+                         # set by the test epoch: only ~2 sampling batches per rank at
+                         # eval_batch_size=256, and a batch's cost scales with the
+                         # largest molecule in it, so there is no averaging-out.

@@ -186,13 +186,15 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         try:
             hidden_size = cfg.model.encoder_hidden_dim
         except:
-            print("No hidden size specified, using default value of 256")
+            # logging, not print: print bypasses the per-rank level filter and so
+            # emits once per rank (32 identical lines on 4 nodes).
+            logging.info("No hidden size specified, using default value of 256")
 
         magma_modulo = 512
         try:
             magma_modulo = cfg.model.encoder_magma_modulo
         except:
-            print("No magma modulo specified, using default value of 512")
+            logging.info("No magma modulo specified, using default value of 512")
 
         self.encoder = SpectraEncoderGrowing(
             inten_transform=cfg.dataset.inten_transform,
@@ -1026,7 +1028,10 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         assert (E == torch.transpose(E, 1, 2)).all()
 
         # Iteratively sample p(z_s | z_t) for t = 1, ..., T, with s = t - 1.
-        for s_int in tqdm(reversed(range(0, self.T)), leave=False):
+        # disable=None: with T=500 steps per call and 100 calls per batch, this bar
+        # writes tens of thousands of lines into the SLURM log, where leave=False
+        # cannot erase anything because the output is a file, not a terminal.
+        for s_int in tqdm(reversed(range(0, self.T)), leave=False, disable=None):
             s_array = s_int * torch.ones(
                 (len(data), 1), dtype=torch.float32, device=self.device
             )

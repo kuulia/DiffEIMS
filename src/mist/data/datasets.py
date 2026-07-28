@@ -145,7 +145,9 @@ def get_paired_spectra(
 
     logging.info(f"Converting paired samples into Spectra objects")
 
-    tq = tqdm if prog_bars else lambda x: x
+    # disable=None keeps the bar for interactive runs and drops it when stderr
+    # is a redirected file (every srun rank), where it would just spam the log.
+    tq = (lambda it: tqdm(it, disable=None)) if prog_bars else (lambda x: x)
 
     if collated_pkl:
         spectra_list = [
@@ -322,7 +324,14 @@ class SpectraMolDataset(Dataset):
             logging.info("Creating auxilary mol objs")
             self.aux_mols = [
                 Mol.MolFromSmiles(smiles, inchikey=inchikey)
-                for smiles, inchikey in tqdm(zip(spectra_smiles, spectra_inchikey))
+                # disable=None: tqdm's "only when stderr is a TTY" mode. Under srun
+                # stderr is a redirected file, so a bar with no `total` emits a fresh
+                # line per refresh from every rank — this pair is what filled the log
+                # with `184174it [00:12, 14400.21it/s]` 64 times. Interactive runs
+                # keep the bar.
+                for smiles, inchikey in tqdm(
+                    zip(spectra_smiles, spectra_inchikey), disable=None
+                )
                 if smiles is not None
             ]
 
@@ -336,7 +345,7 @@ class SpectraMolDataset(Dataset):
                     **self.kwargs,
                 )
                 for spectra_name, spectra_smi, spectra_formula in tqdm(
-                    zip(spectra_names, spectra_smiles, spectra_formulas)
+                    zip(spectra_names, spectra_smiles, spectra_formulas), disable=None
                 )
                 if spectra_smi is not None
             ]
