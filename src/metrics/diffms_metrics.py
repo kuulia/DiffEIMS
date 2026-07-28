@@ -19,6 +19,24 @@ from src.utils import is_valid, canonical_mol_from_inchi
 # the GPU.
 
 
+# k values the top-k metrics are reported at. Reporting every k in 1..N is
+# expensive twice over: each k is a separate Metric object, so under DDP each one
+# adds its own all-reduce to compute(), and K_TanimotoSimilarity/K_CosineSimilarity
+# rescore generated_mols[:k] from scratch on every update, making the fingerprint
+# work sum to O(N^2) per molecule. It also buys nothing — top-63 and top-64 are the
+# same number to 3 decimals. Dense at the low end, where adding one candidate still
+# moves the ranking; sparse above it.
+_TOP_K_REPORTED = tuple(range(1, 11)) + (20, 30, 40, 50, 100)
+
+
+def top_k_list(num_samples: int) -> List[int]:
+    """k values to report top-k metrics at, given `num_samples` generated candidates.
+
+    k > num_samples is dropped: those metrics would be identical to top-num_samples.
+    """
+    return [k for k in _TOP_K_REPORTED if k <= num_samples]
+
+
 class K_ACC(Metric):
     """
     Top-K Accuracy metric for molecule generation tasks.

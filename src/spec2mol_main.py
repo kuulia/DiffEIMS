@@ -32,11 +32,13 @@ import time
 import pathlib
 import warnings
 import logging
+import datetime
 
 import torch
 import hydra
 from omegaconf import DictConfig
 from pytorch_lightning import Trainer
+from pytorch_lightning.strategies import DDPStrategy
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from pytorch_lightning.utilities.warnings import PossibleUserWarning
@@ -497,14 +499,34 @@ def main(cfg: DictConfig):
     #  - In DDP mode: use ddp_find_unused_parameters_true so that old
     #    checkpoints (which may have unused parameters) load correctly
     #  - Can be overridden via cfg.train.trainer_strategy
+    #
+    # We build DDPStrategy explicitly instead of passing the registry string
+    # ("ddp_find_unused_parameters_true") because only the object form accepts
+    # `timeout`. That timeout is the NCCL watchdog deadline for every collective,
+    # and the default is 30 minutes — far too short for this model's test epoch:
+    # each rank runs the same NUMBER of sampling batches, but generation cost
+    # scales with molecule size, so a rank that draws small molecules can reach
+    # the epoch-end barrier hours before the slowest rank and gets aborted while
+    # waiting. See the barrier in Spec2MolDenoisingDiffusion.on_test_epoch_end.
     # ------------------------------------------------------------------
     if hasattr(cfg.train, "trainer_strategy") and cfg.train.trainer_strategy != "auto":
-        trainer_strategy = cfg.train.trainer_strategy
+        strategy_name = cfg.train.trainer_strategy
     else:
-        trainer_strategy = "ddp_find_unused_parameters_true" if is_ddp else "auto"
+        strategy_name = "ddp_find_unused_parameters_true" if is_ddp else "auto"
+
+    if isinstance(strategy_name, str) and strategy_name.startswith("ddp"):
+        ddp_timeout_hours = float(getattr(cfg.train, "ddp_timeout_hours", 8))
+        trainer_strategy = DDPStrategy(
+            find_unused_parameters="find_unused_parameters_true" in strategy_name,
+            timeout=datetime.timedelta(hours=ddp_timeout_hours),
+        )
+        strategy_desc = f"{strategy_name} (collective timeout {ddp_timeout_hours}h)"
+    else:
+        trainer_strategy = strategy_name
+        strategy_desc = str(strategy_name)
 
     if global_rank == 0:
-        logging.info(f"Trainer strategy: {trainer_strategy}")
+        logging.info(f"Trainer strategy: {strategy_desc}")
 
     use_gpu = cfg.general.gpus > 0
 
@@ -592,7 +614,11 @@ def main(cfg: DictConfig):
         if cfg.general.evaluate_all_checkpoints:
             directory = pathlib.Path(cfg.general.test_only).parents[0]
             logging.info(f"Evaluating all checkpoints in: {directory}")
-            for file in os.listdir(directory):
+            # sorted(): os.listdir order is filesystem-dependent and not
+            # guaranteed identical across ranks. Ranks iterating checkpoints in
+            # different orders would test different weights in the same
+            # trainer.test() call and desync every collective in it.
+            for file in sorted(os.listdir(directory)):
                 if ".ckpt" in file:
                     ckpt_path = os.path.join(directory, file)
                     if ckpt_path == cfg.general.test_only:

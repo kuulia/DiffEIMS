@@ -36,6 +36,7 @@ from src.metrics.diffms_metrics import (
     K_SimilarityCollection,
     Validity,
     MeanTanimotoSimilarity,
+    top_k_list,
 )
 from src import utils
 from src.mist.models.spectra_encoder import SpectraEncoderGrowing
@@ -89,10 +90,9 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.val_E_kl = SumExceptBatchKL()
         self.val_X_logp = SumExceptBatchMetric()
         self.val_E_logp = SumExceptBatchMetric()
-        self.val_k_acc = K_ACC_Collection(list(range(1, self.val_num_samples + 1)))
-        self.val_sim_metrics = K_SimilarityCollection(
-            list(range(1, self.val_num_samples + 1))
-        )
+        val_k = top_k_list(self.val_num_samples)
+        self.val_k_acc = K_ACC_Collection(val_k)
+        self.val_sim_metrics = K_SimilarityCollection(val_k)
         self.val_validity = Validity()
         self.val_CE = CrossEntropyMetric()
         self.val_y_CE = CrossEntropyMetric()
@@ -103,10 +103,9 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.test_E_kl = SumExceptBatchKL()
         self.test_X_logp = SumExceptBatchMetric()
         self.test_E_logp = SumExceptBatchMetric()
-        self.test_k_acc = K_ACC_Collection(list(range(1, self.test_num_samples + 1)))
-        self.test_sim_metrics = K_SimilarityCollection(
-            list(range(1, self.test_num_samples + 1))
-        )
+        test_k = top_k_list(self.test_num_samples)
+        self.test_k_acc = K_ACC_Collection(test_k)
+        self.test_sim_metrics = K_SimilarityCollection(test_k)
         self.test_validity = Validity()
         self.test_CE = CrossEntropyMetric()
 
@@ -459,9 +458,13 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                     predicted_mols[idx].append(mol)
 
             for idx in range(len(data)):
-                self.val_k_acc.update(predicted_mols[idx], true_mols[idx])
-                self.val_sim_metrics.update(predicted_mols[idx], true_mols[idx])
-                self.val_validity.update(predicted_mols[idx])
+                self._update_gen_metrics(
+                    self.val_k_acc,
+                    self.val_sim_metrics,
+                    self.val_validity,
+                    predicted_mols[idx],
+                    true_mols[idx],
+                )
         """
         mols_name = batch["names"]
         true_smiles = [self.name_to_smiles[name] for name in mols_name]
@@ -499,6 +502,11 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         return {"loss": nll}
 
     def on_validation_epoch_end(self) -> None:
+        # Same reasoning as on_test_epoch_end: sampling every sample_every_val epochs
+        # makes rank finish times uneven, and the metric .compute() calls below
+        # all-reduce. Bounded by cfg.train.ddp_timeout_hours.
+        self.trainer.strategy.barrier()
+
         metrics = [
             self.val_nll.compute(),
             self.val_X_kl.compute(),
@@ -546,6 +554,35 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         if self.current_epoch % 10 == 0 or self.current_epoch == self.n_epochs - 1:
             torch.save(self.encoder.state_dict(), f"models/encoder_{self.current_epoch}.pt")
         """
+
+    def _update_gen_metrics(
+        self, k_acc, sim_metrics, validity, predicted_mols, true_mol
+    ) -> None:
+        """Update the generation metrics for one molecule, tolerating RDKit failures.
+
+        DDP safety, not defensiveness for its own sake: these updates run inside the
+        per-rank eval loop, but every collective afterwards (metric sync, the
+        epoch-end barrier, log_dict) is symmetric across ranks. If one rank raises
+        here, it leaves the collective sequence while the other ranks stay in it, so
+        they all block until the NCCL watchdog aborts them — a single unparseable
+        molecule would destroy a multi-hour evaluation. RDKit gives us two ways in:
+        Chem.inchi.MolFromInchi returns None for an InChI it cannot parse, and both
+        K_ACC_Collection.update (Chem.MolToInchi) and K_TanimotoSimilarity.update
+        (GetMorganFingerprintAsBitVect) call into RDKit with true_mol unguarded.
+
+        Skipping an example only shrinks this rank's metric denominator, which the
+        all-reduce in compute() handles correctly.
+        """
+        if true_mol is None:
+            logging.warning("Skipping metric update: true molecule failed to parse.")
+            return
+
+        try:
+            k_acc.update(predicted_mols, true_mol)
+            sim_metrics.update(predicted_mols, true_mol)
+            validity.update(predicted_mols)
+        except Exception as e:  # noqa: BLE001 - see docstring
+            logging.warning(f"Skipping metric update, RDKit raised: {e}")
 
     def on_test_epoch_start(self) -> None:
         logging.info("Starting test...")
@@ -647,9 +684,13 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                 pickle.dump(true_mols, f)
 
             for idx in range(len(data)):
-                self.test_k_acc.update(predicted_mols[idx], true_mols[idx])
-                self.test_sim_metrics.update(predicted_mols[idx], true_mols[idx])
-                self.test_validity.update(predicted_mols[idx])
+                self._update_gen_metrics(
+                    self.test_k_acc,
+                    self.test_sim_metrics,
+                    self.test_validity,
+                    predicted_mols[idx],
+                    true_mols[idx],
+                )
 
         # Compute progress (rank 0 only: `i` is per-rank, so logging from every rank
         # produces world_size interleaved progress streams)
@@ -657,14 +698,32 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         avg_time_per_batch = elapsed / (i + 1)
 
         if self.trainer.is_global_zero:
+            phase = "sampling" if i < batches_to_sample else "nll-only"
             logging.info(
-                f"Test progress: Batch {i+1}/{batches_to_sample} -- {avg_time_per_batch:.1f}s per batch"
+                f"Test progress ({phase}): batch {i+1} "
+                f"(sampling batches: {batches_to_sample}) -- "
+                f"{avg_time_per_batch:.1f}s per batch"
             )
 
         return {"loss": nll}
 
     def on_test_epoch_end(self) -> None:
         """Measure likelihood on a test set and compute stability metrics."""
+        # Generation in test_step is slow and uneven across ranks (molecule size varies).
+        # Every rank runs the same NUMBER of batches (Lightning's DistributedSampler
+        # pads the test set), but not for the same amount of time, so a fast rank
+        # arrives here while others are still inside sample_batch(). Without this
+        # barrier the first collective a fast rank issues is the all-reduce hidden in
+        # a torchmetrics .compute() below, and the failure surfaces as an opaque
+        # ALLREDUCE watchdog timeout. The barrier concentrates the wait in one
+        # obvious place.
+        #
+        # NOTE: barrier() is itself an NCCL collective and is subject to the same
+        # watchdog deadline, so this does NOT make the wait unbounded. The deadline
+        # is cfg.train.ddp_timeout_hours, passed to DDPStrategy(timeout=...) in
+        # spec2mol_main.py; it must exceed the worst rank-to-rank skew.
+        self.trainer.strategy.barrier()
+
         metrics = [
             self.test_nll.compute(),
             self.test_X_kl.compute(),
