@@ -29,10 +29,12 @@ import os
 import sys
 import math
 import time
+import signal
 import pathlib
 import warnings
 import logging
 import datetime
+import faulthandler
 
 import torch
 import hydra
@@ -303,10 +305,31 @@ def main(cfg: DictConfig):
 
     def _ckpt(label: str):
         """Print a timestamped checkpoint visible from all ranks."""
-        import datetime
-
         ts = datetime.datetime.now().strftime("%H:%M:%S")
         print(f"[{ts}][rank{global_rank:02d}] {label}", flush=True)
+
+    # ------------------------------------------------------------------
+    # 0b. On-demand stack dump.
+    #
+    # A DDP hang gives you almost nothing to work with: ranks sit at 100% GPU
+    # (RCCL spins while waiting), and if the hang is anywhere other than an
+    # enqueued collective the NCCL watchdog never fires, so the job burns its
+    # whole walltime in silence. SIGUSR1 dumps every thread's Python stack on
+    # every rank, which turns "it's stuck somewhere" into an exact line number:
+    #
+    #   srun --jobid=<id> --overlap --ntasks-per-node=1 --ntasks=$NNODES \
+    #        pkill -USR1 -u $USER -f spec2mol_main.py
+    #
+    # Dumps land in faulthandler_rank<N>.log in the run dir. Keep the file
+    # object alive for the process lifetime — faulthandler writes to the fd
+    # directly and closing it would make the handler dump into a dead fd.
+    # ------------------------------------------------------------------
+    faulthandler.enable()
+    if hasattr(signal, "SIGUSR1"):
+        _fault_log = open(f"faulthandler_rank{global_rank:02d}.log", "w")
+        faulthandler.register(
+            signal.SIGUSR1, file=_fault_log, all_threads=True, chain=False
+        )
 
     _ckpt("started main()")
 

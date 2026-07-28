@@ -671,9 +671,20 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
             ]  # Is this correct?
             predicted_mols = [list() for _ in range(len(data))]
 
-            for _ in range(self.test_num_samples):
+            # Heartbeat inside the loop, not just per batch: one sample_batch call
+            # is self.T sequential decoder passes, so a full batch of candidates
+            # takes on the order of an hour. The per-batch log below therefore
+            # cannot distinguish a healthy run from a hang for that entire window
+            # — which is exactly the ambiguity that costs a 4-node allocation.
+            for s in range(self.test_num_samples):
                 for idx, mol in enumerate(self.sample_batch(data)):
                     predicted_mols[idx].append(mol)
+
+                if self.trainer.is_global_zero:
+                    logging.info(
+                        f"  batch {i}: candidate {s+1}/{self.test_num_samples} "
+                        f"({time.time() - self._test_start_time:.0f}s elapsed)"
+                    )
 
             # Rank must be in the filename: every rank holds different molecules but
             # the same per-rank batch index, so without it ranks overwrite each other
