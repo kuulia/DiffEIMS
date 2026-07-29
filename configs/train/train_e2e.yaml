@@ -33,3 +33,11 @@ ddp_timeout_hours: 20    # NCCL watchdog deadline for every collective (PyTorch 
                          # hang is now caught by the per-candidate heartbeat and the
                          # SIGUSR1 stack dump, so the watchdog no longer needs to be
                          # the detector and a short deadline only kills healthy runs.
+
+# Epoch truncation. Declared here (rather than relied on via getattr) so Hydra's
+# struct mode accepts a plain `train.limit_train_batches=N` override — an absent
+# key requires the `+` prefix and otherwise aborts every rank at startup.
+# NOTE the float/int distinction, which Lightning treats as different units:
+#   1.0 = the whole epoch (100%)      1 = exactly one batch
+limit_train_batches: 1.0
+limit_val_batches: 1.0
