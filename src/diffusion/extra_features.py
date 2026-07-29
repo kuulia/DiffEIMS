@@ -169,7 +169,19 @@ def get_eigenvalues_features(eigenvalues, k=5):
     ev = eigenvalues
     bs, n = ev.shape
     n_connected_components = (ev < 1e-5).sum(dim=-1)
-    assert (n_connected_components > 0).all(), (n_connected_components, ev)
+
+    # A non-empty graph always has at least one connected component, so a count of
+    # zero is float32 noise rather than a real result: eigvalsh resolves the
+    # structurally-zero eigenvalue to roughly lambda_max * 1.2e-7, and lambda_max here
+    # is set by the 2*n diagonal that masks padding nodes (see the caller). The
+    # eigenvalues are then divided by that graph's real node count, so a small
+    # molecule padded into a batch alongside a large one gets the largest error and
+    # the smallest divisor -- at n=150 padding with a 3-atom graph the "zero"
+    # eigenvalue lands near 1.2e-5 and trips the threshold. Clamping is exact, not a
+    # papering-over: the true count cannot be below 1, and downstream the value is
+    # only used to skip past the zero eigenvalues in the gather below.
+    # Killed job 20388558 after 7.6 h on a single molecule out of ~8000.
+    n_connected_components = n_connected_components.clamp(min=1)
 
     to_extend = max(n_connected_components) + k - n
     if to_extend > 0:

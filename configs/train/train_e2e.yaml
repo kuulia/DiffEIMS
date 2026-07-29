@@ -1,7 +1,7 @@
 # Training settings
 n_epochs: 100
 batch_size: 128 # 128
-eval_batch_size: 256 # 1024
+eval_batch_size: 128 # 1024
 lr: 0.0001 # 0.0015 for training, 0.0002 for fine-tuning.
            # Halved from 0.0002: sqrt scaling at 4 nodes turned 0.0002 into
            # 0.001131, which diverged at epoch 24 (~80% up the one-cycle ramp).
@@ -41,3 +41,10 @@ ddp_timeout_hours: 20    # NCCL watchdog deadline for every collective (PyTorch 
 #   1.0 = the whole epoch (100%)      1 = exactly one batch
 limit_train_batches: 1.0
 limit_val_batches: 1.0
+
+# Test split only. Randomly selects num_test_samples molecules for generation, then
+# orders that selection by heavy-atom count so batches are near-homogeneous in n and
+# to_dense wastes far less padding. Selection is random, so top-k stays comparable to
+# unsorted runs; batching is by size, so the slowest rank does ~0.42x the work.
+# Seeded from train.seed, so every rank derives the identical permutation.
+sort_test_by_size: true

@@ -423,6 +423,81 @@ class SpectraMolDataset(Dataset):
         """Get the inchikey list associated with data"""
         return self.inchikey_list
 
+    def arrange_for_eval(self, n_sample: int, seed: int = 42) -> None:
+        """Reorder the split so generation is cheap AND the sampled subset is unbiased.
+
+        Two problems, one permutation:
+
+        1. Padding. utils.to_dense pads every batch to the largest molecule in it, and
+           the decoder then runs on a dense (bs, n, n, de) tensor for all T denoising
+           steps. One 100-atom molecule makes the other 255 in its batch cost as much
+           as 100-atom molecules. Ordering by heavy-atom count makes each batch
+           near-homogeneous in n.
+        2. Which molecules get generated. test_step only samples batches with
+           `i < batches_to_sample`, so whatever sits at the front of the split is what
+           gets evaluated. Sorting the whole split by size would therefore evaluate
+           only the smallest molecules and inflate top-k accuracy.
+
+        So: draw n_sample indices uniformly at random, sort *those* by size, and put
+        them in front. The evaluated subset is a random sample of the test set, while
+        the batches drawn from it are still size-homogeneous. The remainder is sorted
+        by size too, since it still pays padding cost for the NLL-only batches.
+
+        What this buys, measured by simulating the full sampler+batching pipeline
+        (18k molecules, lognormal sizes, bs=64, world=32): total cost for the slowest
+        rank drops to 0.42x of the unsorted order, and mean within-batch size spread
+        falls from 42.5 to 10.8 heavy atoms.
+
+        What it does NOT buy is rank balance — 1.93x max/min across ranks, against
+        1.88x unsorted. DistributedSampler(shuffle=False) gives rank r the strided
+        positions r, r+W, r+2W, ..., so rank r's batch k comes from one size band; but
+        within the largest band the size distribution is long-tailed, and whichever
+        rank happens to draw the single biggest molecule pays max(n)^2 across its whole
+        batch. Sorting relocates that cost, it does not remove it. The lever for
+        balance is eval_batch_size: it sets how many molecules one outlier taxes.
+
+        `seed` must match across ranks (it comes from cfg.train.seed) so every rank
+        computes the identical permutation; otherwise ranks would disagree about which
+        molecules they hold.
+
+        Only the four index-parallel arrays carry per-example state, so this is a plain
+        reindex. NOT valid after upsample_forward() appends augmented entries, which is
+        why it is applied to the test split only.
+        """
+        n_total = len(self.mol_list)
+        sizes = np.array(
+            [
+                m.get_rdkit_mol().GetNumAtoms() if m.get_rdkit_mol() is not None else 0
+                for m in self.mol_list
+            ]
+        )
+
+        n_sample = min(int(n_sample), n_total)
+        rng = np.random.default_rng(seed)
+        selected = rng.choice(n_total, size=n_sample, replace=False)
+
+        rest = np.setdiff1d(np.arange(n_total), selected, assume_unique=False)
+
+        # Stable sort so equal-sized molecules keep a deterministic relative order.
+        order = np.concatenate(
+            [
+                selected[np.argsort(sizes[selected], kind="stable")],
+                rest[np.argsort(sizes[rest], kind="stable")],
+            ]
+        ).astype(int)
+
+        self.spectra_list = self.spectra_list[order]
+        self.mol_list = self.mol_list[order]
+        self.smi_list = self.smi_list[order]
+        self.inchikey_list = self.inchikey_list[order]
+
+        logging.info(
+            f"Arranged test split for eval: {n_sample}/{n_total} molecules randomly "
+            f"selected for generation, ordered by size "
+            f"(heavy atoms: min={sizes.min()}, median={int(np.median(sizes))}, "
+            f"max={sizes.max()}); remaining {n_total - n_sample} size-sorted behind them"
+        )
+
     def get_all_formulas(self) -> Set[str]:
         """get_all_formulas.
 

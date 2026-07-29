@@ -14,6 +14,7 @@ Design principles:
 """
 
 import os
+import math
 import time
 import pathlib
 import logging
@@ -449,6 +450,20 @@ class Spec2MolDataModule(pl.LightningDataModule):
             self.val_dataset = val_ds
         if needs_test:
             self.test_dataset = test_ds
+            if getattr(self.cfg.train, "sort_test_by_size", False):
+                # Round the prefix up to a whole number of per-rank batches, using the
+                # same batches_to_sample arithmetic as test_step. If it only covered
+                # num_test_samples exactly, the last sampled batch would straddle the
+                # boundary and pull in unselected molecules.
+                world_size = int(os.environ.get("WORLD_SIZE", 1))
+                per_round = self.eval_batch_size * world_size
+                n_batches = math.ceil(
+                    self.cfg.general.num_test_samples / per_round
+                )
+                self.test_dataset.arrange_for_eval(
+                    n_sample=n_batches * per_round,
+                    seed=getattr(self.cfg.train, "seed", 42),
+                )
 
     # ------------------------------------------------------------------
     # DataLoaders

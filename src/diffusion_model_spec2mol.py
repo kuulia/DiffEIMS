@@ -679,8 +679,20 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
             # cannot distinguish a healthy run from a hang for that entire window
             # — which is exactly the ambiguity that costs a 4-node allocation.
             for s in range(self.test_num_samples):
-                for idx, mol in enumerate(self.sample_batch(data)):
-                    predicted_mols[idx].append(mol)
+                # sample_batch() is pure local compute under no_grad — no collectives,
+                # and the model is unwrapped during test — so swallowing a failure here
+                # cannot desync the ranks. That makes the guard worth having: an
+                # exception on any one rank aborts the whole allocation, and job
+                # 20388558 lost 7.6 h x 32 GPUs to a single degenerate graph. Dropping
+                # one candidate out of test_num_samples costs almost nothing in top-k.
+                try:
+                    for idx, mol in enumerate(self.sample_batch(data)):
+                        predicted_mols[idx].append(mol)
+                except Exception as e:  # noqa: BLE001 - see comment above
+                    logging.warning(
+                        f"[rank{self.global_rank:02d}] batch {i} candidate {s+1}: "
+                        f"generation failed, skipping ({type(e).__name__}: {e})"
+                    )
 
                 # Every rank, and print() rather than logging so it survives the
                 # non-zero-rank INFO filter set in spec2mol_main.py. Sampling rate
