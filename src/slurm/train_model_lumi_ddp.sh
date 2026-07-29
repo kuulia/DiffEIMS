@@ -37,6 +37,17 @@ export NCCL_NET_GDR_LEVEL=3          # enable GPU Direct RDMA over RoCE
 export NCCL_DEBUG=WARN               # raise to INFO only for debugging hangs
 
 # ---------------------------------------------------------------------------
+# NCCL Flight Recorder — a ring buffer of the last N collectives per rank.
+# On a watchdog timeout PyTorch dumps it, which is the only way to see WHICH
+# rank enqueued something other than the expected collective. Without it the
+# timeout message says only "Stack trace of the failed collective not found".
+# Cost is a fixed-size in-memory buffer per rank; safe to leave on permanently.
+# ---------------------------------------------------------------------------
+export TORCH_NCCL_TRACE_BUFFER_SIZE=2000
+export TORCH_NCCL_DUMP_ON_TIMEOUT=1
+export TORCH_NCCL_DEBUG_INFO_TEMP_FILE=$REAL/nccl_trace/rank_
+
+# ---------------------------------------------------------------------------
 # CXI provider limits — REQUIRED for multi-node.
 # With 16 ranks x 16 channels the default CXI completion-queue and hardware
 # match-list sizes are exhausted during RCCL *tree* setup. The symptom is a
@@ -103,9 +114,20 @@ export SINGULARITY_BIND="${SINGULARITY_BIND:+$SINGULARITY_BIND,}$REAL:$REAL:rw"
 # Variables that differ per task (SLURM_PROCID, SLURM_LOCALID) are escaped
 # with \$ so they are evaluated at runtime inside each srun task.
 # ---------------------------------------------------------------------------
+mkdir -p $REAL/nccl_trace
+
+# Extra Hydra overrides, passed through to the python command without editing
+# this file. Useful for shortening a debug cycle, e.g.
+#   sbatch --export=ALL,HYDRA_OVERRIDES=train.ddp_timeout_hours=0.1 \
+#          --partition=dev-g --time=00:20:00 src/slurm/train_model_lumi_ddp.sh
+# turns an 8-hour hang into a 6-minute watchdog abort plus a flight-recorder dump.
+HYDRA_OVERRIDES="${HYDRA_OVERRIDES:-}"
+
 # Pre-create per-node per-rank cache dirs so ROCm doesn't race on mkdir.
 # One task per node creates that node's subtree using its SLURM_NODEID (0, 1, ...).
-srun --ntasks-per-node=1 bash -c "
+# --ntasks is needed too: without it SLURM warns that --ntasks-per-node=1 does
+# not match the job's requested task count.
+srun --ntasks=$SLURM_NNODES --ntasks-per-node=1 bash -c "
     for i in \$(seq 0 7); do mkdir -p $REAL/.rocm_cache/\$SLURM_NODEID/\$i; done
     for i in \$(seq 0 7); do mkdir -p /tmp/${USER}-miopen-${SLURM_JOB_ID}-\$i; done
 "
@@ -142,6 +164,9 @@ srun --cpu-bind=cores \
         export NCCL_SOCKET_IFNAME=$NCCL_SOCKET_IFNAME
         export NCCL_NET_GDR_LEVEL=$NCCL_NET_GDR_LEVEL
         export NCCL_DEBUG=$NCCL_DEBUG
+        export TORCH_NCCL_TRACE_BUFFER_SIZE=$TORCH_NCCL_TRACE_BUFFER_SIZE
+        export TORCH_NCCL_DUMP_ON_TIMEOUT=$TORCH_NCCL_DUMP_ON_TIMEOUT
+        export TORCH_NCCL_DEBUG_INFO_TEMP_FILE=$TORCH_NCCL_DEBUG_INFO_TEMP_FILE
         export FI_CXI_DEFAULT_CQ_SIZE=$FI_CXI_DEFAULT_CQ_SIZE
         export FI_CXI_DEFAULT_TX_SIZE=$FI_CXI_DEFAULT_TX_SIZE
         export FI_CXI_RX_MATCH_MODE=$FI_CXI_RX_MATCH_MODE
@@ -154,7 +179,8 @@ srun --cpu-bind=cores \
 
         python src/spec2mol_main.py \
             general.gpus=8 \
-            general.num_nodes=$SLURM_NNODES
+            general.num_nodes=$SLURM_NNODES \
+            $HYDRA_OVERRIDES
     "
 
 end_time=$(date +%s)
