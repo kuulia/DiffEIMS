@@ -178,7 +178,13 @@ def get_resume(cfg, model_kwargs):
     override_prev_dataset_cfg = getattr(cfg.dataset, "override_prev_dataset_cfg", False)
     dataset_cfg = cfg.dataset
 
-    map_loc = torch.device("cpu") if cfg.general.force_cpu else None
+    # Always CPU, never None. map_location=None restores each tensor to the device
+    # recorded in the checkpoint -- which is cuda:0, the device rank 0 held when it
+    # saved. Under DDP that makes all 8 ranks on a node materialise the full model
+    # on GPU 0 simultaneously before Lightning's model_to_device() moves it to the
+    # right GCD. Loading to CPU and letting Lightning place it is both correct and
+    # cheaper. force_cpu is now redundant here but kept for call-site clarity.
+    map_loc = torch.device("cpu")
     # weights_only=False: save_hyperparameters() embeds the Hydra config, so the
     # checkpoint pickle contains omegaconf.DictConfig, which PyTorch 2.6's
     # weights_only=True default rejects. Same reason as the torch.load call in
@@ -219,7 +225,13 @@ def get_resume_adaptive(cfg, model_kwargs):
     root_dir = current_path.split("outputs")[0]
     resume_path = os.path.join(root_dir, cfg.general.resume)
 
-    map_loc = torch.device("cpu") if cfg.general.force_cpu else None
+    # Always CPU, never None. map_location=None restores each tensor to the device
+    # recorded in the checkpoint -- which is cuda:0, the device rank 0 held when it
+    # saved. Under DDP that makes all 8 ranks on a node materialise the full model
+    # on GPU 0 simultaneously before Lightning's model_to_device() moves it to the
+    # right GCD. Loading to CPU and letting Lightning place it is both correct and
+    # cheaper. force_cpu is now redundant here but kept for call-site clarity.
+    map_loc = torch.device("cpu")
     # weights_only=False: see get_resume().
     model = Spec2MolDenoisingDiffusion.load_from_checkpoint(
         resume_path, map_location=map_loc, weights_only=False, **model_kwargs
@@ -619,6 +631,10 @@ def main(cfg: DictConfig):
     if name == "debug":
         logging.warning("Run is named 'debug' — fast_dev_run will be used.")
     limit_val_batches = getattr(cfg.train, "limit_val_batches", None)
+    # int = that many batches, float = that fraction of the epoch. Mainly useful for
+    # making trainer.fit() trivial when you want the fit path purely to reach the
+    # test epoch (see train.lr=0), rather than to actually train.
+    limit_train_batches = getattr(cfg.train, "limit_train_batches", None)
     trainer = Trainer(
         gradient_clip_val=cfg.train.clip_grad,
         strategy=trainer_strategy,
@@ -631,6 +647,7 @@ def main(cfg: DictConfig):
         callbacks=callbacks,
         log_every_n_steps=50 if name != "debug" else 1,
         limit_val_batches=limit_val_batches,
+        limit_train_batches=limit_train_batches,
         logger=loggers,
         enable_progress_bar=getattr(cfg.train, "progress_bar", False),
         profiler=profiler,
