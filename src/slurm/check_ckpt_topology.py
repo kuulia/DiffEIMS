@@ -11,7 +11,21 @@ Usage (inside the container, venv activated):
     python src/slurm/check_ckpt_topology.py /path/to/fine_tuned.ckpt
 """
 
+import os
 import sys
+
+# The checkpoint pickle references project classes, so unpickling imports them.
+# Two roots are needed and neither is automatic here: the repo root for the
+# `src.*` imports, and `src/` itself because modules under src/mist import each
+# other as a top-level `mist` package. spec2mol_main.py gets the latter for free
+# (Python puts the script's own directory on sys.path, and it lives in src/);
+# this script sits in src/slurm/, so it has to add both explicitly.
+_SLURM_DIR = os.path.dirname(os.path.abspath(__file__))
+_SRC = os.path.dirname(_SLURM_DIR)
+_REPO = os.path.dirname(_SRC)
+for _p in (_REPO, _SRC):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 import torch
 
