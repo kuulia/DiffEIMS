@@ -159,6 +159,19 @@ def get_resume(cfg, model_kwargs):
     test_samples_to_generate = cfg.general.test_samples_to_generate
     num_test_samples = cfg.general.num_test_samples
     eval_batch_size = cfg.train.eval_batch_size
+    # Topology of THIS run, not the run that produced the checkpoint. get_resume
+    # replaces cfg wholesale with the checkpoint's copy, and
+    # update_config_with_new_keys only fills in keys that are MISSING — so any key
+    # the checkpoint already has silently wins. gpus/num_nodes are exactly such
+    # keys, and the SLURM script passes them on the command line
+    # (general.gpus=8 general.num_nodes=$SLURM_NNODES). Without carrying them
+    # across, Trainer(devices=..., num_nodes=...) is built from whatever node
+    # count the checkpoint was trained on, which need not match the 32 tasks srun
+    # actually launched. Same for the strategy/timeout knobs.
+    gpus = cfg.general.gpus
+    num_nodes = getattr(cfg.general, "num_nodes", 1)
+    trainer_strategy = getattr(cfg.train, "trainer_strategy", "auto")
+    ddp_timeout_hours = getattr(cfg.train, "ddp_timeout_hours", None)
     decoder = getattr(cfg.general, "decoder", None)
     encoder = getattr(cfg.general, "encoder", None)
     inference_only = getattr(cfg.dataset, "inference_only", None)
@@ -181,6 +194,11 @@ def get_resume(cfg, model_kwargs):
     cfg.general.test_samples_to_generate = test_samples_to_generate
     cfg.general.num_test_samples = num_test_samples
     cfg.train.eval_batch_size = eval_batch_size
+    cfg.general.gpus = gpus
+    safe_setattr(cfg.general, "num_nodes", num_nodes)
+    safe_setattr(cfg.train, "trainer_strategy", trainer_strategy)
+    if ddp_timeout_hours is not None:
+        utils.force_setattr(cfg.train, "ddp_timeout_hours", ddp_timeout_hours)
     safe_setattr(cfg.general, "encoder", encoder)
     safe_setattr(cfg.general, "decoder", decoder)
     safe_setattr(cfg.dataset, "inference_only", inference_only)
