@@ -19,8 +19,8 @@ cd ms/DiffMS || exit 1
 start_time=$(date +%s)
 
 # Run training
-echo "srun python src/fp2mol_main_neims.py"
-srun python src/fp2mol_main_neims.py
+echo "srun python src/fp2mol_main.py"
+srun python src/fp2mol_main.py
 
 # Record end time and report runtime
 end_time=$(date +%s)

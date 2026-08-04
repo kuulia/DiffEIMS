@@ -19,8 +19,8 @@ cd ms/DiffMS || exit 1
 start_time=$(date +%s)
 
 # Run training
-echo "srun python src/fp2mol_main.py"
-srun python src/fp2mol_main.py
+echo "srun python src/fp2mol_main.py --config-name=config_decoder_pretrain"
+srun python src/fp2mol_main.py --config-name=config_decoder_pretrain
 
 # Record end time and report runtime
 end_time=$(date +%s)

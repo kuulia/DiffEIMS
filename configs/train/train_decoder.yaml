@@ -15,3 +15,13 @@ scheduler: 'one_cycle' # 'const' | 'one_cycle'
 pct_start: 0.1
 seed: 42
 limit_val_batches: 1.0 # 'float', 1.0 default (full val batch)
+
+# DDP. 'auto' lets fp2mol_main.py pick: plain 'auto' on a single device,
+# 'ddp_find_unused_parameters_true' when WORLD_SIZE > 1 (needed to load older
+# checkpoints). Override with an explicit strategy name to pin it.
+trainer_strategy: 'auto'
+ddp_timeout_hours: 20    # NCCL watchdog deadline for every collective (PyTorch default
+                         # is 0.5h). Must exceed the worst rank-to-rank SKEW, not the
+                         # epoch length -- the test epoch generates on every batch and
+                         # cost scales with molecule size, so the first rank to reach
+                         # the epoch-end barrier can wait most of the run.

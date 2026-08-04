@@ -123,6 +123,19 @@ mkdir -p $REAL/nccl_trace
 # turns an 8-hour hang into a 6-minute watchdog abort plus a flight-recorder dump.
 HYDRA_OVERRIDES="${HYDRA_OVERRIDES:-}"
 
+# Entry point + Hydra config. Defaults run end-to-end spec2mol training; the same
+# DDP environment serves the decoder scripts, so override rather than fork this
+# file, e.g.
+#   sbatch --export=ALL,ENTRYPOINT=src/fp2mol_main.py src/slurm/train_model_lumi_ddp.sh
+#   sbatch --export=ALL,ENTRYPOINT=src/fp2mol_main.py,CONFIG_NAME=config_decoder_pretrain \
+#          src/slurm/train_model_lumi_ddp.sh
+ENTRYPOINT="${ENTRYPOINT:-src/spec2mol_main.py}"
+CONFIG_NAME="${CONFIG_NAME:-}"
+CONFIG_ARG=""
+if [ -n "$CONFIG_NAME" ]; then
+    CONFIG_ARG="--config-name=$CONFIG_NAME"
+fi
+
 # Pre-create per-node per-rank cache dirs so ROCm doesn't race on mkdir.
 # One task per node creates that node's subtree using its SLURM_NODEID (0, 1, ...).
 # --ntasks is needed too: without it SLURM warns that --ntasks-per-node=1 does
@@ -177,7 +190,7 @@ srun --cpu-bind=cores \
 
         echo \"Task RANK=\$RANK LOCAL_RANK=\$LOCAL_RANK MIOPEN=\$MIOPEN_USER_DB_PATH\"
 
-        python src/spec2mol_main.py \
+        python $ENTRYPOINT $CONFIG_ARG \
             general.gpus=8 \
             general.num_nodes=$SLURM_NNODES \
             $HYDRA_OVERRIDES

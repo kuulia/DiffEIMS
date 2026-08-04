@@ -418,13 +418,51 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
                     predicted_mols[idx].append(mol)
 
             for idx in range(len(data)):
-                self.val_k_acc.update(predicted_mols[idx], true_mols[idx])
-                self.val_sim_metrics.update(predicted_mols[idx], true_mols[idx])
-                self.val_validity.update(predicted_mols[idx])
+                self._update_gen_metrics(
+                    self.val_k_acc,
+                    self.val_sim_metrics,
+                    self.val_validity,
+                    predicted_mols[idx],
+                    true_mols[idx],
+                )
 
         return {"loss": nll}
 
+    def _update_gen_metrics(
+        self, k_acc, sim_metrics, validity, predicted_mols, true_mol
+    ) -> None:
+        """Update the generation metrics for one molecule, tolerating RDKit failures.
+
+        DDP safety, not defensiveness for its own sake: these updates run inside the
+        per-rank eval loop, but every collective afterwards (metric sync, the
+        epoch-end barrier, log_dict) is symmetric across ranks. If one rank raises
+        here, it leaves the collective sequence while the other ranks stay in it, so
+        they all block until the NCCL watchdog aborts them -- a single unparseable
+        molecule would destroy a multi-hour evaluation. RDKit gives us two ways in:
+        Chem.inchi.MolFromInchi returns None for an InChI it cannot parse, and both
+        K_ACC_Collection.update (Chem.MolToInchi) and K_TanimotoSimilarity.update
+        (GetMorganFingerprintAsBitVect) call into RDKit with true_mol unguarded.
+
+        Skipping an example only shrinks this rank's metric denominator, which the
+        all-reduce in compute() handles correctly.
+        """
+        if true_mol is None:
+            logging.warning("Skipping metric update: true molecule failed to parse.")
+            return
+
+        try:
+            k_acc.update(predicted_mols, true_mol)
+            sim_metrics.update(predicted_mols, true_mol)
+            validity.update(predicted_mols)
+        except Exception as e:  # noqa: BLE001 - see docstring
+            logging.warning(f"Skipping metric update, RDKit raised: {e}")
+
     def on_validation_epoch_end(self) -> None:
+        # Same reasoning as on_test_epoch_end: on the epochs where
+        # sample_every_val triggers generation, rank finish times are uneven, and
+        # the .compute() calls below all-reduce. Bounded by cfg.train.ddp_timeout_hours.
+        self.trainer.strategy.barrier()
+
         metrics = [
             self.val_nll.compute(),
             self.val_X_kl.compute(),
@@ -512,20 +550,42 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
             for idx, mol in enumerate(self.sample_batch(data)):
                 predicted_mols[idx].append(mol)
 
-        with open(f"preds/{self.name}_pred_{i}.pkl", "wb") as f:
+        # Rank must be in the filename: every rank holds different molecules but
+        # the same per-rank batch index, so without it ranks overwrite each other
+        # and only ~1/world_size of the predictions survive.
+        with open(f"preds/{self.name}_pred_r{self.global_rank}_{i}.pkl", "wb") as f:
             pickle.dump(predicted_mols, f)
-        with open(f"preds/{self.name}_true_{i}.pkl", "wb") as f:
+        with open(f"preds/{self.name}_true_r{self.global_rank}_{i}.pkl", "wb") as f:
             pickle.dump(true_mols, f)
 
-        for idx in range(len(data)):  # WARNING: THESE METRICS MAY FAIL ON MULTI-GPU
-            self.test_k_acc.update(predicted_mols[idx], true_mols[idx])
-            self.test_sim_metrics.update(predicted_mols[idx], true_mols[idx])
-            self.test_validity.update(predicted_mols[idx])
+        for idx in range(len(data)):
+            self._update_gen_metrics(
+                self.test_k_acc,
+                self.test_sim_metrics,
+                self.test_validity,
+                predicted_mols[idx],
+                true_mols[idx],
+            )
 
         return {"loss": nll}
 
     def on_test_epoch_end(self) -> None:
         """Measure likelihood on a test set and compute stability metrics."""
+        # Generation in test_step is slow and uneven across ranks (molecule size
+        # varies). Every rank runs the same NUMBER of batches (Lightning's
+        # DistributedSampler pads the test set), but not for the same amount of
+        # time, so a fast rank arrives here while others are still inside
+        # sample_batch(). Without this barrier the first collective a fast rank
+        # issues is the all-reduce hidden in a torchmetrics .compute() below, and
+        # the failure surfaces as an opaque ALLREDUCE watchdog timeout. The
+        # barrier concentrates the wait in one obvious place.
+        #
+        # NOTE: barrier() is itself a collective and is subject to the same
+        # watchdog deadline, so this does NOT make the wait unbounded. The
+        # deadline is cfg.train.ddp_timeout_hours, passed to DDPStrategy(timeout=)
+        # in fp2mol_main.py; it must exceed the worst rank-to-rank skew.
+        self.trainer.strategy.barrier()
+
         metrics = [
             self.test_nll.compute(),
             self.test_X_kl.compute(),
@@ -827,7 +887,13 @@ class FP2MolDenoisingDiffusion(pl.LightningModule):
         assert (E == torch.transpose(E, 1, 2)).all()
 
         # Iteratively sample p(z_s | z_t) for t = 1, ..., T, with s = t - 1.
-        for s_int in tqdm(reversed(range(0, self.T)), desc="Sampling", leave=False):
+        # disable=None: with T diffusion steps per call and many calls per batch,
+        # this bar writes tens of thousands of lines into the SLURM log (times
+        # world_size), where leave=False cannot erase anything because the output
+        # is a file, not a terminal. disable=None silences it off-TTY only.
+        for s_int in tqdm(
+            reversed(range(0, self.T)), desc="Sampling", leave=False, disable=None
+        ):
             s_array = s_int * torch.ones(
                 (len(batch), 1), dtype=self.model_dtype, device=self.device
             )
