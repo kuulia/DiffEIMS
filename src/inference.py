@@ -95,7 +95,12 @@ def generate_molecules(model, data, num_samples):
 def main():
     # Load config
     hydra.initialize(version_base="1.3", config_path="../configs")
-    cfg = hydra.compose(config_name="config_inference")
+    # compose() does not read sys.argv the way @hydra.main does, so without this
+    # any override typed on the command line is accepted and silently ignored.
+    overrides = [a for a in sys.argv[1:] if "=" in a]
+    if overrides:
+        logger.info(f"Config overrides: {overrides}")
+    cfg = hydra.compose(config_name="config_inference", overrides=overrides)
 
     logger.info(f"Dataset config: {cfg.dataset}")
 
@@ -103,7 +108,12 @@ def main():
     now = datetime.now()
     date_part = now.strftime("%Y-%m-%d")
     time_part = now.strftime("%H-%M-%S")
-    output_path = Path("../outputs") / date_part / f"{time_part}-inference"
+    # "outputs", not "../outputs": main() uses the Compose API (hydra.initialize +
+    # hydra.compose) rather than @hydra.main, so hydra.job.chdir never fires and the
+    # cwd stays wherever the script was launched from. "../outputs" resolved to the
+    # parent of the repo. Dataset paths in the config are repo-relative for the same
+    # reason, so this must be run from the repo root either way.
+    output_path = Path("outputs") / date_part / f"{time_part}-inference"
     output_path.mkdir(parents=True, exist_ok=True)
     logger.info(f"Output directory: {output_path}")
 
@@ -148,7 +158,17 @@ def main():
     )
     model.eval()
 
-    device = model.device
+    # Load to CPU, then move to the accelerator. `device = model.device` alone read
+    # back cpu (map_location above put every parameter there) and the whole run
+    # executed on CPU — ~500 denoising steps per candidate through a 53 M-parameter
+    # graph transformer, which is days rather than minutes.
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    if device.type == "cpu":
+        logger.warning(
+            "No GPU visible — running on CPU. Generation will take days, not minutes."
+        )
+
     num_samples = model.test_num_samples
     logger.info(f"Model loaded. Device: {device}. Samples per spectrum: {num_samples}")
 

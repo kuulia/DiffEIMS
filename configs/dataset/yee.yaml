@@ -1,0 +1,67 @@
+# Yee et al. — pure inference. Spectra + molecular formulas, no known structures.
+#
+# PATHS ARE REPO-RELATIVE HERE, unlike every other dataset config.
+# The training configs use '../../../data/...' because spec2mol_main.py runs under
+# @hydra.main with chdir: True, which puts the cwd three levels deep in
+# outputs/<date>/<time>-<name>/. src/inference.py instead uses the Compose API
+# (hydra.initialize + hydra.compose), which never chdirs — so these resolve from
+# wherever the process was launched. Run it from the repo root.
+name: yee
+remove_h: True # Drop explicit hydrogens; the graph carries heavy atoms only.
+
+# Prior for the diffusion process (node/edge marginals, node-count histogram).
+# MUST match the data the checkpoint below was trained on — it defines limit_dist,
+# the distribution sample_batch() draws its initial noise from. neims_tms pairs with
+# tms_final_april.ckpt and gives Si 8.2% of the node mass, which is what this
+# silylated dataset needs. Point both at the same training run if you swap models.
+stats_dir: 'data/gecko_new_mixed_augment_atmomaccs_test/stats'
+datadir: 'data/yee'
+eval_model_path: '/scratch/project_462001155/lindl/DiffEIMS/outputs/2026-07-31/20507941-dev/checkpoints/dev/last.ckpt'
+
+inference_only: True # No ground-truth structures: skips the NLL/KL losses.
+filter: False # Structure validity filtering — nothing to filter against here.
+denoise_nodes: False
+merge: 'downproject_4096'  # Must match the checkpoint's merge strategy.
+morgan_nbits: 2048
+morgan_r: 2
+split_file: null # All 477 spectra are used; no train/val/test split applies.
+
+spec_features: 'peakformula'
+mol_features: 'none' # 'fingerprint' would need real molecules; we have none.
+
+# Subformula annotations, one JSON per spectrum, keyed by spec name. Verified: 477
+# JSONs for 477 rows in labels.tsv, no gaps. Kept as JSONs rather than a pickle,
+# so subform_pkl stays False and PeakFormula globs '*.json' in this folder.
+subform_folder: 'data/yee/subformulae'
+subform_pkl: False
+
+# Augmentation off: it perturbs peaks to regularise training and has no place in
+# inference, where we want the model's read of the actual spectrum.
+augment_data: False
+remove_prob: 0.0
+remove_weights: 'uniform'
+inten_prob: 0.0
+inten_transform: 'log' # Intensity scaling — must match how the model was trained.
+cls_type: 'zeros'
+magma_aux_loss: False
+
+# labels.tsv columns: dataset, spec, ionization, formula, smiles, inchikey, instrument.
+# smiles/inchikey are "na" throughout; only `formula` is used, to build the atom set.
+labels_file: 'data/yee/labels.tsv'
+
+# spec_folder is the directory holding the collated pickle, not a spec_files/ subdir
+# (matching the gecko configs, where the pkl sits directly in the dataset root).
+#
+# NOTE: df_neims_yee_3_9_22.pkl has columns SMILES/spec/name and no UID column, so
+# get_inference_spectra() falls back to positional zip(labels.tsv, pkl) rather than a
+# keyed lookup. Verified correct for these files — all 477 rows line up, labels['spec']
+# == pkl['name'] in order — but that alignment is not enforced anywhere. If you
+# regenerate either file, re-check it, or switch to a pkl carrying a UID column
+# (e.g. yee_spec_inference.pkl), which is matched by key instead of by position.
+spec_folder: 'data/yee'
+collated_pkl: True
+collated_pkl_file: 'df_neims_yee_3_9_22.pkl'
+
+cache_featurizers: False
+set_pooling: 'intensity'
+max_count: null # No cap on spectra; set an int to smoke-test on a subset.
