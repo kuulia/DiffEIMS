@@ -1,7 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=inf_diffms
 #SBATCH --output=outfiles/inference_%j.out
-#SBATCH --time=02:00:00
+#SBATCH --time=24:00:00        # see the runtime note below -- 2h is not enough at
+                               # test_samples_to_generate=100
 #SBATCH --account=project_462001155
 #SBATCH --partition=small-g        # partial-node partition: standard-g bills whole nodes
 #SBATCH --nodes=1
@@ -22,9 +23,17 @@
 # more than one task would just run N identical copies over the same data and
 # overwrite each other's output.
 #
-# It is also small enough not to need more. 477 spectra x test_num_samples
-# candidates x 500 denoising steps, batched at eval_batch_size, is on the order
-# of 15-30 min on one MI250X GCD.
+# RUNTIME scales as ceil(n_spectra / eval_batch_size) * num_samples * T decoder
+# passes, all sequential on one GCD. For Yee at eval_batch_size=128 and
+# test_samples_to_generate=100 that is 4 * 100 * 500 = 200,000 passes. Measured
+# per-candidate cost on MI250X during the DDP eval runs was 83-374 s at batch 256,
+# so roughly 40-190 s at batch 128 -> 4-21 h. Hence the 24 h walltime.
+#
+# The one lever is the candidate count, which inference.py now takes from the live
+# config rather than the checkpoint:
+#   sbatch --export=ALL,HYDRA_OVERRIDES=general.test_samples_to_generate=10 \
+#          src/slurm/inference_lumi.sh
+# That is a straight 10x and finishes inside an hour.
 #
 # Do NOT export RANK / LOCAL_RANK / WORLD_SIZE here. Nothing in this path reads
 # them, and setting them only invites library code to believe it is distributed.

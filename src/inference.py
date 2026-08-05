@@ -1,19 +1,29 @@
 """
 inference.py
 
-Point-wise inference script for generating molecules from mass spectra
-where no molecular structure (SMILES/InChI/fingerprints) is known.
+Inference script for generating molecules from mass spectra where no molecular
+structure (SMILES/InChI/fingerprints) is known — only spectra and formulas.
 
 Based on src/eval_test.py but designed for:
 - Inference-only data (e.g., Yee et al. dataset)
-- Point-wise processing (one spectrum at a time)
-- No ground-truth comparison
+- No ground-truth comparison (so no NLL/KL/top-k; those need true structures)
+
+BATCHING. Spectra are processed train.eval_batch_size at a time, not one by one.
+This does not affect the results: to_dense pads each batch to its largest molecule,
+but the padding is masked throughout, and a given molecule's extra-features come
+out bit-identical at padding widths 25/40/60/100 (verified directly). The one
+consequence of batch size is the RNG stream — sample_discrete_feature_noise draws
+a multinomial sized by the padded batch, so a fixed seed yields different noise,
+and therefore different candidate molecules, at different eval_batch_size. That is
+resampling from the same distribution, not a bias, but it does mean runs are only
+reproducible when eval_batch_size is held fixed.
 
 Usage:
     python -m src.inference
+    python -m src.inference general.test_samples_to_generate=10
 
-    Override config values via command line or by editing configs/config_inference.yaml
-    and configs/dataset/yee.yaml.
+    Config lives in configs/config_inference.yaml and configs/dataset/yee.yaml;
+    command-line overrides are forwarded to hydra.compose (see main()).
 """
 
 import sys
@@ -177,8 +187,27 @@ def main():
             "No GPU visible — running on CPU. Generation will take days, not minutes."
         )
 
+    # model.test_num_samples comes from the config embedded in the checkpoint, not
+    # from the config being composed now, so it silently differs per checkpoint (10
+    # for tms_final_april, 100 for the gecko runs). Let the live config win — this is
+    # the only lever on runtime, which scales as
+    #     ceil(n_spectra / eval_batch_size) * num_samples * T
+    # forward passes on one GPU.
     num_samples = model.test_num_samples
+    cfg_samples = getattr(cfg.general, "test_samples_to_generate", None)
+    if cfg_samples is not None and cfg_samples != num_samples:
+        logger.info(
+            f"Overriding checkpoint's test_num_samples ({num_samples}) with "
+            f"cfg.general.test_samples_to_generate={cfg_samples}"
+        )
+        num_samples = cfg_samples
+
+    n_batches = -(-len(datamodule.test_dataset) // cfg.train.eval_batch_size)
     logger.info(f"Model loaded. Device: {device}. Samples per spectrum: {num_samples}")
+    logger.info(
+        f"Work: {n_batches} batches x {num_samples} candidates x {model.T} steps "
+        f"= {n_batches * num_samples * model.T:,} decoder passes"
+    )
 
     # Point-wise inference
     test_loader = datamodule.test_dataloader()
