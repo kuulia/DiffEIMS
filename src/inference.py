@@ -153,8 +153,16 @@ def main():
     # Load model from checkpoint
     checkpoint_path = cfg.dataset.eval_model_path
     logger.info(f"Loading model from checkpoint: {checkpoint_path}")
+    # weights_only=False: save_hyperparameters() embeds the Hydra config, so the
+    # checkpoint pickle contains an omegaconf DictConfig, which PyTorch 2.6's
+    # weights_only=True default rejects with "Unsupported global: DictConfig".
+    # These checkpoints are produced by this repo, so there is no untrusted-pickle
+    # exposure. Same reason as the load_from_checkpoint calls in spec2mol_main.py.
     model = Spec2MolDenoisingDiffusion.load_from_checkpoint(
-        checkpoint_path, map_location=torch.device("cpu"), **model_kwargs
+        checkpoint_path,
+        map_location=torch.device("cpu"),
+        weights_only=False,
+        **model_kwargs,
     )
     model.eval()
 
