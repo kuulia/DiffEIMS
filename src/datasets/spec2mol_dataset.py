@@ -13,6 +13,7 @@ Design principles:
     strategy can inject DistributedSampler automatically
 """
 
+import gc
 import os
 import math
 import time
@@ -442,8 +443,10 @@ class Spec2MolDataModule(pl.LightningDataModule):
             )
             time.sleep(delay)
 
+        utils.log_rss("before _build_splits")
         logging.info(f"Rank {os.environ.get('RANK', '?')}: loading dataset splits...")
         train_ds, val_ds, test_ds = _build_splits(self.cfg)
+        utils.log_rss("after _build_splits")
 
         if needs_train:
             self.train_dataset = train_ds
@@ -464,6 +467,33 @@ class Spec2MolDataModule(pl.LightningDataModule):
                     n_sample=n_batches * per_round,
                     seed=getattr(self.cfg.train, "seed", 42),
                 )
+
+        # _build_splits always builds all three splits, but a given stage keeps
+        # only some of them. Drop the locals so the unused ones are reclaimed
+        # here rather than being frozen below, where any reference cycle inside
+        # them would become permanently uncollectable.
+        del train_ds, val_ds, test_ds
+
+        # The dataset is fully built and read-only from here on, and this is the
+        # last point that runs before DataLoader workers fork. Workers start out
+        # sharing these pages copy-on-write, but a generational GC pass in a
+        # child writes to the PyGC_Head of every tracked container it walks --
+        # which would CoW-copy the whole dataset (millions of small dicts /
+        # Spectra objects) into each of num_workers children, on each of the 8
+        # ranks per node. gc.freeze() moves everything currently alive into the
+        # permanent generation, which the collector never traverses, so the
+        # pages stay shared.
+        #
+        # Trade-off: cycles alive at this point are never collected again, so
+        # they leak for the life of the process. Fine for a training job.
+        if getattr(self.cfg.train, "gc_freeze", True):
+            gc.collect()  # reclaim cycles now; after freeze they are unreachable
+            gc.freeze()
+            logging.info(
+                f"Rank {os.environ.get('RANK', '?')}: gc.freeze() applied "
+                f"({gc.get_freeze_count()} objects moved to permanent gen)"
+            )
+        utils.log_rss("after setup (pre-fork)")
 
     # ------------------------------------------------------------------
     # DataLoaders

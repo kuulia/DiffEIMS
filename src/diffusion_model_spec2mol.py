@@ -325,6 +325,13 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
 
         return {"loss": loss}
 
+    def on_train_batch_end(self, outputs, batch, batch_idx) -> None:
+        # Post-fork memory probe. DataLoader workers fork on the first
+        # iteration and their copy-on-write footprint grows as they touch
+        # pages, so sample a few early batches rather than just batch 0.
+        if batch_idx in (0, 50, 200):
+            utils.log_rss(f"train batch {batch_idx} (post-fork)")
+
     def configure_optimizers(self):
         if self.cfg.train.scheduler == "const":
             return torch.optim.AdamW(

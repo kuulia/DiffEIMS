@@ -1,8 +1,8 @@
 # Training settings
 n_epochs: 100
-batch_size: 128 # 128
+batch_size: 64 # 128
 eval_batch_size: 128 # 1024
-lr: 0.0001 # 0.0015 for training, 0.0002 for fine-tuning.
+lr: 0.00005 # 0.0015 for training, 0.0002 for fine-tuning.
            # Halved from 0.0002: sqrt scaling at 4 nodes turned 0.0002 into
            # 0.001131, which diverged at epoch 24 (~80% up the one-cycle ramp).
            # 0.0001 -> 0.000566 at 4 nodes. Note this is a *base* value; the
@@ -14,6 +14,12 @@ clip_grad: 1.0           # float, null to disable. Was null; a single large upda
 save_model: True
 num_workers: 6 # 8
 pin_memory: True
+gc_freeze: true          # gc.freeze() at the end of datamodule.setup(), before
+                         # DataLoader workers fork. Without it, a generational GC
+                         # pass in a forked worker writes to the PyGC_Head of every
+                         # tracked container it walks, which copy-on-write-copies
+                         # the dataset into each worker — num_workers x 8 ranks per
+                         # node. Set false to A/B the effect against the [mem] logs.
 ema_decay: 0          # EMA decay current not implemented
 progress_bar: false
 weight_decay: 1e-12

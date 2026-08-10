@@ -19,6 +19,36 @@ def cfg_to_dict(cfg):
     return omegaconf.OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
 
 
+def log_rss(tag: str) -> None:
+    """Log this process's resident set size and the node's available memory.
+
+    Used to size host-RAM headroom on multi-rank nodes: with 8 ranks per node
+    each loading its own copy of the dataset, per-rank RSS x 8 has to fit in
+    node RAM before DataLoader workers fork on top of it.
+    """
+    try:
+        # statm fields are in pages; field 1 is resident.
+        with open("/proc/self/statm") as f:
+            rss_pages = int(f.read().split()[1])
+        rss_gb = rss_pages * os.sysconf("SC_PAGE_SIZE") / 1024**3
+
+        avail_gb = float("nan")
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    avail_gb = int(line.split()[1]) / 1024**2
+                    break
+    except (OSError, ValueError, IndexError) as e:
+        logging.warning(f"[mem] {tag}: could not read memory stats ({e})")
+        return
+
+    logging.info(
+        f"[mem] {tag}: rank={os.environ.get('RANK', '?')} "
+        f"local_rank={os.environ.get('LOCAL_RANK', '0')} pid={os.getpid()} "
+        f"rss={rss_gb:.2f}GB node_avail={avail_gb:.1f}GB"
+    )
+
+
 def normalize(X, E, y, norm_values, norm_biases, node_mask):
     X = (X - norm_biases[0]) / norm_values[0]
     E = (E - norm_biases[1]) / norm_values[1]
