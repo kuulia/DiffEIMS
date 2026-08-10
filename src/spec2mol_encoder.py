@@ -231,6 +231,7 @@ def main(cfg: DictConfig):
         "msg_neims",
         "mixed_augment_test",
         "mixed_augment",
+        "gecko_new_tms_mixed_augment_atmomaccs_tms_test"
     ):
         raise NotImplementedError("Unknown dataset {}".format(cfg["dataset"]))
 

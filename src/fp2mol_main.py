@@ -142,6 +142,7 @@ def get_datamodule(cfg):
         "msg_neims",
         "mixed_augment_test",
         "gecko_new",
+        "gecko_new_tms_mixed_augment_atmomaccs_tms_test",
     ):
         datamodule = neims_dataset.NeimsDataModule(cfg)
         dataset_infos = neims_dataset.Neims_infos(
