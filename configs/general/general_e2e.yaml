@@ -9,10 +9,10 @@ gpus: 8
 num_nodes: 4
 
 
-decoder: null # '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/mixed_encoder/final/decoder.pt' # path to pretrained decoder
-encoder: null #'/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/mixed_encoder/final/encoder.pt' # path to pretrained encoder
+decoder: '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/fine-tuned/20940289-dev/decoder.pt' # '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/fine-tuned/20940289-dev/encoder.pt' # path to pretrained decoder
+encoder: '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/fine-tuned/20940289-dev/encoder.pt' #'/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/mixed_encoder/final/encoder.pt' # path to pretrained encoder
 resume: null # If resume, path to ckpt file from outputs direpctory in main directory
-test_only: '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/gecko_new_ddp/fine_tuned.ckpt'
+test_only: null
 load_weights: null
 
 encoder_finetune_strategy: null # null | freeze | ft-unfold | freeze-unfold | freeze-transformer | ft-transformer | ft-spectra-fragment

@@ -42,7 +42,7 @@ def extract_weights(
         Saved encoder weights to weights/encoder.pt
         Saved decoder weights to weights/decoder.pt
     """
-    ckpt = torch.load(ckpt_path, map_location="cpu")
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
     state_dict = ckpt["state_dict"] if "state_dict" in ckpt else ckpt
 
     if not os.path.exists(output_dir):

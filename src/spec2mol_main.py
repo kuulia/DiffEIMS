@@ -426,6 +426,7 @@ def main(cfg: DictConfig):
         "mixed_atmomaccs",
         "gecko_new_atmomaccs",
         "gecko_new",
+	"gecko_new_tms",
         "gecko_new_mixed_augment_atmomaccs_test",
         "gecko_new_tms_mixed_augment_atmomaccs_tms_test"
     )

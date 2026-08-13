@@ -1,26 +1,32 @@
 #!/bin/bash
 #SBATCH --job-name=checkpoints
-#SBATCH --output=outfiles/ch_%A.out
-#SBATCH --time=1:00:00
-#SBATCH --mem=64G
+#SBATCH --output=outfiles/chk_%j.out
+#SBATCH --time=00:15:00
+#SBATCH --account=project_462001448
+#SBATCH --partition=debug
+#SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
-#SBATCH --array=0
+#SBATCH --mem=16gb
 
-# Load environment
-cd $WRKDIR || exit 1
-module load mamba
-source activate diffms
+module load Local-LAIF lumi-aif-singularity-bindings
 
-# Navigate to project directory
-cd ms/DiffMS || exit 1
+SIF=/appl/local/laifs/containers/lumi-multitorch-u24r70f21m50t210-20260513_121430/lumi-multitorch-full-u24r70f21m50t210-20260513_121430.sif
+REAL=$(realpath /scratch/project_462001155/lindl)
+VENV=$REAL/pyg_venv
 
-# Record start time
+cd $REAL/DiffEIMS || exit 1
+
 start_time=$(date +%s)
 
-# Run script
-srun python src/checkpoint_to_weights.py outputs/2026-06-24/04-35-03-dev/checkpoints/dev/last.ckpt data/checkpoints/checkpoints/gecko_mixed/
 
-# Record end time and report runtime
+srun --cpu-bind=cores \
+    singularity exec $SIF \
+    bash -c "
+        source $VENV/bin/activate
+        cd $REAL/DiffEIMS
+	python src/checkpoint_to_weights.py data/checkpoints/checkpoints/fine-tuned/20940289-dev/last.ckpt data/checkpoints/checkpoints/fine-tuned/20940289-dev/
+    "
 end_time=$(date +%s)
 runtime=$((end_time - start_time))
 echo "Total runtime: $runtime seconds"
+

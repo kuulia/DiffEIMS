@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=inf_diffms
 #SBATCH --output=outfiles/inference_%j.out
-#SBATCH --time=24:00:00        # see the runtime note below -- 2h is not enough at
+#SBATCH --time=20:00:00        # see the runtime note below -- 2h is not enough at
                                # test_samples_to_generate=100
 #SBATCH --account=project_462001155
 #SBATCH --partition=small-g        # partial-node partition: standard-g bills whole nodes
