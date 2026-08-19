@@ -172,6 +172,7 @@ def main():
         checkpoint_path,
         map_location=torch.device("cpu"),
         weights_only=False,
+        load_pretrained_weights=False,
         **model_kwargs,
     )
     model.eval()

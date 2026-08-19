@@ -73,7 +73,7 @@ def get_resume(cfg, model_kwargs):
     map_loc = torch.device("cpu") if cfg.general.force_cpu else None
 
     cfg = Spec2MolDenoisingDiffusion.load_from_checkpoint(
-        resume, map_location=map_loc, **model_kwargs
+        resume, map_location=map_loc, load_pretrained_weights=False, **model_kwargs
     ).cfg
     logging.info(f"Loaded cfg from {resume}")
     ################################################################
@@ -92,7 +92,11 @@ def get_resume(cfg, model_kwargs):
     cfg = utils.update_config_with_new_keys(cfg, saved_cfg)
     ###############################################################
     model = Spec2MolDenoisingDiffusion.load_from_checkpoint(
-        resume, map_location=map_loc, cfg=cfg, **model_kwargs
+        resume,
+        map_location=map_loc,
+        cfg=cfg,
+        load_pretrained_weights=False,
+        **model_kwargs,
     )
     return cfg, model
 

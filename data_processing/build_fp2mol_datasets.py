@@ -388,6 +388,12 @@ def _build_registry(data: Path, fp2mol: Path):
             output_dir=data / "gecko_new/preprocessed",
             split_file="split_random.tsv",
         ),
+        SpectralDataPreprocessor(
+            name="gecko_new_tms",
+            data_dir=data / "gecko_new_tms",
+            output_dir=data / "gecko_new_tms/preprocessed",
+            split_file="split_random.tsv",
+        ),
     ]
     structure: List[StructureDataPreprocessor] = [
         HMDBPreprocessor(

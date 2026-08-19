@@ -70,7 +70,9 @@ model_kwargs = {
 
 # Load the model from checkpoint
 checkpoint_path = cfg.dataset.eval_model_path
-model = Spec2MolDenoisingDiffusion.load_from_checkpoint(checkpoint_path, **model_kwargs)
+model = Spec2MolDenoisingDiffusion.load_from_checkpoint(
+    checkpoint_path, load_pretrained_weights=False, **model_kwargs
+)
 
 # Put model in evaluation mode
 model.eval()

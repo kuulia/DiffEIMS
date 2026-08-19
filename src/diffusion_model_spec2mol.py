@@ -51,6 +51,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         visualization_tools,
         extra_features,
         domain_features,
+        load_pretrained_weights=True,
     ):
         super().__init__()
 
@@ -143,8 +144,14 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         else:
             raise Exception(f"Unknown model type: {self.cfg.model.model}")
         decoder_path = cfg.general.decoder
+        # load_pretrained_weights=False when constructing via load_from_checkpoint:
+        # the checkpoint's own state_dict is about to overwrite the decoder/encoder
+        # anyway, so loading these separately is wasted work and, worse, brittle --
+        # decoder_path/cfg.general.encoder may be paths from the original training
+        # machine (e.g. a LUMI node) that don't exist wherever the checkpoint is
+        # being loaded now.
         try:
-            if decoder_path is not None:
+            if load_pretrained_weights and decoder_path is not None:
                 if decoder_path.endswith(".ckpt"):
                     state_dict = torch.load(decoder_path, map_location="cpu")
                     if "state_dict" in state_dict:
@@ -218,7 +225,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         )
 
         try:
-            if cfg.general.encoder is not None:
+            if load_pretrained_weights and cfg.general.encoder is not None:
                 self.encoder.load_state_dict(
                     torch.load(cfg.general.encoder), strict=True
                 )
