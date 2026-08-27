@@ -441,6 +441,7 @@ def main(cfg: DictConfig):
         "gecko_new",
 	"gecko_new_tms",
         "gecko_new_mixed_augment_atmomaccs_test",
+	"gecko_new_mixed_augment_atmomaccs_test_dropped_exotic",
         "gecko_new_tms_mixed_augment_atmomaccs_tms_test"
     )
     if dataset_name not in valid_datasets:

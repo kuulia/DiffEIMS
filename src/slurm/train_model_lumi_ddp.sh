@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=tr_diffms_ddp
 #SBATCH --output=outfiles/ddp_%j.out
-#SBATCH --time=24:00:00
+#SBATCH --time=16:00:00
 #SBATCH --account=project_462001155
 #SBATCH --partition=standard-g
 #SBATCH --nodes=4

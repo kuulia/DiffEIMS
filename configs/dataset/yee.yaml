@@ -16,7 +16,7 @@ remove_h: True # Drop explicit hydrogens; the graph carries heavy atoms only.
 # silylated dataset needs. Point both at the same training run if you swap models.
 stats_dir: 'data/gecko_new_tms_mixed_augment_atmomaccs_tms_test/stats'
 datadir: 'data/yee'
-eval_model_path: '/scratch/project_462001155/lindl/DiffEIMS/outputs/2026-08-10/20940289-dev/checkpoints/dev/epoch=52.ckpt'
+eval_model_path: '/scratch/project_462001155/lindl/DiffEIMS/outputs/2026-08-13/21092599-dev/checkpoints/dev/last.ckpt'
 
 inference_only: True # No ground-truth structures: skips the NLL/KL losses.
 filter: False # Structure validity filtering — nothing to filter against here.
