@@ -25,3 +25,9 @@ graph_tf_y_transformer_n_layers: 1
 graph_tf_y_transformer_dropout: 0.1
 
 lambda_train: [0, 0, 1]
+
+# MIST's growing auxiliary loss on the FPGrowingModule intermediates.
+# MIST ships 0.6 (csi_fp_mist.yaml) and 0.4 (canopus_fp_mist.yaml); the 0.0
+# in the library signature is a debug default. Only applied when
+# lambda_train[2] != 0, i.e. encoder training.
+iterative_loss_weight: 0.5

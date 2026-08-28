@@ -15,3 +15,28 @@ scheduler: 'one_cycle' # 'const' | 'one_cycle'
 pct_start: 0.3
 seed: 42
 limit_val_batches: 1.0 # 'float', 1.0 default (full val batch)
+
+# ---------------------------------------------------------------------------
+# DDP settings, mirroring configs/train/train_e2e.yaml.
+#
+# Encoder-only training runs through spec2mol_main.py, NOT spec2mol_encoder.py:
+#     python src/spec2mol_main.py --config-name=config_encoder
+# "Encoder-only" is just general.decoder_finetune_strategy=freeze on the same
+# Spec2MolDenoisingDiffusion model, so routing it through the hardened entry
+# point gets rank detection, the stats sentinel, the DDP timeout, the rank-0
+# logging filter and the SIGUSR1 stack dump for free. spec2mol_encoder.py has
+# none of those (see the note at the top of that file).
+#
+# These keys are all read with getattr(..., default), so the code runs without
+# them — but Hydra's struct mode rejects a command-line override for a key that
+# is absent from the config, which is what aborted every rank of job 20387528.
+# Declaring them here is what makes `train.limit_train_batches=1` work.
+# ---------------------------------------------------------------------------
+trainer_strategy: 'auto' # 'auto' -> ddp_find_unused_parameters_true when world_size > 1
+ddp_timeout_hours: 20    # NCCL watchdog deadline per collective (PyTorch default 0.5h).
+                         # Must exceed the worst rank-to-rank skew, not the epoch length.
+gc_freeze: true          # gc.freeze() before DataLoader fork, so the refcount/GC header
+                         # writes in the workers do not CoW-copy the dataset per rank.
+limit_train_batches: 1.0 # 1.0 = whole epoch; an int means that many batches.
+sort_test_by_size: true  # Test split only; irrelevant while general.skip_test is True,
+                         # kept aligned with train_e2e.yaml so the two stay comparable.

@@ -5,8 +5,12 @@ parent_dir: '.'
 
 wandb: 'disabled'             # online | offline | disabled
 wandb_name: 'mass_spec_exp'
-gpus: 1
-num_nodes: 1
+# Match configs/general/general_e2e.yaml: 8 GCDs per node x 4 nodes.
+# src/slurm/train_model_lumi_ddp.sh passes these on the command line anyway
+# (general.gpus=8 general.num_nodes=$SLURM_NNODES), so the launcher stays
+# authoritative; these are the defaults for a direct python invocation.
+gpus: 8
+num_nodes: 4
 
 
 decoder: '../../../data/checkpoints/checkpoints/pretrain/decoder58.pt' # path to pretrained decoder

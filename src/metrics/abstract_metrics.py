@@ -114,6 +114,41 @@ class CrossEntropyMetric(Metric):
         return self.total_ce / self.total_samples
 
 
+class FingerprintBCEMetric(Metric):
+    """Per-bit BCE between predicted and true molecular fingerprints.
+
+    This is MIST's fingerprint objective (mist/models/mist_model.py: loss_fn
+    defaults to "bce", nn.BCELoss(reduction="none") then .mean(-1)), adapted for
+    one difference in this repo: MIST's FPGrowingModule ends in nn.Sigmoid, so its
+    predictions are probabilities and plain BCELoss is correct. Here the head that
+    produces a 2048-bit prediction is merge_function = nn.Linear(4096, morgan_nbits)
+    with no activation, so the input is logits and the numerically stable
+    with_logits form is the faithful equivalent.
+
+    Contrast CrossEntropyMetric, which does target.argmax(-1) and so collapses a
+    multi-hot fingerprint to a single class index -- the first set bit. That is why
+    val/y_CE sat at ~7.4 against ln(2048) = 7.62, i.e. chance.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.add_state("total_bce", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total_samples", default=torch.tensor(0.0), dist_reduce_fx="sum")
+
+    def update(self, preds: Tensor, target: Tensor) -> None:
+        """preds: fingerprint logits (bs, n_bits); target: 0/1 bits (bs, n_bits)."""
+        # mean over bits, sum over batch -- so the reported value is per molecule
+        # and independent of n_bits, matching MIST's fp_loss_full.mean(-1).
+        per_mol = F.binary_cross_entropy_with_logits(
+            preds, target.float(), reduction="none"
+        ).mean(dim=-1)
+        self.total_bce += per_mol.sum()
+        self.total_samples += preds.size(0)
+
+    def compute(self):
+        return self.total_bce / self.total_samples
+
+
 class ProbabilityMetric(Metric):
     def __init__(self):
         """This metric is used to track the marginal predicted probability of a class during training."""

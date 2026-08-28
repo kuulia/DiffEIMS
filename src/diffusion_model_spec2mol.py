@@ -30,6 +30,7 @@ from metrics.abstract_metrics import (
     SumExceptBatchKL,
     NLL,
     CrossEntropyMetric,
+    FingerprintBCEMetric,
 )
 from src.metrics.diffms_metrics import (
     K_ACC_Collection,
@@ -84,7 +85,10 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
 
         self.dataset_info = dataset_infos
 
-        self.train_loss = TrainLossDiscrete(self.cfg.model.lambda_train)
+        self.train_loss = TrainLossDiscrete(
+            self.cfg.model.lambda_train,
+            iterative_loss_weight=getattr(cfg.model, "iterative_loss_weight", 0.0),
+        )
 
         self.val_nll = NLL()
         self.val_X_kl = SumExceptBatchKL()
@@ -96,7 +100,8 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.val_sim_metrics = K_SimilarityCollection(val_k)
         self.val_validity = Validity()
         self.val_CE = CrossEntropyMetric()
-        self.val_y_CE = CrossEntropyMetric()
+        # BCE over fingerprint bits, not softmax CE -- see FingerprintBCEMetric.
+        self.val_y_CE = FingerprintBCEMetric()
         self.val_tanimoto_mean = MeanTanimotoSimilarity()
 
         self.test_nll = NLL()
@@ -296,6 +301,18 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         output, aux = self.encoder(batch)
 
         data = batch["graph"]
+        # The graph featurizer puts the TRUE Morgan fingerprint in data.y
+        # (mist/data/featurizers.py: GetMorganFingerprintAsBitVect). The merge
+        # branches below overwrite it with the encoder's prediction, because the
+        # decoder consumes y as conditioning. Capture the target first -- without
+        # this, train_loss received the encoder's own output as `true_y` and the
+        # y term was self-referential (harmless at lambda_train=[1,1,0], degenerate
+        # at [0,0,1]).
+        #
+        # data.y rather than batch["mols"]: both hold a fingerprint, but data.y is
+        # per-graph and index-aligned with the dense batch by construction, whereas
+        # batch["mols"] is ordered by the collate's spec_indices/mol_indices pairing.
+        true_fp = data.y
         if self.merge == "mist_fp":
             data.y = aux["int_preds"][-1]
         if self.merge == "merge-encoder_output-linear":
@@ -316,14 +333,19 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         extra_data = self.compute_extra_data(noisy_data)
         pred = self.forward(noisy_data, extra_data, node_mask)
 
+        # pred_y/true_y are the fingerprint pair, following MIST: the encoder's
+        # prediction against the true Morgan bits. data.y now holds the prediction,
+        # true_fp the target. pred.y (the decoder's y head) is not supervised --
+        # MIST has no such head, and lambda_train[2] is the encoder objective.
         loss = self.train_loss(
             masked_pred_X=pred.X,
             masked_pred_E=pred.E,
-            pred_y=pred.y,
+            pred_y=data.y,
             true_X=X,
             true_E=E,
-            true_y=data.y,
+            true_y=true_fp,
             log=False,
+            int_preds=aux.get("int_preds"),
         )
 
         self.train_metrics(
@@ -396,7 +418,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
 
         self.log_dict(to_log, sync_dist=True)
         logging.info(
-            f"Epoch {self.current_epoch}: X_CE: {to_log['train_epoch/x_CE']:.2f} -- E_CE: {to_log['train_epoch/E_CE']:.2f} -- y_CE: {to_log['train_epoch/y_CE']:.6f} -- time: {to_log['train_epoch/time']:.2f}"
+            f"Epoch {self.current_epoch}: X_CE: {to_log['train_epoch/x_CE']:.2f} -- E_CE: {to_log['train_epoch/E_CE']:.2f} -- y_BCE: {to_log['train_epoch/y_BCE']:.6f} -- time: {to_log['train_epoch/time']:.2f}"
         )
 
     def on_validation_epoch_start(self) -> None:
@@ -421,6 +443,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         output, aux = self.encoder(batch)
 
         data = batch["graph"]
+        true_fp = data.y  # true Morgan bits, before the merge branches overwrite them
         if self.merge == "mist_fp":
             data.y = aux["int_preds"][-1]
         if self.merge == "merge-encoder_output-linear":
@@ -446,8 +469,11 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         nll = self.compute_val_loss(
             pred, noisy_data, dense_data.X, dense_data.E, data.y, node_mask, test=False
         )
-        if data.y is not None and pred.Y is not None:
-            self.val_y_CE.update(pred.Y, data.y)
+        # Was `update(pred.Y, data.y)` with pred.Y = data.y set just above -- the
+        # tensor compared against itself, which is why this metric read ~7.4 for
+        # every run regardless of model quality. Compare prediction to target.
+        if data.y is not None and true_fp is not None:
+            self.val_y_CE.update(data.y, true_fp)
 
         true_E = torch.reshape(
             dense_data.E, (-1, dense_data.E.size(-1))
@@ -540,7 +566,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
             "val/X_logp": metrics[3],
             "val/E_logp": metrics[4],
             "val/E_CE": metrics[5],
-            "val/y_CE": metrics[6],
+            "val/y_BCE": metrics[6],
         }
 
         if self.val_counter % self.cfg.general.sample_every_val == 0:
@@ -561,7 +587,7 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         logging.info(
             f"Epoch {self.current_epoch}: Val NLL {metrics[0] :.2f} -- Val Atom type KL: {metrics[1] :.2f} -- Val Edge type KL: {metrics[2] :.2f} -- Val Edge type logp: {metrics[4] :.2f} -- Val Edge type CE: {metrics[5] :.2f}"
         )
-        logging.info(f"[Val] y_CE (fingerprint validation): {metrics[6]:.4f}")
+        logging.info(f"[Val] y_BCE (fingerprint, per-bit): {metrics[6]:.4f}")
         val_nll = metrics[0]
         if val_nll < self.best_val_nll:
             self.best_val_nll = val_nll

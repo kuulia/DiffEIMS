@@ -1,3 +1,28 @@
+"""spec2mol_encoder.py -- SINGLE-GPU ONLY. Do not launch this under DDP.
+
+For multi-GPU/multi-node encoder training use spec2mol_main.py instead:
+
+    python src/spec2mol_main.py --config-name=config_encoder
+
+"Encoder-only" is not a different model or training loop -- it is
+general.decoder_finetune_strategy=freeze applied to the same
+Spec2MolDenoisingDiffusion. spec2mol_main.py already carries the DDP work that
+this file never received, and duplicating it here would mean maintaining two
+copies of every fix. Specifically, this file lacks:
+
+  - rank detection and torch.cuda.set_device(local_rank) before the first CUDA
+    call, so every rank on a node would land on GPU 0
+  - num_nodes= on the Trainer, so multi-node world size would be wrong
+  - the stats-file sentinel, so all ranks would recompute dataset stats at once
+  - DDPStrategy(timeout=...), leaving the 30-minute NCCL watchdog default
+  - the rank-0 logging filter, so all ranks write msms_main.log concurrently
+  - weights_only=False on checkpoint loads (PyTorch >= 2.6 rejects the embedded
+    omegaconf DictConfig otherwise)
+  - faulthandler on SIGUSR1, the only way to see where a hung rank is stuck
+
+Kept as-is for single-GPU runs, which it still does correctly.
+"""
+
 import os
 import sys
 import pathlib
