@@ -10,7 +10,7 @@ num_nodes: 4
 
 
 decoder: '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/mixed_encoder/final/decoder.pt' # '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/fine-tuned/20940289-dev/encoder.pt' # path to pretrained decoder
-encoder: '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/mixed_encoder/final/encoder.pt' #'/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/mixed_encoder/final/encoder.pt' # path to pretrained encoder
+encoder: '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/exp4/pretrained_encoder/encoder.ckpt' #'/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/mixed_encoder/final/encoder.pt' # path to pretrained encoder
 resume: null # If resume, path to ckpt file from outputs direpctory in main directory
 test_only: null
 load_weights: null
