@@ -124,7 +124,8 @@ def get_datamodule(cfg):
     """Build the datamodule and dataset infos for the configured dataset.
 
     'fp2mol' is the fingerprint-molecule pretraining dataset; every other
-    supported dataset goes through the NEIMS pipeline. Both constructors do real
+    dataset goes through the NEIMS pipeline, reading the preprocessed
+    <name>_{train,val,test}.csv under its datadir. Both constructors do real
     work on first call (graph processing, stat computation) -- see
     _ensure_dataset_ready for why that must not happen on all ranks at once.
     """
@@ -135,21 +136,11 @@ def get_datamodule(cfg):
         dataset_infos = fp2mol_dataset.FP2Mol_infos(
             datamodule, cfg, recompute_statistics=False
         )
-    elif name in (
-        "neims",
-        "neims_tms",
-        "gecko_atmomaccs",
-        "msg_neims",
-        "mixed_augment_test",
-        "gecko_new",
-        "gecko_new_tms_mixed_augment_atmomaccs_tms_test",
-    ):
+    else:
         datamodule = neims_dataset.NeimsDataModule(cfg)
         dataset_infos = neims_dataset.Neims_infos(
             datamodule, cfg, recompute_statistics=False
         )
-    else:
-        raise NotImplementedError("Unknown dataset {}".format(cfg["dataset"]))
 
     logging.info(f"{name} config loaded")
     return datamodule, dataset_infos

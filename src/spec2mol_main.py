@@ -423,52 +423,27 @@ def main(cfg: DictConfig):
         logging.info(cfg)
 
     # ------------------------------------------------------------------
-    # 2. Dataset name validation
-    # ------------------------------------------------------------------
-    dataset_name = cfg["dataset"]["name"]
-    valid_datasets = (
-        "canopus",
-        "msg",
-        "neims",
-        "franklin",
-        "neims_tms",
-        "gecko_atmomaccs",
-        "msg_neims",
-        "mixed_augment_test",
-        "mixed_augment",
-        "mixed_atmomaccs",
-        "gecko_new_atmomaccs",
-        "gecko_new",
-	"gecko_new_tms",
-        "gecko_new_mixed_augment_atmomaccs_test",
-	"gecko_new_mixed_augment_atmomaccs_test_dropped_exotic",
-        "gecko_new_tms_mixed_augment_atmomaccs_tms_test"
-    )
-    if dataset_name not in valid_datasets:
-        raise NotImplementedError(f"Unknown dataset: {dataset_name}")
-
-    # ------------------------------------------------------------------
-    # 3. Ensure stat files exist (sentinel-file coordination, no dist init)
+    # 2. Ensure stat files exist (sentinel-file coordination, no dist init)
     # ------------------------------------------------------------------
     _ckpt("before _ensure_stats_ready")
     _ensure_stats_ready(cfg, global_rank, is_ddp)
     _ckpt("after _ensure_stats_ready")
 
     # ------------------------------------------------------------------
-    # 4. Build DataModule (lightweight — no I/O in __init__)
+    # 3. Build DataModule (lightweight — no I/O in __init__)
     # ------------------------------------------------------------------
     datamodule = Spec2MolDataModule(cfg)
     _ckpt("DataModule created")
 
     # ------------------------------------------------------------------
-    # 5. Build DatasetInfos from pre-existing stat files
+    # 4. Build DatasetInfos from pre-existing stat files
     #    (pure file reads + static dim computation, no DataLoader iteration)
     # ------------------------------------------------------------------
     dataset_infos = Spec2MolDatasetInfos(cfg)
     _ckpt("DatasetInfos created")
 
     # ------------------------------------------------------------------
-    # 6. Extra features (require dataset_infos.max_n_nodes from stat files)
+    # 5. Extra features (require dataset_infos.max_n_nodes from stat files)
     # ------------------------------------------------------------------
     domain_features = ExtraMolecularFeatures(dataset_infos=dataset_infos)
     if cfg.model.extra_features is not None:
@@ -492,7 +467,7 @@ def main(cfg: DictConfig):
     }
 
     # ------------------------------------------------------------------
-    # 7. LR scaling: sqrt scaling rule (1 baseline GPU → N total GPUs)
+    # 6. LR scaling: sqrt scaling rule (1 baseline GPU → N total GPUs)
     #
     # The linear rule (lr * N) comes from Goyal et al. for SGD+momentum. For
     # adaptive optimizers (this repo uses adamw/radam) sqrt scaling is the usual
@@ -510,7 +485,7 @@ def main(cfg: DictConfig):
         )
 
     # ------------------------------------------------------------------
-    # 8. Model construction
+    # 7. Model construction
     # ------------------------------------------------------------------
     resume: str | None = cfg.general.resume
 
@@ -528,7 +503,7 @@ def main(cfg: DictConfig):
     utils.log_nonstatic_cfg(cfg)
 
     # ------------------------------------------------------------------
-    # 9. Finetuning / weight loading
+    # 8. Finetuning / weight loading
     # ------------------------------------------------------------------
     apply_encoder_finetuning(model, cfg.general.encoder_finetune_strategy)
     apply_decoder_finetuning(model, cfg.general.decoder_finetune_strategy)
@@ -538,7 +513,7 @@ def main(cfg: DictConfig):
         model = load_weights(model, cfg.general.load_weights)
 
     # ------------------------------------------------------------------
-    # 10. Optional torch.compile (decoder only)
+    # 9. Optional torch.compile (decoder only)
     # ------------------------------------------------------------------
     if (
         torch.cuda.is_available()
@@ -549,7 +524,7 @@ def main(cfg: DictConfig):
         model.decoder = torch.compile(model.decoder, dynamic=True)
 
     # ------------------------------------------------------------------
-    # 11. Callbacks
+    # 10. Callbacks
     # ------------------------------------------------------------------
     callbacks = [LearningRateMonitor(logging_interval="step")]
     if cfg.train.save_model:
@@ -572,12 +547,12 @@ def main(cfg: DictConfig):
         )
 
     # ------------------------------------------------------------------
-    # 12. Loggers
+    # 11. Loggers
     # ------------------------------------------------------------------
     loggers = [CSVLogger(save_dir=f"logs/{name}", name=name)]
 
     # ------------------------------------------------------------------
-    # 13. DDP strategy selection
+    # 12. DDP strategy selection
     #
     #  - In single-GPU / CPU mode: "auto" lets Lightning decide
     #  - In DDP mode: use ddp_find_unused_parameters_true so that old
@@ -622,7 +597,7 @@ def main(cfg: DictConfig):
             logging.info("Could not set float32 matmul precision")
 
     # ------------------------------------------------------------------
-    # 14. Profiler (rank 0 only — avoids 16x trace files in DDP)
+    # 13. Profiler (rank 0 only — avoids 16x trace files in DDP)
     # ------------------------------------------------------------------
     profiler = None
     profiler_type = getattr(cfg.train, "profiler", None)
@@ -642,7 +617,7 @@ def main(cfg: DictConfig):
             )
 
     # ------------------------------------------------------------------
-    # 15. Trainer
+    # 14. Trainer
     # ------------------------------------------------------------------
     if name == "debug":
         logging.warning("Run is named 'debug' — fast_dev_run will be used.")

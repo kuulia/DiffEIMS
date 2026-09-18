@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List, Optional, Set, Tuple, Union
 
-import numpy as np
 import pandas as pd
 from rdkit import Chem, RDLogger
 from rdkit.Chem import Descriptors
@@ -86,13 +85,13 @@ class DataPreprocessor(ABC):
 
 
 # ---------------------------------------------------------------------------
-# Spectral datasets  (labels.tsv + split.tsv, pre-defined train/test/val)
+# Spectral datasets  (labels.tsv + split_random.tsv, pre-defined train/test/val)
 # ---------------------------------------------------------------------------
 
 
 class SpectralDataPreprocessor(DataPreprocessor):
     """
-    Handles datasets that ship with labels.tsv and split.tsv.
+    Handles datasets that ship with labels.tsv and a split file.
     Train split is filtered and deduplicated; test/val are kept as-is.
     """
 
@@ -101,7 +100,7 @@ class SpectralDataPreprocessor(DataPreprocessor):
         name: str,
         data_dir: Union[str, Path],
         output_dir: Union[str, Path],
-        split_file: str = "split.tsv",
+        split_file: str = "split_random.tsv",
     ):
         self.name = name
         self.data_dir = Path(data_dir)
@@ -136,10 +135,37 @@ class SpectralDataPreprocessor(DataPreprocessor):
         self._save_split(test, self.output_dir / f"{self.name}_test.csv")
         self._save_split(val, self.output_dir / f"{self.name}_val.csv")
 
+        # NeimsDataset loads all three splits, so a header-only CSV breaks training
+        # later with an opaque collate error. Say so here instead. Expected and
+        # harmless for atmomaccs / atmomaccs_tms, which have no val rows and are
+        # never trained on (see LEAKAGE_GUARD_DATASETS).
+        for split_name, rows in (("train", train), ("test", test), ("val", val)):
+            if not rows:
+                n_raw = int((df["split"] == split_name).sum())
+                reason = (
+                    f"{self.data_dir / self.split_file} has no '{split_name}' rows"
+                    if n_raw == 0
+                    else f"all {n_raw} '{split_name}' rows were filtered out or excluded "
+                    f"(e.g. a full run excludes every *_atmomaccs_test dataset's test "
+                    f"split, which is the whole atmomaccs pool)"
+                )
+                print(
+                    f"[WARN] {self.name}: {split_name} split is empty -- {reason}. "
+                    f"{self.name}_{split_name}.csv contains only a header."
+                )
+
         return set(test) | set(val)
 
-    def get_exclusions(self) -> Set[str]:
-        """Return test+val InChIs without writing any output."""
+    def get_exclusions(
+        self, splits: Optional[Tuple[str, ...]] = ("test", "val")
+    ) -> Set[str]:
+        """
+        Return the InChIs of this dataset without writing any output.
+
+        splits=("test", "val") keeps the usual held-out hygiene; splits=None takes
+        every row, which is what the atmomaccs leakage guard needs (see
+        LEAKAGE_GUARD_DATASETS).
+        """
         df = self._load()
         exclusions: Set[str] = set()
         for _, row in tqdm(
@@ -148,10 +174,11 @@ class SpectralDataPreprocessor(DataPreprocessor):
             desc=f"Collecting exclusions from {self.name}",
             leave=False,
         ):
-            if row["split"] in ("test", "val"):
-                inchi = self._smiles_to_inchi(row["smiles"], filter_atoms=True)
-                if inchi:
-                    exclusions.add(inchi)
+            if splits is not None and row["split"] not in splits:
+                continue
+            inchi = self._smiles_to_inchi(row["smiles"], filter_atoms=True)
+            if inchi:
+                exclusions.add(inchi)
         return exclusions
 
 
@@ -254,27 +281,6 @@ class CSVSmilesPreprocessor(StructureDataPreprocessor):
         return set(df[self.smiles_col].dropna())
 
 
-class ATMOMACSPreprocessor(StructureDataPreprocessor):
-    def __init__(
-        self,
-        data_dir: Union[str, Path],
-        output_dir: Union[str, Path],
-        datasets: Tuple[str, ...] = ("wang", "li", "ferraz-caetano", "kruger-broad"),
-    ):
-        super().__init__("atmomaccs", output_dir)
-        self.data_dir = Path(data_dir)
-        self.datasets = datasets
-
-    def load_raw_smiles(self) -> Set[str]:
-        smiles = set()
-        for ds in self.datasets:
-            arr = np.loadtxt(
-                self.data_dir / f"{ds}-smiles.txt", dtype=np.str_, comments=None
-            )
-            smiles.update(arr.tolist())
-        return smiles
-
-
 # ---------------------------------------------------------------------------
 # Combined dataset — merges all structure sources
 # ---------------------------------------------------------------------------
@@ -288,7 +294,9 @@ class CombinedPreprocessor(DataPreprocessor):
         sources: List[StructureDataPreprocessor],
         output_dir: Union[str, Path],
         val_frac: float = 0.05,
+        name: str = "combined",
     ):
+        self.name = name
         self.sources = sources
         self.output_dir = Path(output_dir)
         self.val_frac = val_frac
@@ -310,8 +318,8 @@ class CombinedPreprocessor(DataPreprocessor):
         train = [i for i in inchis[:split_idx] if i not in excluded_inchis]
         val = inchis[split_idx:]
 
-        self._save_split(train, self.output_dir / "combined_train.csv")
-        self._save_split(val, self.output_dir / "combined_val.csv")
+        self._save_split(train, self.output_dir / f"{self.name}_train.csv")
+        self._save_split(val, self.output_dir / f"{self.name}_val.csv")
 
         return set()
 
@@ -321,79 +329,63 @@ class CombinedPreprocessor(DataPreprocessor):
 # ---------------------------------------------------------------------------
 
 
+# Spectral datasets now live under data/neims/<folder>/, with labels.tsv and
+# split_random.tsv inside a mist_inputs directory whose depth varies per dataset.
+# Preprocessed CSVs are written to <that dir>/preprocessed/ so they sit next to the
+# labels/split/collated-pkl files they are derived from.
+SPECTRAL_LAYOUT: Tuple[Tuple[str, str], ...] = (
+    # (registry name, path relative to data/neims)
+    ("atmomaccs", "atmomaccs_new/mist_inputs"),
+    ("atmomaccs_tms", "atmomaccs_new/mist_inputs_tms"),
+    ("mixed_augment", "mixed_augment/mist_inputs/mixed_augment"),
+    ("mixed_augment_tms", "mixed_augment_tms/mist_inputs/mixed_augment_tms"),
+    ("gecko_new", "gecko_new/mist_inputs"),
+    ("gecko_tms", "gecko_tms/mist_inputs"),
+    ("gecko_new_atmomaccs_test", "gecko_new_atmomaccs_test/mist_inputs"),
+    (
+        "gecko_new_mixed_augment_atmomaccs_test",
+        "gecko_new_mixed_augment_atmomaccs_test/mist_inputs",
+    ),
+    (
+        "gecko_tms_mixed_augment_atmomaccs_tms_test",
+        "gecko_tms_mixed_augment_atmomaccs_tms_test/mist_inputs",
+    ),
+    ("combined_atmomaccs_test", "combined_atmomaccs_test/mist_inputs"),
+)
+
+# Every molecule in these datasets is held out of every *other* dataset's train
+# split, across all of their own splits rather than just test/val. These are the
+# evaluation sets the models are ultimately judged on, so any occurrence of one of
+# their molecules in training data is leakage. atmomaccs_new/mist_inputs covers all
+# 9375 atmomaccs spectra (wang + li + ferraz-caetano + kruger-confined), and
+# mist_inputs_tms the TMS-derivatized counterparts, so the two aggregates are
+# sufficient -- the per-subset directories under mist_inputs/ are subsets of them.
+LEAKAGE_GUARD_DATASETS: Tuple[str, ...] = ("atmomaccs", "atmomaccs_tms")
+
+# Written by build_guarded_splits.py: split_random.tsv minus every train/val row whose
+# molecule is a guard-dataset molecule. spec2mol trains from split files rather than
+# from the preprocessed CSVs, so the guard has to live in the split file too; reading
+# the same guarded file here keeps both training stages on one definition of "train".
+GUARDED_SPLIT_FILE = "split_random_guarded.tsv"
+
+
 def _build_registry(data: Path, fp2mol: Path):
+    neims = data / "neims"
+
     spectral: List[SpectralDataPreprocessor] = [
         SpectralDataPreprocessor(
-            name="canopus",
-            data_dir=data / "canopus",
-            output_dir=fp2mol / "canopus/preprocessed",
-            split_file="splits/canopus_hplus_100_0.tsv",
-        ),
-        SpectralDataPreprocessor(
-            name="msg",
-            data_dir=data / "msg",
-            output_dir=fp2mol / "msg/preprocessed",
-        ),
-        SpectralDataPreprocessor(
-            name="neims_tms",
-            data_dir=data / "neims_tms",
-            output_dir=data / "neims_tms/neims_tms/preprocessed",
-        ),
-        SpectralDataPreprocessor(
-            name="msg_neims",
-            data_dir=data / "msg_neims",
-            output_dir=data / "msg_neims/msg_neims/preprocessed",
-        ),
-        SpectralDataPreprocessor(
-            name="gecko_atmomaccs",
-            data_dir=data / "gecko_atmomaccs",
-            output_dir=data / "gecko_atmomaccs/gecko_atmomaccs/preprocessed",
-        ),
-        SpectralDataPreprocessor(
-            name="neims",
-            data_dir=data / "neims",
-            output_dir=data / "neims/neims/preprocessed",
-        ),
-        SpectralDataPreprocessor(
-            name="mixed_augment_test",
-            data_dir=data / "mixed_augment_test",
-            output_dir=data / "mixed_augment_test/preprocessed",
-        ),
-        SpectralDataPreprocessor(
-            name="mixed_augment",
-            data_dir=data / "mixed_augment",
-            output_dir=data / "mixed_augment/preprocessed",
-        ),
-        SpectralDataPreprocessor(
-            name="gecko_new_mixed_augment_atmomaccs_test",
-            data_dir=data / "gecko_new_mixed_augment_atmomaccs_test",
-            output_dir=data / "gecko_new_mixed_augment_atmomaccs_test/preprocessed",
-            split_file="split_random.tsv",
-        ),
-        SpectralDataPreprocessor(
-            name="mixed_atmomaccs",
-            data_dir=data / "mixed_atmomaccs",
-            output_dir=data / "mixed_atmomaccs/preprocessed",
-            split_file="split_random.tsv",
-        ),
-        SpectralDataPreprocessor(
-            name="gecko_new_atmomaccs",
-            data_dir=data / "gecko_new_atmomaccs",
-            output_dir=data / "gecko_new_atmomaccs/preprocessed",
-            split_file="split_random.tsv",
-        ),
-        SpectralDataPreprocessor(
-            name="gecko_new",
-            data_dir=data / "gecko_new",
-            output_dir=data / "gecko_new/preprocessed",
-            split_file="split_random.tsv",
-        ),
-        SpectralDataPreprocessor(
-            name="gecko_new_tms",
-            data_dir=data / "gecko_new_tms",
-            output_dir=data / "gecko_new_tms/preprocessed",
-            split_file="split_random.tsv",
-        ),
+            name=name,
+            data_dir=neims / rel,
+            output_dir=neims / rel / "preprocessed",
+            # The guard datasets are the source of the guard, so they keep the
+            # original split.
+            split_file=(
+                "split_random.tsv"
+                if name in LEAKAGE_GUARD_DATASETS
+                else GUARDED_SPLIT_FILE
+            ),
+        )
+        for name, rel in SPECTRAL_LAYOUT
     ]
     structure: List[StructureDataPreprocessor] = [
         HMDBPreprocessor(
@@ -416,10 +408,6 @@ def _build_registry(data: Path, fp2mol: Path):
             smiles_col="SMILES",
             output_dir=fp2mol / "moses/preprocessed",
         ),
-        ATMOMACSPreprocessor(
-            data_dir=data / "atmomaccs",
-            output_dir=fp2mol / "atmomaccs/preprocessed",
-        ),
     ]
     combined = CombinedPreprocessor(
         sources=structure,
@@ -440,8 +428,44 @@ def _run(ds: DataPreprocessor, excluded_inchis: Set[str]) -> Set[str]:
 # Pipeline entry point
 # ---------------------------------------------------------------------------
 
+def _verify_no_leakage(
+    datasets: List[DataPreprocessor], guard_inchis: Set[str]
+) -> bool:
+    """Read back every train CSV that was written and assert the guard set is absent."""
+    if not guard_inchis:
+        return True
+
+    print("\n[VERIFY] Checking written train splits against the leakage guard set")
+    clean = True
+    for ds in datasets:
+        name = getattr(ds, "name", None)
+        if name is None or name in LEAKAGE_GUARD_DATASETS:
+            continue
+        path = Path(ds.output_dir) / f"{name}_train.csv"
+        if not path.exists():
+            continue
+        train_inchis = set(pd.read_csv(path)["inchi"].dropna())
+        leaked = train_inchis & guard_inchis
+        if leaked:
+            clean = False
+            print(f"  [FAIL] {name}: {len(leaked)} guarded molecules in {path}")
+        else:
+            print(f"  [OK]   {name}: {len(train_inchis)} train molecules, 0 leaked")
+
+    if clean:
+        print("[VERIFY] No atmomaccs / atmomaccs_tms leakage in any train split.")
+    else:
+        print("[VERIFY] LEAKAGE DETECTED -- do not train on these splits.")
+    return clean
+
+
+# ---------------------------------------------------------------------------
+# Pipeline entry point
+# ---------------------------------------------------------------------------
+
 if __name__ == "__main__":
     import argparse
+    import sys
 
     parser = argparse.ArgumentParser(description="Preprocess fp2mol datasets.")
     parser.add_argument(
@@ -457,7 +481,8 @@ if __name__ == "__main__":
         metavar="NAME",
         dest="exclude_from",
         help="Spectral dataset names whose test/val InChIs are excluded from training "
-        "(default when running a single dataset: none).",
+        "(default when running a single dataset: none). The atmomaccs leakage guard "
+        "is applied on top of this and is not affected by it.",
     )
     parser.add_argument(
         "--data-dir",
@@ -474,6 +499,13 @@ if __name__ == "__main__":
         help="Drop molecules with more than N heavy (non-hydrogen) atoms. "
         "Omit to keep all sizes (default: no cap).",
     )
+    parser.add_argument(
+        "--no-leakage-guard",
+        action="store_true",
+        dest="no_leakage_guard",
+        help="Disable the atmomaccs / atmomaccs_tms leakage guard. Only for debugging "
+        "-- training data produced this way is not safe to evaluate on atmomaccs.",
+    )
     args = parser.parse_args()
 
     DATA = Path(args.data_dir)
@@ -488,9 +520,32 @@ if __name__ == "__main__":
 
     spectral_by_name: dict = {ds.name: ds for ds in spectral_datasets}
     all_datasets: dict = {ds.name: ds for ds in spectral_datasets + structure_datasets}
-    all_datasets["combined"] = combined
+    all_datasets[combined.name] = combined
 
-    # Build exclusion set from requested spectral sources
+    # ---- Leakage guard: every atmomaccs / atmomaccs_tms molecule, all splits ----
+    guard_inchis: Set[str] = set()
+    if args.no_leakage_guard:
+        print("[WARN] Leakage guard DISABLED -- atmomaccs molecules may enter training.")
+    else:
+        for name in LEAKAGE_GUARD_DATASETS:
+            ds = spectral_by_name.get(name)
+            if ds is None:
+                parser.error(f"Leakage guard dataset '{name}' is not in the registry.")
+            try:
+                collected = ds.get_exclusions(splits=None)
+            except Exception as e:
+                # Silently training on leaked data is worse than failing loudly.
+                parser.error(
+                    f"Leakage guard dataset '{name}' could not be read ({e}). "
+                    f"Expected {ds.data_dir / 'labels.tsv'} and "
+                    f"{ds.data_dir / ds.split_file}. "
+                    f"Pass --no-leakage-guard only if you accept the leakage risk."
+                )
+            print(f"[GUARD] {name}: {len(collected)} unique molecules held out")
+            guard_inchis |= collected
+        print(f"[GUARD] {len(guard_inchis)} unique molecules in total")
+
+    # ---- Standard held-out hygiene: test/val of the requested spectral sources ----
     excluded_inchis: Set[str] = set()
     exclude_sources = args.exclude_from
     if exclude_sources is None and args.dataset is None:
@@ -508,17 +563,38 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"[WARN] Could not collect exclusions from '{name}': {e}")
 
+    def _exclusions_for(ds: DataPreprocessor) -> Set[str]:
+        """
+        The guard datasets are the evaluation sets themselves. They are never trained
+        on -- the models that are evaluated on atmomaccs are the *_atmomaccs_test
+        datasets, which already carry the whole atmomaccs pool as their test split --
+        so their own train/val/test split is irrelevant and is left alone. Everything
+        else is additionally guarded.
+        """
+        if getattr(ds, "name", None) in LEAKAGE_GUARD_DATASETS:
+            return excluded_inchis
+        return excluded_inchis | guard_inchis
+
     if args.dataset:
         if args.dataset not in all_datasets:
             parser.error(
                 f"Unknown dataset '{args.dataset}'. "
                 f"Available: {', '.join(sorted(all_datasets))}"
             )
-        _run(all_datasets[args.dataset], excluded_inchis)
+        target = all_datasets[args.dataset]
+        _run(target, _exclusions_for(target))
+        ran: List[DataPreprocessor] = [target]
     else:
         # Full pipeline: spectral process() also writes output, so run them again
+        ran = []
         for ds in spectral_datasets:
-            _run(ds, excluded_inchis)
+            _run(ds, _exclusions_for(ds))
+            ran.append(ds)
         for ds in structure_datasets:
-            _run(ds, excluded_inchis)
-        _run(combined, excluded_inchis)
+            _run(ds, _exclusions_for(ds))
+            ran.append(ds)
+        _run(combined, _exclusions_for(combined))
+        ran.append(combined)
+
+    if not _verify_no_leakage(ran, guard_inchis):
+        sys.exit(1)
