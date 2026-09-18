@@ -185,7 +185,11 @@ class NeimsDataset(InMemoryDataset):
             raise ValueError(f"Invalid stage {self.stage}")
 
         super().__init__(root, None, pre_transform, pre_filter)
-        self.data, self.slices = torch.load(self.processed_paths[self.file_idx])
+        # weights_only=False: the collated PyG Data objects are not allowed globals
+        # under the PyTorch >= 2.6 weights_only=True default. Self-produced by process().
+        self.data, self.slices = torch.load(
+            self.processed_paths[self.file_idx], weights_only=False
+        )
 
     @property
     def processed_dir(self):

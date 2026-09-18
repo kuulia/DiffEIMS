@@ -654,7 +654,9 @@ def main(cfg: DictConfig):
     # ------------------------------------------------------------------
     _ckpt("calling trainer.test()" if cfg.general.test_only else "calling trainer.fit()")
     if not cfg.general.test_only:
-        trainer.fit(model, datamodule=datamodule, ckpt_path=resume)
+        # weights_only=False: resuming loads a checkpoint that embeds the Hydra
+        # config; see the trainer.test() call below.
+        trainer.fit(model, datamodule=datamodule, ckpt_path=resume, weights_only=False)
 
         if name not in ["debug", "test"] and not getattr(
             cfg.general, "skip_test", False

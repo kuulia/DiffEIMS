@@ -25,6 +25,7 @@ Kept as-is for single-GPU runs, which it still does correctly.
 
 import os
 import sys
+import inspect
 import pathlib
 import warnings
 import logging
@@ -45,6 +46,28 @@ from src.metrics.molecular_metrics_discrete import TrainMolecularMetricsDiscrete
 from src.diffusion.extra_features_molecular import ExtraMolecularFeatures
 from src.analysis.visualization import MolecularVisualization
 from src.datasets import spec2mol_dataset
+
+# weights_only=False for Lightning's own checkpoint loads: the checkpoints embed
+# the Hydra config (an omegaconf DictConfig), which PyTorch >= 2.6's
+# weights_only=True default rejects. Passed only where Lightning accepts the
+# kwarg -- the pinned pytorch_lightning==2.0.4 has none (and its torch < 2.6
+# never needed it), so an unconditional kwarg would TypeError there.
+_FIT_WO = (
+    {"weights_only": False}
+    if "weights_only" in inspect.signature(Trainer.fit).parameters
+    else {}
+)
+_TEST_WO = (
+    {"weights_only": False}
+    if "weights_only" in inspect.signature(Trainer.test).parameters
+    else {}
+)
+_LOAD_WO = (
+    {"weights_only": False}
+    if "weights_only"
+    in inspect.signature(Spec2MolDenoisingDiffusion.load_from_checkpoint).parameters
+    else {}
+)
 
 warnings.filterwarnings("ignore", category=PossibleUserWarning)
 RDLogger.DisableLog("rdApp.*")
@@ -98,7 +121,11 @@ def get_resume(cfg, model_kwargs):
     map_loc = torch.device("cpu") if cfg.general.force_cpu else None
 
     cfg = Spec2MolDenoisingDiffusion.load_from_checkpoint(
-        resume, map_location=map_loc, load_pretrained_weights=False, **model_kwargs
+        resume,
+        map_location=map_loc,
+        load_pretrained_weights=False,
+        **_LOAD_WO,
+        **model_kwargs,
     ).cfg
     logging.info(f"Loaded cfg from {resume}")
     ################################################################
@@ -121,6 +148,7 @@ def get_resume(cfg, model_kwargs):
         map_location=map_loc,
         cfg=cfg,
         load_pretrained_weights=False,
+        **_LOAD_WO,
         **model_kwargs,
     )
     return cfg, model
@@ -205,7 +233,9 @@ def load_weights(model, path):
     Returns:
         The model with loaded weights
     """
-    checkpoint = torch.load(path, map_location=torch.device("cpu"))
+    # weights_only=False: these checkpoints embed the omegaconf config, which the
+    # PyTorch >= 2.6 weights_only=True default rejects. Trusted, self-produced files.
+    checkpoint = torch.load(path, map_location=torch.device("cpu"), weights_only=False)
     state_dict = checkpoint["state_dict"] if "state_dict" in checkpoint else checkpoint
 
     # Filter out keys that don't match the model (for partial loading)
@@ -367,18 +397,21 @@ def main(cfg: DictConfig):
         model = load_weights(model, cfg.general.load_weights)
 
     if not cfg.general.test_only:
-        trainer.fit(model, datamodule=datamodule, ckpt_path=resume)
+        trainer.fit(model, datamodule=datamodule, ckpt_path=resume, **_FIT_WO)
         if name not in ["debug", "test"] and not getattr(
             cfg.general, "skip_test", False
         ):
             trainer.test(
-                model, datamodule=datamodule, ckpt_path=cfg.general.checkpoint_strategy
+                model,
+                datamodule=datamodule,
+                ckpt_path=cfg.general.checkpoint_strategy,
+                **_TEST_WO,
             )
         else:
             logging.info("Skipped test epoch")
     else:
         # Start by evaluating test_only_path
-        trainer.test(model, datamodule=datamodule)
+        trainer.test(model, datamodule=datamodule, **_TEST_WO)
         if cfg.general.evaluate_all_checkpoints:
             directory = pathlib.Path(cfg.general.test_only).parents[0]
             logging.info("Directory:", directory)
@@ -389,7 +422,7 @@ def main(cfg: DictConfig):
                     if ckpt_path == cfg.general.test_only:
                         continue
                     logging.info("Loading checkpoint", ckpt_path)
-                    trainer.test(model, datamodule=datamodule, ckpt_path=ckpt_path)
+                    trainer.test(model, datamodule=datamodule, ckpt_path=ckpt_path, **_TEST_WO)
 
 
 if __name__ == "__main__":

@@ -158,7 +158,12 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         try:
             if load_pretrained_weights and decoder_path is not None:
                 if decoder_path.endswith(".ckpt"):
-                    state_dict = torch.load(decoder_path, map_location="cpu")
+                    # weights_only=False: .ckpt files embed the Hydra config (an
+                    # omegaconf DictConfig), which the PyTorch >= 2.6 weights_only=True
+                    # default rejects. Trusted, self-produced files.
+                    state_dict = torch.load(
+                        decoder_path, map_location="cpu", weights_only=False
+                    )
                     if "state_dict" in state_dict:
                         state_dict = state_dict["state_dict"]
 
@@ -171,7 +176,10 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                     self.decoder.load_state_dict(cleaned_state_dict)
 
                 elif decoder_path.endswith(".pt"):
-                    state_dict = torch.load(decoder_path, map_location="cpu")
+                    # weights_only=False: see the .ckpt branch above.
+                    state_dict = torch.load(
+                        decoder_path, map_location="cpu", weights_only=False
+                    )
                     if "state_dict" in state_dict:
                         state_dict = state_dict["state_dict"]
                     if any(k.startswith("model.") for k in state_dict.keys()):
@@ -192,7 +200,8 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
                 logging.info(f"Loaded decoder from: {decoder_path}")
 
         except Exception as e:
-            logging.info(f"Could not load decoder: {e}")
+            # warning, not info: see the encoder load below.
+            logging.warning(f"Could not load decoder: {e}")
 
         hidden_size = 256
         try:
@@ -231,12 +240,29 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
 
         try:
             if load_pretrained_weights and cfg.general.encoder is not None:
-                self.encoder.load_state_dict(
-                    torch.load(cfg.general.encoder), strict=True
+                # weights_only=False: see the decoder .ckpt branch above.
+                state_dict = torch.load(
+                    cfg.general.encoder, map_location="cpu", weights_only=False
                 )
+                # A full Lightning checkpoint (e.g. from spec2mol_main.py with
+                # config_encoder) nests the weights under "state_dict" with an
+                # "encoder." prefix; a bare encoder.pt is already the encoder's own
+                # state_dict. strict=True would reject the former as-is.
+                if "state_dict" in state_dict:
+                    state_dict = state_dict["state_dict"]
+                if any(k.startswith("encoder.") for k in state_dict.keys()):
+                    state_dict = {
+                        k[len("encoder."):]: v
+                        for k, v in state_dict.items()
+                        if k.startswith("encoder.")
+                    }
+                self.encoder.load_state_dict(state_dict, strict=True)
                 logging.info(f"Loaded encoder from: {cfg.general.encoder}")
         except Exception as e:
-            logging.info(f"Could not load encoder: {e}")
+            # warning, not info: a failed load leaves the encoder randomly
+            # initialised and training carries on regardless, so this must not
+            # blend into the INFO stream.
+            logging.warning(f"Could not load encoder: {e}")
 
         self.noise_schedule = PredefinedNoiseScheduleDiscrete(
             cfg.model.diffusion_noise_schedule, timesteps=cfg.model.diffusion_steps

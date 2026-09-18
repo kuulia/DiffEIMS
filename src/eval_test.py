@@ -1,4 +1,5 @@
 import sys
+import inspect
 
 sys.path.append("../src")
 sys.path
@@ -70,8 +71,18 @@ model_kwargs = {
 
 # Load the model from checkpoint
 checkpoint_path = cfg.dataset.eval_model_path
+# weights_only=False: the checkpoint embeds the Hydra config (an omegaconf
+# DictConfig), which PyTorch >= 2.6's weights_only=True default rejects. Passed
+# only where Lightning accepts the kwarg -- the pinned pytorch_lightning==2.0.4
+# has none (and its torch < 2.6 never needed it).
+_LOAD_WO = (
+    {"weights_only": False}
+    if "weights_only"
+    in inspect.signature(Spec2MolDenoisingDiffusion.load_from_checkpoint).parameters
+    else {}
+)
 model = Spec2MolDenoisingDiffusion.load_from_checkpoint(
-    checkpoint_path, load_pretrained_weights=False, **model_kwargs
+    checkpoint_path, load_pretrained_weights=False, **_LOAD_WO, **model_kwargs
 )
 
 # Put model in evaluation mode

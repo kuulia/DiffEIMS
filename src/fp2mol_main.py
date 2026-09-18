@@ -637,16 +637,27 @@ def main(cfg: DictConfig):
             logging.info("Could not enable float32 matmul precision - medium")
     logging.info(f"Current path: {Path.cwd()}")
     if not cfg.general.test_only:
-        trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.general.resume)
+        # weights_only=False on every fit/test below: see get_resume().
+        trainer.fit(
+            model,
+            datamodule=datamodule,
+            ckpt_path=cfg.general.resume,
+            weights_only=False,
+        )
         if cfg.general.name not in ["debug", "test"] and not getattr(
             cfg.general, "skip_test", False
         ):
-            trainer.test(model, datamodule=datamodule)
+            trainer.test(model, datamodule=datamodule, weights_only=False)
         else:
             logging.info("Skipped test epoch")
     else:
         # Start by evaluating test_only_path
-        trainer.test(model, datamodule=datamodule, ckpt_path=cfg.general.test_only)
+        trainer.test(
+            model,
+            datamodule=datamodule,
+            ckpt_path=cfg.general.test_only,
+            weights_only=False,
+        )
         if cfg.general.evaluate_all_checkpoints:
             directory = pathlib.Path(cfg.general.test_only).parents[0]
             logging.info(f"Evaluating all checkpoints in: {directory}")
@@ -660,7 +671,12 @@ def main(cfg: DictConfig):
                     if ckpt_path == cfg.general.test_only:
                         continue
                     logging.info(f"Loading checkpoint: {ckpt_path}")
-                    trainer.test(model, datamodule=datamodule, ckpt_path=ckpt_path)
+                    trainer.test(
+                        model,
+                        datamodule=datamodule,
+                        ckpt_path=ckpt_path,
+                        weights_only=False,
+                    )
 
 
 if __name__ == "__main__":
