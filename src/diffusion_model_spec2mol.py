@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import inspect
 import logging
 import pickle
 import math
@@ -316,6 +317,8 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         self.start_epoch_time = None
         self.train_iterations = None
         self.val_iterations = None
+        # Set for real in on_fit_start(); see _resolve_graph_forward().
+        self.skip_graph_in_train = False
         self.log_every_steps = cfg.general.log_every_steps
         self.best_val_nll = 1e8
         self.val_counter = 1
@@ -350,22 +353,30 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         elif self.merge == "downproject_4096":
             data.y = self.merge_function(output)
 
-        dense_data, node_mask = utils.to_dense(
-            data.x, data.edge_index, data.edge_attr, data.batch
-        )
-        dense_data = dense_data.mask(node_mask)
-        X, E = dense_data.X, dense_data.E
-        noisy_data = self.apply_noise(X, E, data.y, node_mask)
-        extra_data = self.compute_extra_data(noisy_data)
-        pred = self.forward(noisy_data, extra_data, node_mask)
+        # Encoder-only pretraining skips the decoder entirely -- see
+        # _resolve_graph_forward() for when and why. X/E stay None and
+        # TrainLossDiscrete drops both graph terms, which were multiplied by
+        # lambda_train[0] = lambda_train[1] = 0 regardless.
+        if self.skip_graph_in_train:
+            pred_X = pred_E = X = E = None
+        else:
+            dense_data, node_mask = utils.to_dense(
+                data.x, data.edge_index, data.edge_attr, data.batch
+            )
+            dense_data = dense_data.mask(node_mask)
+            X, E = dense_data.X, dense_data.E
+            noisy_data = self.apply_noise(X, E, data.y, node_mask)
+            extra_data = self.compute_extra_data(noisy_data)
+            pred = self.forward(noisy_data, extra_data, node_mask)
+            pred_X, pred_E = pred.X, pred.E
 
         # pred_y/true_y are the fingerprint pair, following MIST: the encoder's
         # prediction against the true Morgan bits. data.y now holds the prediction,
         # true_fp the target. pred.y (the decoder's y head) is not supervised --
         # MIST has no such head, and lambda_train[2] is the encoder objective.
         loss = self.train_loss(
-            masked_pred_X=pred.X,
-            masked_pred_E=pred.E,
+            masked_pred_X=pred_X,
+            masked_pred_E=pred_E,
             pred_y=data.y,
             true_X=X,
             true_E=E,
@@ -374,9 +385,14 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
             int_preds=aux.get("int_preds"),
         )
 
-        self.train_metrics(
-            masked_pred_X=pred.X, masked_pred_E=pred.E, true_X=X, true_E=E, log=False
-        )
+        if not self.skip_graph_in_train:
+            self.train_metrics(
+                masked_pred_X=pred_X,
+                masked_pred_E=pred_E,
+                true_X=X,
+                true_E=E,
+                log=False,
+            )
 
         return {"loss": loss}
 
@@ -387,21 +403,55 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         if batch_idx in (0, 50, 200):
             utils.log_rss(f"train batch {batch_idx} (post-fork)")
 
+    def _build_optimizer(self):
+        """Build the optimizer named by cfg.train.optimizer.
+
+        Both scheduler branches used to hardcode AdamW, so `optimizer: radam` in
+        configs/train/train_encoder.yaml and `nadam`/`nadamw` elsewhere were
+        silently ignored -- every run trained with AdamW whatever the config said.
+        'adamw' keeps amsgrad=True, so configs that named it (all of them, in
+        effect) are bit-for-bit unchanged.
+        """
+        name = str(getattr(self.cfg.train, "optimizer", "adamw")).lower()
+        kwargs = {"lr": self.cfg.train.lr, "weight_decay": self.cfg.train.weight_decay}
+
+        if name == "adamw":
+            opt = torch.optim.AdamW(self.parameters(), amsgrad=True, **kwargs)
+        elif name == "adam":
+            opt = torch.optim.Adam(self.parameters(), amsgrad=True, **kwargs)
+        elif name in ("nadam", "nadamw"):
+            # NAdam couples weight decay into the gradient the Adam way;
+            # decoupled_weight_decay=True is the AdamW-style form, and that is the
+            # only thing separating 'nadamw' from 'nadam' here. The kwarg landed in
+            # torch 2.1, so ask for it rather than hard-failing on an older build.
+            decoupled = name == "nadamw"
+            supported = (
+                "decoupled_weight_decay"
+                in inspect.signature(torch.optim.NAdam).parameters
+            )
+            if decoupled and not supported:
+                logging.warning(
+                    "torch.optim.NAdam has no decoupled_weight_decay in torch "
+                    f"{torch.__version__}; 'nadamw' falls back to coupled NAdam."
+                )
+            extra = {"decoupled_weight_decay": True} if decoupled and supported else {}
+            opt = torch.optim.NAdam(self.parameters(), **kwargs, **extra)
+        elif name == "radam":
+            opt = torch.optim.RAdam(self.parameters(), **kwargs)
+        else:
+            raise ValueError(
+                f"Unknown optimizer: {self.cfg.train.optimizer!r} "
+                "(expected one of: adamw, adam, nadam, nadamw, radam)"
+            )
+
+        logging.info(f"Optimizer: {type(opt).__name__} (cfg.train.optimizer={name})")
+        return opt
+
     def configure_optimizers(self):
         if self.cfg.train.scheduler == "const":
-            return torch.optim.AdamW(
-                self.parameters(),
-                lr=self.cfg.train.lr,
-                amsgrad=True,
-                weight_decay=self.cfg.train.weight_decay,
-            )
+            return self._build_optimizer()
         elif self.cfg.train.scheduler == "one_cycle":
-            opt = torch.optim.AdamW(
-                self.parameters(),
-                lr=self.cfg.train.lr,
-                amsgrad=True,
-                weight_decay=self.cfg.train.weight_decay,
-            )
+            opt = self._build_optimizer()
             stepping_batches = self.trainer.estimated_stepping_batches
             scheduler = torch.optim.lr_scheduler.OneCycleLR(
                 opt,
@@ -420,8 +470,51 @@ class Spec2MolDenoisingDiffusion(pl.LightningModule):
         else:
             raise ValueError("Unknown Scheduler")
 
+    def _resolve_graph_forward(self) -> None:
+        """Decide whether training_step needs the decoder forward at all.
+
+        Under encoder-only pretraining (lambda_train = [0, 0, 1], decoder frozen)
+        the decoder contributes exactly nothing: TrainLossDiscrete returns
+        0 * loss_X + 0 * loss_E + loss_y, and the trained path is
+        encoder -> merge_function -> data.y -> loss_y, which never enters the
+        decoder. Autograd retains the activations of any forward that is run,
+        though, and those dominate the step -- the attention block alone holds
+        several (bs, n, n, dx) fp32 tensors per layer, ~0.5 GB each at bs=128,
+        n=64, times n_layers, where n is the batch's LARGEST molecule after
+        to_dense padding (~90 heavy atoms in the TMS sets). Skipping the block
+        rather than running it under no_grad also drops the forward itself and the
+        extra_features='all' eigendecompositions, which are equally pointless here.
+
+        Requires the decoder to be frozen as well as unweighted: an unfrozen
+        decoder left out of the graph has parameters that receive no gradient,
+        which DDP rejects at the first backward unless find_unused_parameters is
+        on. Frozen parameters it ignores, so the freeze is what makes this safe.
+        Both conditions are settled by the time fit starts --
+        apply_decoder_finetuning() runs during model setup.
+        """
+        lambda_train = self.cfg.model.lambda_train
+        unweighted = lambda_train[0] == 0 and lambda_train[1] == 0
+        frozen = not any(p.requires_grad for p in self.decoder.parameters())
+        self.skip_graph_in_train = bool(unweighted and frozen)
+
+        if self.skip_graph_in_train:
+            logging.info(
+                "Encoder-only pretraining (lambda_train=[0, 0, "
+                f"{lambda_train[2]}], decoder frozen): skipping the decoder "
+                "forward in training_step. train_epoch/x_CE and E_CE log as -1 "
+                "and the per-atom/bond metrics as 0.0 -- nothing scores them."
+            )
+        elif unweighted:
+            logging.warning(
+                "lambda_train zeroes the X and E terms but the decoder is not "
+                "frozen, so its forward is kept to keep DDP's gradient bookkeeping "
+                "happy. Set general.decoder_finetune_strategy=freeze to skip it "
+                "and reclaim the activation memory."
+            )
+
     def on_fit_start(self) -> None:
         self.train_iterations = len(self.trainer.datamodule.train_dataloader())
+        self._resolve_graph_forward()
         logging.info(
             f"Size of the input features: X-{self.Xdim}, E-{self.Edim}, y-{self.ydim}"
         )

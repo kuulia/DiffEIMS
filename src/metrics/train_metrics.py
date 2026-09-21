@@ -37,34 +37,48 @@ class TrainLossDiscrete(nn.Module):
         int_preds=None,
     ):
         """Compute train metrics
-        masked_pred_X : tensor -- (bs, n, dx)
-        masked_pred_E : tensor -- (bs, n, n, de)
+        masked_pred_X : tensor -- (bs, n, dx), or None
+        masked_pred_E : tensor -- (bs, n, n, de), or None
         pred_y : tensor -- (bs, n_bits) predicted fingerprint LOGITS
         true_y : tensor -- (bs, n_bits) true fingerprint bits (0/1)
-        true_X : tensor -- (bs, n, dx)
-        true_E : tensor -- (bs, n, n, de)
-        log : boolean."""
-        true_X = torch.reshape(true_X, (-1, true_X.size(-1)))  # (bs * n, dx)
-        true_E = torch.reshape(true_E, (-1, true_E.size(-1)))  # (bs * n * n, de)
-        masked_pred_X = torch.reshape(
-            masked_pred_X, (-1, masked_pred_X.size(-1))
-        )  # (bs * n, dx)
-        masked_pred_E = torch.reshape(
-            masked_pred_E, (-1, masked_pred_E.size(-1))
-        )  # (bs * n * n, de)
+        true_X : tensor -- (bs, n, dx), or None
+        true_E : tensor -- (bs, n, n, de), or None
+        log : boolean.
 
-        # Remove masked rows
-        mask_X = (true_X != 0.0).any(dim=-1)
-        mask_E = (true_E != 0.0).any(dim=-1)
+        The graph tensors arrive as None from encoder-only pretraining, where
+        diffusion_model_spec2mol.training_step skips the decoder forward that would
+        produce them (lambda_train[:2] == [0, 0] makes both terms zero anyway --
+        see the weighted sum returned below)."""
+        compute_xe = masked_pred_X is not None and masked_pred_E is not None
 
-        flat_true_X = true_X[mask_X, :]
-        flat_pred_X = masked_pred_X[mask_X, :]
+        if compute_xe:
+            true_X = torch.reshape(true_X, (-1, true_X.size(-1)))  # (bs * n, dx)
+            true_E = torch.reshape(true_E, (-1, true_E.size(-1)))  # (bs * n * n, de)
+            masked_pred_X = torch.reshape(
+                masked_pred_X, (-1, masked_pred_X.size(-1))
+            )  # (bs * n, dx)
+            masked_pred_E = torch.reshape(
+                masked_pred_E, (-1, masked_pred_E.size(-1))
+            )  # (bs * n * n, de)
 
-        flat_true_E = true_E[mask_E, :]
-        flat_pred_E = masked_pred_E[mask_E, :]
+            # Remove masked rows
+            mask_X = (true_X != 0.0).any(dim=-1)
+            mask_E = (true_E != 0.0).any(dim=-1)
 
-        loss_X = self.node_loss(flat_pred_X, flat_true_X) if true_X.numel() > 0 else 0.0
-        loss_E = self.edge_loss(flat_pred_E, flat_true_E) if true_E.numel() > 0 else 0.0
+            flat_true_X = true_X[mask_X, :]
+            flat_pred_X = masked_pred_X[mask_X, :]
+
+            flat_true_E = true_E[mask_E, :]
+            flat_pred_E = masked_pred_E[mask_E, :]
+
+            loss_X = (
+                self.node_loss(flat_pred_X, flat_true_X) if true_X.numel() > 0 else 0.0
+            )
+            loss_E = (
+                self.edge_loss(flat_pred_E, flat_true_E) if true_E.numel() > 0 else 0.0
+            )
+        else:
+            loss_X = loss_E = 0.0
         # Guarded on the weight, not just on emptiness: with merge='mist_fp',
         # pred_y is an FPGrowingModule intermediate whose width need not equal
         # morgan_nbits, so BCE would raise on shape. Every config that uses that
@@ -108,10 +122,14 @@ class TrainLossDiscrete(nn.Module):
             to_log = {
                 "train_loss/batch_CE": (loss_X + loss_E + loss_y).detach(),
                 "train_loss/X_CE": (
-                    self.node_loss.compute() if true_X.numel() > 0 else -1
+                    self.node_loss.compute()
+                    if compute_xe and true_X.numel() > 0
+                    else -1
                 ),
                 "train_loss/E_CE": (
-                    self.edge_loss.compute() if true_E.numel() > 0 else -1
+                    self.edge_loss.compute()
+                    if compute_xe and true_E.numel() > 0
+                    else -1
                 ),
                 "train_loss/y_BCE": self.y_loss.compute() if compute_y else -1,
                 "train_loss/iterative": (
