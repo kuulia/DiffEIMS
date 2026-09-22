@@ -178,6 +178,22 @@ def _build_splits(cfg):
         spectra_mol_pairs
     )
 
+    # Drop oversized molecules from train/val only. Batches are padded to the
+    # largest graph and edge attention is O(n^2), so a single ~150-atom
+    # molecule can OOM a whole batch. Test is never filtered.
+    max_heavy_atoms = getattr(cfg.dataset, "max_heavy_atoms", None)
+    if max_heavy_atoms is not None:
+        def _size_ok(pair):
+            return pair[1].get_rdkit_mol().GetNumHeavyAtoms() <= max_heavy_atoms
+
+        n_train, n_val = len(train_pairs), len(val_pairs)
+        train_pairs = [p for p in train_pairs if _size_ok(p)]
+        val_pairs = [p for p in val_pairs if _size_ok(p)]
+        logging.info(
+            f"max_heavy_atoms={max_heavy_atoms}: dropped "
+            f"{n_train - len(train_pairs)} train, {n_val - len(val_pairs)} val pairs"
+        )
+
     random.seed(42)
     random.shuffle(test_pairs)
 
