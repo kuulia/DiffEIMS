@@ -1,5 +1,5 @@
 # General settings
-name: 'dev' # Warning: 'debug' and 'test' are reserved name that have a special behavior
+name: 'pretr_enc' # Warning: 'debug' and 'test' are reserved name that have a special behavior
 
 parent_dir: '.'
 

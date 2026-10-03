@@ -11,7 +11,7 @@ split_file: '../../../data/neims/mixed_augment_tms/mist_inputs/mixed_augment_tms
 spec_features: 'peakformula' # 'null' | 'binned' | 'mz_xformer' | 'peakformula', called in get_spec_featurizer()
 mol_features: 'fingerprint' # 'null' | 'fingerprint', FingerprintFeaturizer
 subform_folder: '../../../data/neims/mixed_augment_tms/mist_inputs/mixed_augment_tms' # Subformulae files for peakformula featurization. TODO: MIST preprocessing script: assign_subforms
-augment_data: True # Enable PeakFormula.augment_peak_dict
+augment_data: False # Enable PeakFormula.augment_peak_dict
 remove_prob: 0.055555 # 0.0-1.0 Affected when augment_data: True
 remove_weights: 'quadratic' # exp | quadratic | uniform, Affected when augment_data: True
 inten_prob: 0.45 # 0.0-1.0 Affected when augment_data: True, gaussian perturbation for intensity 

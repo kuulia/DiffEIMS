@@ -1,5 +1,5 @@
 # General settings
-name: 'dev' # Warning: 'debug' and 'test' are reserved name that have a special behavior
+name: 'exp4_tms' # Warning: 'debug' and 'test' are reserved name that have a special behavior
 
 parent_dir: '.'
 
@@ -9,8 +9,8 @@ gpus: 8
 num_nodes: 4
 
 
-decoder: '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/mixed_encoder/final/decoder.pt' # '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/fine-tuned/20940289-dev/encoder.pt' # path to pretrained decoder
-encoder: '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/exp4/pretrained_encoder/encoder.ckpt' #'/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/mixed_encoder/final/encoder.pt' # path to pretrained encoder
+decoder: '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/decoder58.pt' #'/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/mixed_encoder/final/decoder.pt' # '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/fine-tuned/20940289-dev/encoder.pt' # path to pretrained decoder
+encoder: '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/tms/encoder.ckpt' #'/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/exp1/pretrained_encoder.ckpt' #'/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/tms/encoder.ckpt' # path to pretrained encoder
 resume: null # If resume, path to ckpt file from outputs direpctory in main directory
 test_only: null
 load_weights: null
