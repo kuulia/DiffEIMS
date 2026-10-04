@@ -449,6 +449,15 @@ class Spec2MolDataModule(pl.LightningDataModule):
         needs_test = stage in ("test", "predict", None) and self.test_dataset is None
         if not needs_train and not needs_test:
             return
+        # A fit that spec2mol_main follows with trainer.test() keeps the test split
+        # from this build. Otherwise setup("test") rebuilds all three splits on every
+        # rank while the fit copy is still alive (and gc-frozen): ~8 x 40 GB extra per
+        # node, which OOMs on the larger datasets. Test is ~2% of the data, so holding
+        # it through fit is cheap. Mirrors the skip_test condition in spec2mol_main.
+        if needs_train and self.test_dataset is None and stage == "fit":
+            needs_test = self.cfg.general.name not in ("debug", "test") and not getattr(
+                self.cfg.general, "skip_test", False
+            )
 
         local_rank = int(os.environ.get("LOCAL_RANK", 0))
         if local_rank > 0:
