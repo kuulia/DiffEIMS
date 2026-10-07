@@ -1,8 +1,8 @@
 # Model settings
-transition: 'marginal' 
+transition: 'marginal'
 model: 'graph_tf'           # 'graph_tf', 'graph_tf_v2'          
 diffusion_steps: 500
-diffusion_noise_schedule: 'cosine'         
+diffusion_noise_schedule: 'cosine'
 n_layers: 5
 
 extra_features: 'all'        # 'all', 'cycles', 'eigenvalues' or null

@@ -1,5 +1,5 @@
 # General settings
-name: 'exp3' # Warning: 'debug' and 'test' are reserved name that have a special behavior
+name: 'exp4_tms' # Warning: 'debug' and 'test' are reserved name that have a special behavior
 
 parent_dir: '.'
 
@@ -9,11 +9,11 @@ gpus: 8
 num_nodes: 4
 
 
-decoder: null # '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/decoder58.pt'
-encoder: null # '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/post_preproc_fix/pretr_encoder_both.ckpt' 
+decoder: '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/decoder58.pt' # '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/decoder58.pt'
+encoder: '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/tms/encoder.ckpt' # '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/post_preproc_fix/pretr_encoder_both.ckpt' 
 resume: null # If resume, path to ckpt file from outputs direpctory in main directory
 test_only: null
-load_weights: '/scratch/project_462001155/lindl/DiffEIMS/outputs/2026-10-03/22517485-exp2/checkpoints/exp2/last.ckpt'
+load_weights: null
 
 encoder_finetune_strategy: null # null | freeze | ft-unfold | freeze-unfold | freeze-transformer | ft-transformer | ft-spectra-fragment
 decoder_finetune_strategy: null  # null | freeze | ft-input | freeze-input | ft-transformer | freeze-transformer | ft-output

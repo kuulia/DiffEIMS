@@ -1,8 +1,8 @@
 defaults:
     - _self_
-    - general : general_encoder
-    - model : model_encoder
-    - train : train_encoder
+    - general : general_e2e
+    - model : model_e2e
+    - train : train_e2e
     - dataset : gecko_tms_mixed_augment_tms_atmomaccs_tms_test
 
 hydra:
