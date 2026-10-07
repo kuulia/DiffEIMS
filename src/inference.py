@@ -263,8 +263,12 @@ def main():
         f"Starting point-wise inference on {len(datamodule.test_dataset)} spectra..."
     )
 
+    t_start = datetime.now()
     with torch.no_grad():
-        for batch_idx, batch in enumerate(tqdm(test_loader, desc="Inference")):
+        # disable=None: under sbatch stderr is a file, and tqdm's \r updates sit in
+        # the buffer until the bar closes -- the log showed nothing for hours. The
+        # per-batch logger.info below is the progress signal in batch jobs.
+        for batch_idx, batch in enumerate(tqdm(test_loader, desc="Inference", disable=None)):
             batch = move_batch_to_device(batch, device)
 
             # 1. Encode spectrum → predicted fingerprint
@@ -325,9 +329,16 @@ def main():
             all_fingerprints.append(y.detach().cpu())
             all_generated_mols.extend(generated_mols)
 
-            # Log progress
-            if (batch_idx + 1) % 10 == 0:
-                logger.info(f"Processed {batch_idx + 1} batches")
+            # Log progress (every batch: each one is num_samples x T decoder passes)
+            done = batch_idx + 1
+            elapsed = datetime.now() - t_start
+            eta = elapsed / done * (n_batches - done)
+            logger.info(
+                f"Batch {done}/{n_batches} done — elapsed {str(elapsed).split('.')[0]}, "
+                f"est. remaining {str(eta).split('.')[0]}"
+            )
+            sys.stdout.flush()
+            sys.stderr.flush()
 
     # Save results
     logger.info(f"Saving results to {output_path}")
