@@ -3,7 +3,7 @@ defaults:
     - general : general_encoder
     - model : model_encoder
     - train : train_encoder
-    - dataset : gecko_new_mixed_augment_atmomaccs_test
+    - dataset : gecko_tms_mixed_augment_tms_atmomaccs_tms_test
 
 hydra:
   job:

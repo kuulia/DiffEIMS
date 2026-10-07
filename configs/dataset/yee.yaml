@@ -25,7 +25,7 @@ datadir: 'data/neims/yee/mist_inputs'
 # No default on purpose: every Yee result so far came from models trained on the
 # 20/10 ppm subformulae. Pass a checkpoint trained on the 0.5 Da annotations:
 #   python src/inference.py dataset.eval_model_path=/path/to/last.ckpt
-eval_model_path: ???
+eval_model_path: '/scratch/project_462001155/lindl/DiffEIMS/outputs/2026-10-04/22534748-exp4_test/checkpoints/exp4_test/last.ckpt'
 
 inference_only: True # No ground-truth structures: skips the NLL/KL losses.
 filter: False # Structure validity filtering — nothing to filter against here.
