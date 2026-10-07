@@ -411,11 +411,15 @@ class InferenceDatasetInfos(AbstractDatasetInfos):
         self.valency_distribution = None
 
         for k, v in meta_files.items():
-            if os.path.exists(v):
-                setattr(self, k, torch.tensor(np.loadtxt(v)))
+            # Training (spec2mol_dataset._stat_file_path) writes atom_types/edge_types
+            # to stats_dir but n_counts/valencies to the dataset root, its parent.
+            fallback = os.path.join(os.path.dirname(os.path.normpath(stats_dir)), os.path.basename(v))
+            path = v if os.path.exists(v) else fallback
+            if os.path.exists(path):
+                setattr(self, k, torch.tensor(np.loadtxt(path)))
             else:
                 raise FileNotFoundError(
-                    f"Stats file not found: {v}. "
+                    f"Stats file not found: {v} (nor {fallback}). "
                     f"Ensure stats_dir points to a valid training stats directory."
                 )
 

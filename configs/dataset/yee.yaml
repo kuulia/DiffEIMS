@@ -1,5 +1,9 @@
 # Yee et al. — pure inference. Spectra + molecular formulas, no known structures.
 #
+# UCB-GLOBES 2025 v1 (Yee et al., AMT 19, 5027, 2026; Zenodo 10.5281/zenodo.18176761).
+# Built by neims-pipeline: `bash run_pipeline.sh --stage yee`, which downloads the MSP
+# and runs scripts/yee_preprocessing.py. Copy its data/neims/yee/mist_inputs/ here.
+#
 # PATHS ARE REPO-RELATIVE HERE, unlike every other dataset config.
 # The training configs use '../../../data/...' because spec2mol_main.py runs under
 # @hydra.main with chdir: True, which puts the cwd three levels deep in
@@ -11,12 +15,17 @@ remove_h: True # Drop explicit hydrogens; the graph carries heavy atoms only.
 
 # Prior for the diffusion process (node/edge marginals, node-count histogram).
 # MUST match the data the checkpoint below was trained on — it defines limit_dist,
-# the distribution sample_batch() draws its initial noise from. neims_tms pairs with
-# tms_final_april.ckpt and gives Si 8.2% of the node mass, which is what this
-# silylated dataset needs. Point both at the same training run if you swap models.
+# the distribution sample_batch() draws its initial noise from. These spectra are
+# MSTFA-derivatized (Si in ~80% of formulas), so use a TMS-trained model and its
+# training set's stats. Training writes atom_types/edge_types here and
+# n_counts/valencies one level up; InferenceDatasetInfos looks in both.
 stats_dir: 'data/neims/gecko_tms_mixed_augment_atmomaccs_tms_test/mist_inputs/stats'
-datadir: 'data/yee'
-eval_model_path: '/scratch/project_462001155/lindl/DiffEIMS/outputs/2026-08-13/21092599-dev/checkpoints/dev/last.ckpt'
+datadir: 'data/neims/yee/mist_inputs'
+
+# No default on purpose: every Yee result so far came from models trained on the
+# 20/10 ppm subformulae. Pass a checkpoint trained on the 0.5 Da annotations:
+#   python src/inference.py dataset.eval_model_path=/path/to/last.ckpt
+eval_model_path: ???
 
 inference_only: True # No ground-truth structures: skips the NLL/KL losses.
 filter: False # Structure validity filtering — nothing to filter against here.
@@ -24,16 +33,17 @@ denoise_nodes: False
 merge: 'downproject_4096'  # Must match the checkpoint's merge strategy.
 morgan_nbits: 2048
 morgan_r: 2
-split_file: null # All 477 spectra are used; no train/val/test split applies.
+split_file: null # Inference loads every spectrum in labels.tsv; no split applies.
 
 spec_features: 'peakformula'
 mol_features: 'none' # 'fingerprint' would need real molecules; we have none.
 
-# Subformula annotations, one JSON per spectrum, keyed by spec name. Verified: 477
-# JSONs for 477 rows in labels.tsv, no gaps. Kept as JSONs rather than a pickle,
-# so subform_pkl stays False and PeakFormula globs '*.json' in this folder.
-subform_folder: 'data/yee/subformulae'
-subform_pkl: False
+# Subformulae assigned with mass_diff_da: 0.5, the same absolute window as the
+# NEIMS training data. The library is unit mass resolution (integer m/z), so the
+# old 15-20 ppm window annotated only ~45% of peaks; 0.5 Da annotates ~97%.
+subform_folder: 'data/neims/yee/mist_inputs'
+subform_pkl: True
+subform_pkl_file: 'yee_subforms_3_9_22.pkl'
 
 # Augmentation off: it perturbs peaks to regularise training and has no place in
 # inference, where we want the model's read of the actual spectrum.
@@ -45,20 +55,16 @@ inten_transform: 'log' # Intensity scaling — must match how the model was trai
 cls_type: 'zeros'
 magma_aux_loss: False
 
-# labels.tsv columns: dataset, spec, ionization, formula, smiles, inchikey, instrument.
-# smiles/inchikey are "na" throughout; only `formula` is used, to build the atom set.
-labels_file: 'data/yee/labels.tsv'
+# labels.tsv: the MIST columns (dataset, spec, ionization, formula, smiles, inchikey,
+# instrument; smiles/inchikey empty) plus library metadata — compound_name,
+# identified, cas, exact_mass, derivatization, source, conditions, retention_index.
+# spec is the library UID (LDY-…). All 730 entries with a usable formula are
+# included; filter on `identified` for the 477 named compounds.
+labels_file: 'data/neims/yee/mist_inputs/labels.tsv'
 
-# spec_folder is the directory holding the collated pickle, not a spec_files/ subdir
-# (matching the gecko configs, where the pkl sits directly in the dataset root).
-#
-# NOTE: df_neims_yee_3_9_22.pkl has columns SMILES/spec/name and no UID column, so
-# get_inference_spectra() falls back to positional zip(labels.tsv, pkl) rather than a
-# keyed lookup. Verified correct for these files — all 477 rows line up, labels['spec']
-# == pkl['name'] in order — but that alignment is not enforced anywhere. If you
-# regenerate either file, re-check it, or switch to a pkl carrying a UID column
-# (e.g. yee_spec_inference.pkl), which is matched by key instead of by position.
-spec_folder: 'data/yee'
+# The collated pickle carries a UID column, so spectra are matched to labels.tsv
+# by key, not by row position.
+spec_folder: 'data/neims/yee/mist_inputs'
 collated_pkl: True
 collated_pkl_file: 'df_neims_yee_3_9_22.pkl'
 
