@@ -410,18 +410,24 @@ class InferenceDatasetInfos(AbstractDatasetInfos):
         self.edge_types = None
         self.valency_distribution = None
 
+        # Mirror spec2mol_dataset._stat_file_path, which is what the end-to-end model
+        # was trained with: atom_types/edge_types live in stats_dir, n_counts/valencies
+        # in the dataset root (stats_dir's parent). The root is tried first for the
+        # latter because fp2mol_main (Neims_infos) writes its own n_counts/valencies
+        # into stats_dir; reading those would change max_n_nodes, which scales the
+        # node-count extra feature, away from what the model saw in training.
+        root = os.path.dirname(os.path.normpath(stats_dir))
         for k, v in meta_files.items():
-            # Training (spec2mol_dataset._stat_file_path) writes atom_types/edge_types
-            # to stats_dir but n_counts/valencies to the dataset root, its parent.
-            fallback = os.path.join(os.path.dirname(os.path.normpath(stats_dir)), os.path.basename(v))
-            path = v if os.path.exists(v) else fallback
-            if os.path.exists(path):
-                setattr(self, k, torch.tensor(np.loadtxt(path)))
-            else:
+            in_root = os.path.join(root, os.path.basename(v))
+            candidates = [in_root, v] if k in ("n_nodes", "valency_distribution") else [v, in_root]
+            path = next((p for p in candidates if os.path.exists(p)), None)
+            if path is None:
                 raise FileNotFoundError(
-                    f"Stats file not found: {v} (nor {fallback}). "
+                    f"Stats file not found: {' nor '.join(candidates)}. "
                     f"Ensure stats_dir points to a valid training stats directory."
                 )
+            logging.info(f"Inference stats: {k} <- {path}")
+            setattr(self, k, torch.tensor(np.loadtxt(path)))
 
         self.max_n_nodes = len(self.n_nodes) - 1
 

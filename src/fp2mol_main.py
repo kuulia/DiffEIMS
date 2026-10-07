@@ -377,7 +377,11 @@ def load_decoder_weights(model, ckpt_path):
     # POST-LOAD WARNINGS
     # -------------------------------------------------
     if len(missing) > 0:
-        logging.warning(f"Missing decoder keys ({len(missing)}): {missing}")
+        # Any missing key leaves part of the decoder at its random init.
+        raise RuntimeError(
+            f"{ckpt_path} is missing {len(missing)} decoder keys, e.g. {missing[:5]} "
+            "-- wrong checkpoint for this architecture?"
+        )
 
     if len(unexpected) > 0:
         logging.warning(f"Unexpected decoder keys ({len(unexpected)}): {unexpected}")
@@ -531,19 +535,19 @@ def main(cfg: DictConfig):
 
     model = FP2MolDenoisingDiffusion(cfg=cfg, **model_kwargs)
 
-    try:
-        if cfg.general.pretrained is not None:
-            logging.info(f"Trying to load model from: '{cfg.general.pretrained}'")
-            if cfg.general.pretrained.endswith(".ckpt"):
-                load_decoder_from_lightning_ckpt(model, cfg.general.pretrained)
-            elif cfg.general.pretrained.endswith(".pt"):
-                load_decoder_weights(model, cfg.general.pretrained)
-            else:
-                raise NotImplementedError(
-                    "Only PyTorch Lightning checkpoints currently supported!"
-                )
-    except Exception as e:
-        print("Could not load pretrained model:", e)
+    # Not wrapped in try/except: a wrong path or key layout used to print one line
+    # (on every rank) and carry on, fine-tuning a randomly initialised decoder at
+    # the small fine-tuning LR -- a run that looks healthy and is wasted.
+    if cfg.general.pretrained is not None:
+        logging.info(f"Trying to load model from: '{cfg.general.pretrained}'")
+        if cfg.general.pretrained.endswith(".ckpt"):
+            load_decoder_from_lightning_ckpt(model, cfg.general.pretrained)
+        elif cfg.general.pretrained.endswith(".pt"):
+            load_decoder_weights(model, cfg.general.pretrained)
+        else:
+            raise NotImplementedError(
+                f"general.pretrained must be a .ckpt or .pt file, got '{cfg.general.pretrained}'"
+            )
 
     try:
         if cfg.general.finetune_strategy is not None:
