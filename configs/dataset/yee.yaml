@@ -19,7 +19,7 @@ remove_h: True # Drop explicit hydrogens; the graph carries heavy atoms only.
 # MSTFA-derivatized (Si in ~80% of formulas), so use a TMS-trained model and its
 # training set's stats. Training writes atom_types/edge_types here and
 # n_counts/valencies one level up; InferenceDatasetInfos looks in both.
-stats_dir: 'data/neims/gecko_tms_mixed_augment_atmomaccs_tms_test/mist_inputs/stats'
+stats_dir: 'data/neims/gecko_tms_mixed_augment_tms_atmomaccs_tms_test/mist_inputs/stats'
 datadir: 'data/neims/yee/mist_inputs'
 
 # No default on purpose: every Yee result so far came from models trained on the

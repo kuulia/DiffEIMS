@@ -26,6 +26,7 @@ Usage:
     command-line overrides are forwarded to hydra.compose (see main()).
 """
 
+import re
 import sys
 
 sys.path.append("../src")
@@ -35,10 +36,12 @@ import pickle
 import hydra
 import torch
 import logging
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from tqdm import tqdm
 from rdkit import Chem, RDLogger
+from rdkit.Chem.rdMolDescriptors import CalcMolFormula
 
 from src.diffusion_model_spec2mol import Spec2MolDenoisingDiffusion
 from src.datasets.inference_dataset import InferenceDataModule, InferenceDatasetInfos
@@ -100,6 +103,45 @@ def generate_molecules(model, data, num_samples):
         for idx, mol in enumerate(mols):
             generated_mols[idx].append(mol)
     return generated_mols
+
+
+def formula_counts(formula):
+    """Element counts of a formula string, independent of element order."""
+    counts = Counter()
+    for element, n in re.findall(r"([A-Z][a-z]?)(\d*)", formula):
+        counts[element] += int(n) if n else 1
+    return counts
+
+
+def rank_candidates(mols, formula):
+    """Rank one spectrum's candidates the way K_ACC_Collection.update() does.
+
+    Invalid candidates are dropped with utils.is_valid (sanitizable, one fragment),
+    and the unique InChIs are ranked by how often they were generated. Hydrogens are
+    implicit in the generated graphs, so a valid candidate can still disagree with
+    the input formula on H count; formula_match flags the ones that agree.
+
+    Returns a list of dicts (smiles, inchi, count, formula_match), most frequent first.
+    """
+    target = formula_counts(formula)
+    counts, rep = Counter(), {}
+    for mol in mols:
+        if mol is None or not utils.is_valid(mol):
+            continue
+        inchi = Chem.MolToInchi(mol)
+        if not inchi:
+            continue
+        counts[inchi] += 1
+        rep.setdefault(inchi, mol)
+    return [
+        {
+            "smiles": Chem.MolToSmiles(rep[inchi]),
+            "inchi": inchi,
+            "count": count,
+            "formula_match": formula_counts(CalcMolFormula(rep[inchi])) == target,
+        }
+        for inchi, count in counts.most_common()
+    ]
 
 
 def main():
@@ -249,7 +291,14 @@ def main():
                     else "unknown"
                 )
 
-                valid_count = sum(1 for mol in generated_mols[i] if mol is not None)
+                # Raw SMILES of every candidate, valid or not (all_smiles.pkl, as
+                # before). Validity and ranking come from rank_candidates, which
+                # applies the same is_valid filter and frequency ranking as the
+                # test-set metrics: mol_from_graphs returns a Mol for almost any
+                # graph, so `mol is not None` counted invalid valences and
+                # disconnected fragments as valid.
+                ranked = rank_candidates(generated_mols[i], formula)
+                valid_count = sum(1 for m in generated_mols[i] if m is not None and utils.is_valid(m))
                 smiles_list = []
                 for mol in generated_mols[i]:
                     if mol is not None:
@@ -268,6 +317,7 @@ def main():
                         "num_valid": valid_count,
                         "num_samples": num_samples,
                         "smiles": smiles_list,
+                        "ranked": ranked,
                     }
                 )
                 all_names.append(uid)
@@ -295,11 +345,15 @@ def main():
         for name in all_names:
             file.write(name + "\n")
 
-    # Save fingerprints as text (thresholded at 0.5)
+    # Save fingerprints as text. merge_function outputs logits (FingerprintBCEMetric
+    # scores them with binary_cross_entropy_with_logits), so probability 0.5 is a
+    # logit of 0; the old ">= 0.5" cut sat at p ~ 0.62. Only meaningful to the extent
+    # the y head is still a fingerprint predictor: end-to-end training at
+    # lambda_train=[1, 1, 0] never supervises it against true bits.
     with open(f"{output_path}/fp.txt", "w") as file:
         for tens in all_fingerprints_tensor:
             str_out = " ".join(
-                str(int(el)) for el in (tens.numpy() >= 0.5).astype(np.uint8)
+                str(int(el)) for el in (tens.numpy() >= 0.0).astype(np.uint8)
             )
             file.write(str_out + "\n")
 
@@ -308,7 +362,8 @@ def main():
 
     summary_rows = []
     for result in all_results:
-        valid_smiles = [s for s in result["smiles"] if s is not None]
+        ranked = result["ranked"]
+        top = ranked[0] if ranked else None
         summary_rows.append(
             {
                 "uid": result["uid"],
@@ -320,16 +375,24 @@ def main():
                     if result["num_samples"] > 0
                     else 0
                 ),
-                "unique_smiles": len(set(valid_smiles)),
-                "top_smiles": valid_smiles[0] if valid_smiles else None,
+                "unique_valid": len(ranked),
+                "n_formula_match": sum(1 for c in ranked if c["formula_match"]),
+                # Most frequently generated valid candidate (rank 1 in top-k terms).
+                "top_smiles": top["smiles"] if top else None,
+                "top_count": top["count"] if top else 0,
+                "top_formula_match": top["formula_match"] if top else False,
             }
         )
     df_summary = pd.DataFrame(summary_rows)
     df_summary.to_csv(f"{output_path}/results_summary.csv", index=False)
 
-    # Save full SMILES results
+    # Save full SMILES results (every candidate, unfiltered)
     with open(f"{output_path}/all_smiles.pkl", "wb") as f:
         pickle.dump({r["uid"]: r["smiles"] for r in all_results}, f)
+
+    # Valid candidates ranked by frequency, with formula agreement
+    with open(f"{output_path}/ranked_candidates.pkl", "wb") as f:
+        pickle.dump({r["uid"]: r["ranked"] for r in all_results}, f)
 
     logger.info(f"Inference complete. {len(all_results)} spectra processed.")
     logger.info(f"Results saved to: {output_path}")
