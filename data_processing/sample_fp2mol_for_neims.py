@@ -7,10 +7,10 @@ the fp2mol combined dataset for NEIMS EI-MS spectrum simulation.
 Strategy
 --------
 1. Atmospheric pre-filter
-     MW 100–1000 Da  |  atoms ∈ {C,H,N,O,S,F,Cl,P,B,Br,I,Si}  |  ≥1 oxygen  |  no fragment
+     MW 100–1500 Da  |  atoms ∈ {C,H,N,O,S,F,Cl,P,B,Br,I,Si}  |  ≥1 oxygen  |  no fragment
      (formal charges are permitted: nitro/nitrate groups carry [N+]/[O-] in RDKit)
 2. MW stratification
-     9 equal-width bins: [100–200), [200–300), …, [900–1001)
+     14 equal-width bins: [100–200), [200–300), …, [900–1500)
      Equal target quota per bin  →  balanced MW coverage
 3. Per-bin ATMOMACCS-V5 clustering (integer-count fingerprint, 205 features)
      MiniBatch k-means with k=1000 per bin
