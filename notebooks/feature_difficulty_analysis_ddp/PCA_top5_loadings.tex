@@ -1,0 +1,56 @@
+\begin{table}[htbp]
+\centering
+\small
+\caption{Top-8 ATMOMACCS features (by absolute loading) of the first 5 principal components of the test-set fingerprint space (175 non-duplicate, standardised count features; A = any atom). Together PC1--PC5 explain 31.0\,\% of the variance.}
+\label{tab:pca_loadings}
+\begin{tabular}{l p{0.5\textwidth} r}
+\toprule
+PC (var.) & Feature (count) & Loading \\
+\midrule
+\multirow{8}{*}{\shortstack[l]{PC1\\(9.1\,\%)}} & Heteroatom--heteroatom bonds & $+0.223$ \\
+ & Heteroatoms bonded to O & $+0.221$ \\
+ & O atoms & $+0.193$ \\
+ & N in double bonds & $+0.192$ \\
+ & Heteroatoms bonded to N & $+0.192$ \\
+ & Nitroxyl groups & $+0.191$ \\
+ & Formally charged atoms & $+0.191$ \\
+ & Hydroxylamine groups & $+0.188$ \\
+\midrule
+\multirow{8}{*}{\shortstack[l]{PC2\\(7.0\,\%)}} & Heteroatoms bonded to S & $+0.238$ \\
+ & Double-bonded S & $+0.234$ \\
+ & S=O bonds & $+0.234$ \\
+ & S with 3 neighbours & $+0.234$ \\
+ & S bonded to 2 heteroatoms & $+0.227$ \\
+ & S bonded to 2 O & $+0.225$ \\
+ & C bonded to both S and O & $+0.220$ \\
+ & S--O single bonds & $+0.201$ \\
+\midrule
+\multirow{8}{*}{\shortstack[l]{PC3\\(6.2\,\%)}} & 3-connected atoms with an N neighbour & $+0.209$ \\
+ & C--N single bonds & $+0.198$ \\
+ & N-containing rings & $+0.196$ \\
+ & N atoms & $+0.187$ \\
+ & N--A--N (two N on one atom) & $+0.177$ \\
+ & Aromatic C or N atoms & $+0.172$ \\
+ & N--A--A--N pairs & $+0.169$ \\
+ & C bonded to N and O & $+0.161$ \\
+\midrule
+\multirow{8}{*}{\shortstack[l]{PC4\\(4.6\,\%)}} & Non-aromatic rings & $+0.219$ \\
+ & O-heterocycles & $+0.210$ \\
+ & Atoms bonded to ring O & $+0.205$ \\
+ & C bonded to 2 C and 1 O & $+0.197$ \\
+ & 7-membered rings & $+0.187$ \\
+ & Peroxides (O--O) & $+0.178$ \\
+ & Rings with $\geq$2 heteroatoms & $+0.176$ \\
+ & Ring atoms with 3 ring bonds & $+0.174$ \\
+\midrule
+\multirow{8}{*}{\shortstack[l]{PC5\\(4.1\,\%)}} & Alkane C--H & $+0.304$ \\
+ & CH$_2$--A--A--CH$_2$ & $+0.249$ \\
+ & Acyclic CH$_2$ bridges & $+0.247$ \\
+ & CH$_2$--A--A--A--CH$_2$ & $+0.245$ \\
+ & CH$_2$--CH$_2$ & $+0.244$ \\
+ & C atoms & $+0.190$ \\
+ & CH$_3$ three bonds from CH & $+0.189$ \\
+ & CH$_3$ four bonds from CH & $+0.176$ \\
+\bottomrule
+\end{tabular}
+\end{table}
