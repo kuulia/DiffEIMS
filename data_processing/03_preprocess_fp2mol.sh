@@ -26,6 +26,7 @@ for rel in \
     gecko_tms/mist_inputs \
     gecko_new_atmomaccs_test/mist_inputs \
     gecko_new_mixed_augment_atmomaccs_test/mist_inputs \
+    gecko_new_mixed_augment_random_atmomaccs_test/mist_inputs \
     gecko_tms_mixed_augment_atmomaccs_tms_test/mist_inputs \
     gecko_tms_mixed_augment_tms_atmomaccs_tms_test/mist_inputs \
     combined_atmomaccs_test/mist_inputs

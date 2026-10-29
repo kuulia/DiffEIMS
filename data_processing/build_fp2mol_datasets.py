@@ -347,6 +347,10 @@ SPECTRAL_LAYOUT: Tuple[Tuple[str, str], ...] = (
         "gecko_new_mixed_augment_atmomaccs_test/mist_inputs",
     ),
     (
+        "gecko_new_mixed_augment_random_atmomaccs_test",
+        "gecko_new_mixed_augment_random_atmomaccs_test/mist_inputs",
+    ),
+    (
         "gecko_tms_mixed_augment_atmomaccs_tms_test",
         "gecko_tms_mixed_augment_atmomaccs_tms_test/mist_inputs",
     ),
