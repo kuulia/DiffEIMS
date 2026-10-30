@@ -359,6 +359,10 @@ SPECTRAL_LAYOUT: Tuple[Tuple[str, str], ...] = (
         "gecko_tms_mixed_augment_tms_atmomaccs_tms_test/mist_inputs",
     ),
     ("combined_atmomaccs_test", "combined_atmomaccs_test/mist_inputs"),
+    (
+        "mixed_augment_random_atmomaccs_test",
+        "mixed_augment_random_atmomaccs_test/mist_inputs",
+    ),
 )
 
 # Every molecule in these datasets is held out of every *other* dataset's train
