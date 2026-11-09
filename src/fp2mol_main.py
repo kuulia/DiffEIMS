@@ -472,6 +472,10 @@ def main(cfg: DictConfig):
     # ------------------------------------------------------------------
     datamodule, dataset_infos = _ensure_dataset_ready(cfg, global_rank, is_ddp)
     logging.info("Dataset loaded")
+    # Lets a CPU job build the graphs and stats, so GPU nodes don't sit idle doing it.
+    if getattr(cfg.general, "prepare_data_only", False):
+        logging.info("prepare_data_only set: dataset is ready, exiting before training.")
+        return
     if global_rank == 0:
         logging.info(
             f"Train Size: {len(datamodule.train_dataloader())}, Val Size: {len(datamodule.val_dataloader())}, Test Size: {len(datamodule.test_dataloader())}"
