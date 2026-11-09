@@ -1,7 +1,8 @@
 import random
+import re
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Optional, Set, Tuple, Union
+from typing import Iterable, List, Optional, Set, Tuple, Union
 
 import pandas as pd
 from rdkit import Chem, RDLogger
@@ -58,6 +59,45 @@ def _to_inchi(mol) -> Optional[str]:
         return None
 
 
+def _connectivity_key(inchi: str) -> Optional[str]:
+    """
+    First InChIKey block: the identity the leakage guard compares on.
+
+    Same definition as build_guarded_splits.py. It is blind to stereo, isotope and
+    charge/protonation, so variants of one skeleton count as the same molecule.
+    """
+    key = Chem.InchiToInchiKey(inchi)
+    return key.split("-")[0] if key else None
+
+
+def _drop_guarded(inchis: Iterable[str], guard_keys: Set[str]) -> List[str]:
+    if not guard_keys:
+        return list(inchis)
+    return [i for i in inchis if _connectivity_key(i) not in guard_keys]
+
+
+def load_yee_reference_keys(path: Union[str, Path]) -> Set[str]:
+    """
+    Connectivity keys of the Yee structures hand-annotated in
+    notebooks/inspect_yee_candidates.ipynb.
+
+    Takes every status == "found" row, plus any InChI quoted in its note: those are
+    the alternatives recorded for tentative identifications ("Could be also InChI=..."),
+    any of which may be the true structure. Raises on an InChI that does not parse, so
+    a bad annotation cannot silently shrink the guard.
+    """
+    refs = pd.read_csv(path, dtype=str, keep_default_na=False)
+    found = refs[refs["status"] == "found"]
+
+    keys: Set[str] = set()
+    for inchi, note, uid in zip(found["inchi"], found["note"], found["uid"]):
+        for candidate in [inchi] + re.findall(r"InChI=\S+", note):
+            if Chem.MolFromInchi(candidate) is None:
+                raise ValueError(f"{uid}: unparseable InChI {candidate!r}")
+            keys.add(_connectivity_key(candidate))
+    return keys
+
+
 # ---------------------------------------------------------------------------
 # Base class
 # ---------------------------------------------------------------------------
@@ -79,8 +119,14 @@ class DataPreprocessor(ABC):
         pd.DataFrame(list(inchis), columns=["inchi"]).to_csv(path, index=False)
 
     @abstractmethod
-    def process(self, excluded_inchis: Set[str]) -> Set[str]:
-        """Run preprocessing. Returns the test+val InChIs to be excluded downstream."""
+    def process(self, excluded_inchis: Set[str], guard_keys: Set[str]) -> Set[str]:
+        """
+        Run preprocessing. Returns the test+val InChIs to be excluded downstream.
+
+        excluded_inchis are removed from train only. guard_keys (connectivity keys of
+        the evaluation molecules) are removed from train and val, since val molecules
+        drive early stopping and checkpoint selection.
+        """
         ...
 
 
@@ -114,7 +160,7 @@ class SpectralDataPreprocessor(DataPreprocessor):
         split = pd.read_csv(self.data_dir / self.split_file, sep="\t")
         return labels.merge(split, on="name")
 
-    def process(self, excluded_inchis: Set[str]) -> Set[str]:
+    def process(self, excluded_inchis: Set[str], guard_keys: Set[str]) -> Set[str]:
         df = self._load()
         train, test, val = [], [], []
 
@@ -130,6 +176,10 @@ class SpectralDataPreprocessor(DataPreprocessor):
                 test.append(inchi)
             elif row["split"] == "val":
                 val.append(inchi)
+
+        # Test is left alone: it is where the evaluation molecules belong.
+        train = _drop_guarded(train, guard_keys)
+        val = _drop_guarded(val, guard_keys)
 
         self._save_split(set(train), self.output_dir / f"{self.name}_train.csv")
         self._save_split(test, self.output_dir / f"{self.name}_test.csv")
@@ -203,7 +253,7 @@ class StructureDataPreprocessor(DataPreprocessor):
         """Return raw SMILES strings (may be noisy)."""
         ...
 
-    def process(self, excluded_inchis: Set[str]) -> Set[str]:
+    def process(self, excluded_inchis: Set[str], guard_keys: Set[str]) -> Set[str]:
         raw = self.load_raw_smiles()
 
         inchis = set()
@@ -212,7 +262,7 @@ class StructureDataPreprocessor(DataPreprocessor):
             if inchi:
                 inchis.add(inchi)
 
-        inchis = list(inchis)
+        inchis = _drop_guarded(inchis, guard_keys)
         random.shuffle(inchis)
         split_idx = int((1 - self.val_frac) * len(inchis))
         train = [i for i in inchis[:split_idx] if i not in excluded_inchis]
@@ -301,7 +351,7 @@ class CombinedPreprocessor(DataPreprocessor):
         self.output_dir = Path(output_dir)
         self.val_frac = val_frac
 
-    def process(self, excluded_inchis: Set[str]) -> Set[str]:
+    def process(self, excluded_inchis: Set[str], guard_keys: Set[str]) -> Set[str]:
         all_inchis: Set[str] = set()
         for src in self.sources:
             raw = src.load_raw_smiles()
@@ -312,7 +362,7 @@ class CombinedPreprocessor(DataPreprocessor):
                 if inchi:
                     all_inchis.add(inchi)
 
-        inchis = list(all_inchis)
+        inchis = _drop_guarded(all_inchis, guard_keys)
         random.shuffle(inchis)
         split_idx = int((1 - self.val_frac) * len(inchis))
         train = [i for i in inchis[:split_idx] if i not in excluded_inchis]
@@ -374,6 +424,11 @@ SPECTRAL_LAYOUT: Tuple[Tuple[str, str], ...] = (
 # sufficient -- the per-subset directories under mist_inputs/ are subsets of them.
 LEAKAGE_GUARD_DATASETS: Tuple[str, ...] = ("atmomaccs", "atmomaccs_tms")
 
+# The identified part of the Yee dataset has no structures in labels.tsv; they were
+# annotated by hand in notebooks/inspect_yee_candidates.ipynb. Path is relative to the
+# repo root. Molecules annotated after a build are not held out of that build.
+YEE_REFERENCE_CSV = "notebooks/data/yee_new_0810/reference_inchi.csv"
+
 # Written by build_guarded_splits.py: split_random.tsv minus every train/val row whose
 # molecule is a guard-dataset molecule. spec2mol trains from split files rather than
 # from the preprocessed CSVs, so the guard has to live in the split file too; reading
@@ -428,9 +483,11 @@ def _build_registry(data: Path, fp2mol: Path):
     return spectral, structure, combined
 
 
-def _run(ds: DataPreprocessor, excluded_inchis: Set[str]) -> Set[str]:
+def _run(
+    ds: DataPreprocessor, excluded_inchis: Set[str], guard_keys: Set[str]
+) -> Set[str]:
     try:
-        return ds.process(excluded_inchis)
+        return ds.process(excluded_inchis, guard_keys)
     except Exception as e:
         print(f"[SKIP] {getattr(ds, 'name', type(ds).__name__)}: {e}")
         return set()
@@ -440,35 +497,49 @@ def _run(ds: DataPreprocessor, excluded_inchis: Set[str]) -> Set[str]:
 # Pipeline entry point
 # ---------------------------------------------------------------------------
 
-def _verify_no_leakage(
-    datasets: List[DataPreprocessor], guard_inchis: Set[str]
-) -> bool:
-    """Read back every train CSV that was written and assert the guard set is absent."""
-    if not guard_inchis:
+def _verify_no_leakage(datasets: List[DataPreprocessor], guard_keys: Set[str]) -> bool:
+    """Read back every train/val CSV on disk and assert the guard set is absent."""
+    if not guard_keys:
         return True
 
-    print("\n[VERIFY] Checking written train splits against the leakage guard set")
+    print("\n[VERIFY] Checking train and val splits against the leakage guard set")
     clean = True
     for ds in datasets:
         name = getattr(ds, "name", None)
         if name is None or name in LEAKAGE_GUARD_DATASETS:
             continue
-        path = Path(ds.output_dir) / f"{name}_train.csv"
-        if not path.exists():
-            continue
-        train_inchis = set(pd.read_csv(path)["inchi"].dropna())
-        leaked = train_inchis & guard_inchis
-        if leaked:
-            clean = False
-            print(f"  [FAIL] {name}: {len(leaked)} guarded molecules in {path}")
-        else:
-            print(f"  [OK]   {name}: {len(train_inchis)} train molecules, 0 leaked")
+        for split in ("train", "val"):
+            path = Path(ds.output_dir) / f"{name}_{split}.csv"
+            if not path.exists():
+                continue
+            inchis = pd.read_csv(path)["inchi"].dropna()
+            n_leaked = sum(_connectivity_key(i) in guard_keys for i in inchis)
+            if n_leaked:
+                clean = False
+                print(f"  [FAIL] {name}/{split}: {n_leaked} guarded molecules in {path}")
+            else:
+                print(f"  [OK]   {name}/{split}: {len(inchis)} molecules, 0 leaked")
 
     if clean:
-        print("[VERIFY] No atmomaccs / atmomaccs_tms leakage in any train split.")
+        print("[VERIFY] No atmomaccs, atmomaccs_tms or annotated Yee molecule in any split.")
     else:
         print("[VERIFY] LEAKAGE DETECTED -- do not train on these splits.")
     return clean
+
+
+def _warn_stale_caches(datasets: List[DataPreprocessor]):
+    """The dataset classes skip process() if the .pt files exist, ignoring new CSVs."""
+    for ds in datasets:
+        out = Path(ds.output_dir)
+        csvs = list(out.glob(f"{getattr(ds, 'name', '*')}_*.csv"))
+        if not csvs:
+            continue
+        newest_csv = max(p.stat().st_mtime for p in csvs)
+        for pt in (out.parent / "processed").glob("*/*.pt"):
+            if pt.name in ("train.pt", "val.pt", "test.pt") and (
+                pt.stat().st_mtime < newest_csv
+            ):
+                print(f"[WARN] Stale cache, delete before training: {pt}")
 
 
 # ---------------------------------------------------------------------------
@@ -515,8 +586,16 @@ if __name__ == "__main__":
         "--no-leakage-guard",
         action="store_true",
         dest="no_leakage_guard",
-        help="Disable the atmomaccs / atmomaccs_tms leakage guard. Only for debugging "
-        "-- training data produced this way is not safe to evaluate on atmomaccs.",
+        help="Disable the atmomaccs / atmomaccs_tms / Yee leakage guard. Only for "
+        "debugging -- training data produced this way is not safe to evaluate on them.",
+    )
+    parser.add_argument(
+        "--yee-reference",
+        default=None,
+        metavar="PATH",
+        dest="yee_reference",
+        help=f"Annotated Yee structures (default: <repo root>/{YEE_REFERENCE_CSV}, "
+        "taking the repo root as the parent of --data-dir).",
     )
     args = parser.parse_args()
 
@@ -534,10 +613,11 @@ if __name__ == "__main__":
     all_datasets: dict = {ds.name: ds for ds in spectral_datasets + structure_datasets}
     all_datasets[combined.name] = combined
 
-    # ---- Leakage guard: every atmomaccs / atmomaccs_tms molecule, all splits ----
-    guard_inchis: Set[str] = set()
+    # ---- Leakage guard: every atmomaccs / atmomaccs_tms molecule, all splits, ----
+    # ---- plus the annotated Yee structures                                  ----
+    guard_keys: Set[str] = set()
     if args.no_leakage_guard:
-        print("[WARN] Leakage guard DISABLED -- atmomaccs molecules may enter training.")
+        print("[WARN] Leakage guard DISABLED -- evaluation molecules may enter training.")
     else:
         for name in LEAKAGE_GUARD_DATASETS:
             ds = spectral_by_name.get(name)
@@ -553,9 +633,21 @@ if __name__ == "__main__":
                     f"{ds.data_dir / ds.split_file}. "
                     f"Pass --no-leakage-guard only if you accept the leakage risk."
                 )
-            print(f"[GUARD] {name}: {len(collected)} unique molecules held out")
-            guard_inchis |= collected
-        print(f"[GUARD] {len(guard_inchis)} unique molecules in total")
+            keys = {_connectivity_key(i) for i in collected}
+            print(f"[GUARD] {name}: {len(keys)} unique skeletons held out")
+            guard_keys |= keys
+
+        yee_path = args.yee_reference or DATA.parent / YEE_REFERENCE_CSV
+        try:
+            keys = load_yee_reference_keys(yee_path)
+        except Exception as e:
+            parser.error(
+                f"Yee reference annotations could not be read from {yee_path} ({e}). "
+                f"Pass --no-leakage-guard only if you accept the leakage risk."
+            )
+        print(f"[GUARD] yee annotations: {len(keys)} unique skeletons held out")
+        guard_keys |= keys
+        print(f"[GUARD] {len(guard_keys)} unique skeletons in total")
 
     # ---- Standard held-out hygiene: test/val of the requested spectral sources ----
     excluded_inchis: Set[str] = set()
@@ -575,17 +667,17 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"[WARN] Could not collect exclusions from '{name}': {e}")
 
-    def _exclusions_for(ds: DataPreprocessor) -> Set[str]:
+    def _guard_for(ds: DataPreprocessor) -> Set[str]:
         """
         The guard datasets are the evaluation sets themselves. They are never trained
         on -- the models that are evaluated on atmomaccs are the *_atmomaccs_test
         datasets, which already carry the whole atmomaccs pool as their test split --
         so their own train/val/test split is irrelevant and is left alone. Everything
-        else is additionally guarded.
+        else is guarded.
         """
         if getattr(ds, "name", None) in LEAKAGE_GUARD_DATASETS:
-            return excluded_inchis
-        return excluded_inchis | guard_inchis
+            return set()
+        return guard_keys
 
     if args.dataset:
         if args.dataset not in all_datasets:
@@ -594,19 +686,21 @@ if __name__ == "__main__":
                 f"Available: {', '.join(sorted(all_datasets))}"
             )
         target = all_datasets[args.dataset]
-        _run(target, _exclusions_for(target))
+        _run(target, excluded_inchis, _guard_for(target))
         ran: List[DataPreprocessor] = [target]
     else:
         # Full pipeline: spectral process() also writes output, so run them again
         ran = []
         for ds in spectral_datasets:
-            _run(ds, _exclusions_for(ds))
+            _run(ds, excluded_inchis, _guard_for(ds))
             ran.append(ds)
         for ds in structure_datasets:
-            _run(ds, _exclusions_for(ds))
+            _run(ds, excluded_inchis, _guard_for(ds))
             ran.append(ds)
-        _run(combined, _exclusions_for(combined))
+        _run(combined, excluded_inchis, _guard_for(combined))
         ran.append(combined)
 
-    if not _verify_no_leakage(ran, guard_inchis):
+    _warn_stale_caches(ran)
+
+    if not _verify_no_leakage(ran, guard_keys):
         sys.exit(1)
