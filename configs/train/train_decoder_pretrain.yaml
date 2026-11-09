@@ -1,13 +1,13 @@
 # Training settings
 n_epochs: 100
 total_steps: null        # null = derive from the real step count. A fixed value only suits
-                         # one GPU count: 100 epochs on 32 GCDs is ~154k steps, so the old
+                         # one GPU count: 100 epochs on 64 GCDs is ~77k steps, so the old
                          # 5,000,000 would end the run early in the one-cycle warm-up.
-batch_size: 64           # per GCD, so 2048 per step across 32 GCDs
+batch_size: 64           # per GCD, so 4096 per step across 64 GCDs
 eval_batch_size: 64
-lr: 0.000088388          # Base value: fp2mol_main.py multiplies it by sqrt(gpus * num_nodes).
-                         # 5e-4 / sqrt(32) gives the article's peak LR of 5e-4 on 32 GCDs.
-                         # Recompute it for any other GCD count.
+lr: 0.0000625            # Base value: fp2mol_main.py multiplies it by sqrt(gpus * num_nodes).
+                         # 5e-4 / sqrt(64) gives the article's peak LR of 5e-4 on 64 GCDs
+                         # (8 nodes). Recompute it for any other GCD count.
 clip_grad: null          # float, null to disable
 save_model: True
 num_workers: 6           # LUMI-G gives each GCD 7 CPUs: 6 workers plus the main process
