@@ -1,5 +1,5 @@
 # General settings
-name: 'exp4_tms' # Warning: 'debug' and 'test' are reserved name that have a special behavior
+name: 'exp4_rand_wenc_rand' # Warning: 'debug' and 'test' are reserved name that have a special behavior
 
 parent_dir: '.'
 
@@ -10,7 +10,7 @@ num_nodes: 4
 
 
 decoder: '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/decoder58.pt' # '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/decoder58.pt'
-encoder: '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/pretrain/tms/encoder.ckpt' # '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/post_preproc_fix/pretr_encoder_both.ckpt' 
+encoder: '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/post_preproc_fix/pretr_enc_rand_ablation.ckpt' # '/scratch/project_462001155/lindl/DiffEIMS/data/checkpoints/checkpoints/post_preproc_fix/pretr_encoder_both.ckpt' 
 resume: null # If resume, path to ckpt file from outputs direpctory in main directory
 test_only: null
 load_weights: null
