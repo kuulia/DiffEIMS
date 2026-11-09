@@ -26,7 +26,7 @@ from src.utils import is_valid, canonical_mol_from_inchi
 # work sum to O(N^2) per molecule. It also buys nothing — top-63 and top-64 are the
 # same number to 3 decimals. Dense at the low end, where adding one candidate still
 # moves the ranking; sparse above it.
-_TOP_K_REPORTED = tuple(range(1, 11)) + (20, 30, 40, 50, 100)
+_TOP_K_REPORTED = tuple(range(1, 11)) + (20, 30, 40, 50, 100, 200, 500, 1000)
 
 
 def top_k_list(num_samples: int) -> List[int]:

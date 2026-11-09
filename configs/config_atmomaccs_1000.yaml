@@ -1,0 +1,32 @@
+# 1000-candidate evaluation of the exp4_rand model on the AtmoMACCS holdout (non-TMS).
+#
+# This checkpoint's decoder was pretrained on data that still contained AtmoMACCS
+# molecules, so these results are not leakage-free.
+#
+# Submitted on LUMI from the repo root. Slurm settings, the checkpoint and the batch size
+# are given to test_model_lumi_ddp.sh, which puts the last two on the command line:
+#
+#   export HYDRA_OVERRIDES="--config-name=config_atmomaccs_1000"
+#   sbatch --nodes=8 --time=48:00:00 \
+#     --export=ALL,CKPT=$(realpath outputs/2026-10-29/23285631-exp4_rand/checkpoints/exp4_rand/last.ckpt),EVAL_BATCH_SIZE=64 \
+#     src/slurm/test_model_lumi_ddp.sh
+defaults:
+    - general : general_e2e
+    - model : model_e2e
+    - train : train_e2e
+    - dataset : gecko_new_mixed_augment_random_atmomaccs_test
+    - _self_  # last, so the values below win over the groups above
+
+general:
+  name: 'exp4_rand_atmomaccs_1000'
+  test_samples_to_generate: 1000
+
+train:
+  ddp_timeout_hours: 47 # Rank-to-rank skew can pass the usual 20 h at 1000 candidates.
+
+hydra:
+  job:
+    chdir: True
+  run:
+    # SLURM_JOB_ID, not the time: each DDP rank resolves this separately. See config.yaml.
+    dir: outputs/${now:%Y-%m-%d}/${oc.env:SLURM_JOB_ID,${now:%H-%M-%S}}-${general.name}
