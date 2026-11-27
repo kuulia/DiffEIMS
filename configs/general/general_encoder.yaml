@@ -1,5 +1,5 @@
 # General settings
-name: 'pretr_enc_rand' # Warning: 'debug' and 'test' are reserved name that have a special behavior
+name: 'pretr_enc_diverse' # Warning: 'debug' and 'test' are reserved name that have a special behavior
 
 parent_dir: '.'
 
@@ -13,7 +13,7 @@ gpus: 8
 num_nodes: 4
 
 
-decoder: '../../../data/checkpoints/checkpoints/pretrain/decoder58.pt' # path to pretrained decoder
+decoder: '../../../data/checkpoints/checkpoints/pretrain/decoder_09nov26_last.ckpt' # path to pretrained decoder
 encoder: null # path to pretrained encoder
 
 resume: null # If resume, path to ckpt file from outputs direpctory in main directory

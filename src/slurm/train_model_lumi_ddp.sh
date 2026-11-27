@@ -2,7 +2,7 @@
 #SBATCH --job-name=tr_diffms_ddp
 #SBATCH --output=outfiles/ddp_%j.out
 #SBATCH --time=16:00:00
-#SBATCH --account=project_462001155
+#SBATCH --account=project_462001448
 #SBATCH --partition=standard-g
 #SBATCH --nodes=4
 #SBATCH --ntasks-per-node=8        # one task per GCD; torchrun is NOT used
